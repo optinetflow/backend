@@ -54,6 +54,9 @@ jobs:
         with:
           path: node_modules
           key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      
+      - name: Generate prisma client
+        run: pnpm prisma generate
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
