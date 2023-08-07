@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  optinetflow:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - ${PORT}:${PORT}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - PORT=${PORT}
+    volumes:
+      - /app/.yarn/
+      - ./:/app
+    command: yarn start:dev
