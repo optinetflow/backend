@@ -1,35 +1,107 @@
 name: Optinetflow Node.js CI
 
-on: 
+on:
   push:
     branches:
       - main
       - dev
 
 jobs:
-  build:
+  migration:
     runs-on: ubuntu-latest
     environment:
       name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
-    strategy:
-      matrix:
-        node-version: [18]
     steps:
-    - name: 'Create env file'
-      run: |
-        echo "${{ vars.ENV_FILE }}" > .env
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    # - uses: actions/checkout@v3
-    # - uses: pnpm/action-setup@v2
-    #   with:
-    #     version: 8
-    # - name: Use Node.js ${{ matrix.node-version }}
-    #   uses: actions/setup-node@v3
-    #   with:
-    #     node-version: ${{ matrix.node-version }}
-    #     cache: 'pnpm'
-    # - name: Install dependencies
-    #   run: pnpm install
-    # - run: pnpm run lint
-    # - run: pnpm run build
-    # - run: pnpm test
+      - name: 'Create env file'
+        run: echo "${{ vars.ENV_FILE }}" > .env
+
+      - name: Set env
+        uses: c-py/action-dotenv-to-setenv@v2
+        with:
+          env-file: .env
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+            
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+  # build:
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+
+  #     - name: Create env file
+  #       run: echo "${{ vars.ENV_FILE }}" > .env
+
+  #     - name: Set env
+  #       uses: c-py/action-dotenv-to-setenv@v2
+  #       with:
+  #         env-file: .env
+
+  #     - name: Install Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: 18
+
+  #     - uses: pnpm/action-setup@v2
+  #       name: Install pnpm
+  #       with:
+  #         version: 8
+  #         run_install: false
+
+  #     - name: Get pnpm store directory
+  #       shell: bash
+  #       run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          
+
+  #     - name: Setup pnpm cache
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: ${{ env.STORE_PATH }}
+  #         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+  #         restore-keys: ${{ runner.os }}-pnpm-store-
+
+  #     - name: Install dependencies
+  #       run: pnpm install
+
+  #     - name: Cache pnpm modules
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: node_modules
+  #         key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+  #     - run: pnpm run lint
+  #     - run: pnpm run build
+  #     - run: pnpm test
