@@ -1,14 +1,16 @@
-name: Node.js CI
+name: Optinetflow Node.js CI
 
-on:
+on: 
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
+      - dev
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
     strategy:
       matrix:
         node-version: [18]
