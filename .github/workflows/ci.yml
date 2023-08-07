@@ -17,7 +17,7 @@ jobs:
     steps:
     - name: 'Create env file'
       run: |
-        echo "${{ env.ENV_FILE }}" > .env
+        echo "${{ vars.ENV_FILE }}" > .env
     - run: echo ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
     - run: cat .env
 
