@@ -60,14 +60,17 @@ jobs:
 
       - name: Migrate database
         env:
-          POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.ENV_VARS.POSTGRES_USER }}  
+          # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
         run: |
-          echo ${POSTGRES_URL}
-          mkdir -p ~/.ssh
-          echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh -fN -L 1111:localhost:${secrets.ENV_FILE.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
-          pnpm run migrate:deploy
+          echo "User: $POSTGRES_USER"
+        # run: |
+        #   echo ${POSTGRES_URL}
+        #   mkdir -p ~/.ssh
+        #   echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
+        #   chmod 600 ~/.ssh/id_rsa
+        #   ssh -fN -L 1111:localhost:${secrets.ENV_FILE.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
+        #   pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
