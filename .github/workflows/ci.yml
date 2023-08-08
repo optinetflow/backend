@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: 'Create env file'
-        run: echo "${{ vars.ENV_FILE }}" > .env
+        run: echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Set env
         uses: c-py/action-dotenv-to-setenv@v2
@@ -59,8 +59,8 @@ jobs:
         run: pnpm prisma generate
 
       - name: Migrate database
-        env:
-          POSTGRES_USER: ${{ secrets[format('{0}_POSTGRES_USER', github.event.inputs.infraEnv)] }}
+        # env:
+        #   POSTGRES_USER: ${{ secrets.ENV_FILE.POSTGRES_USER }}  
           # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
         run: |
           echo "User: $POSTGRES_USER"
