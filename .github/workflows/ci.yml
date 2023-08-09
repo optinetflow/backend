@@ -88,6 +88,8 @@ jobs:
           PORT: ${{ secrets.PORT }} 
         run: |
           docker build -t $TAG_COMMIT -t $TAG_LATEST --build-arg PORT=$PORT .
+          docker push $TAG_COMMIT
+          docker push $TAG_LATEST
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
