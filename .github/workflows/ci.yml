@@ -1,14 +1,17 @@
 name: Optinetflow Node.js CI
 
-on:
-  push:
-    branches:
-      - main
-      - dev
+# on:
+#   push:
+#     branches:
+#       - main
+#       - dev
+
+on: [push]
+
 
 jobs:
   migration:
-    # if: ${{ contains(github.event.head_commit.changes.paths, 'prisma/') }}
+    
     runs-on: ubuntu-latest
     environment:
       name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
@@ -16,6 +19,10 @@ jobs:
       - run: |
           echo "Current branch is ${GITHUB_REF##*/}"
           echo "Changed files: ${{ toJSON(github) }}"
+    on:
+      push:
+        branches:
+          - main
       # - name: Checkout
       #   uses: actions/checkout@v3
 
