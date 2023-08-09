@@ -63,11 +63,12 @@ jobs:
       - name: Migrate database
         env:
           DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
-        # run: |
-        #   sudo echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
-        #   sudo chmod 600 ~/.ssh/id_rsa
+          DB_PORT: ${{ secrets.POSTGRES_USER }}
+          SERVER_USERNAME: ${{ secrets.POSTGRES_USER }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
         run: |
-          ssh -fN -L 1111:localhost:5432 -o StrictHostKeyChecking=no ubuntu@199.244.48.109 -p 2211 2>&1
+          ssh -fN -L 1111:localhost:$DB_PORT -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
           pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
