@@ -99,6 +99,7 @@ jobs:
           docker push $TAG_LATEST
           docker logout
 
+
       - name: Migrate database
         run: |
           ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
