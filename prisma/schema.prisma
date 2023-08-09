@@ -23,6 +23,7 @@ model User {
   role      Role     @default(USER)
 }
 
+
 enum Role {
   ADMIN
   USER
