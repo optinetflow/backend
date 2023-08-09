@@ -15,64 +15,74 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: 'Create env file'
-        run: echo "${{ vars.ENV_FILE }}" > .env
+      # - name: 'Create env file'
+      #   run: echo "${{ vars.ENV_FILE }}" > .env
 
-      - name: Set env
-        uses: c-py/action-dotenv-to-setenv@v2
+      # - name: Set env
+      #   uses: c-py/action-dotenv-to-setenv@v2
+      #   with:
+      #     env-file: .env
+
+      - name: Set environment variables
+        uses: actions/jq@v3
         with:
-          env-file: .env
+          script: |
+            env_vars=$(echo "${{ secrets.ENV_FILE }}" | jq -r '.[]')
+            for var in $env_vars; do
+              echo "export $var=\"$(jq -r '$var' "${{ secrets.ENV_FILE }}")\"" >> $GITHUB_ENV
+            done
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+      - run: echo "USER----->$DATABASE_URL<----"
+      # - name: Install Node.js
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: 18
 
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
-        with:
-          version: 8
-          run_install: false
+      # - uses: pnpm/action-setup@v2
+      #   name: Install pnpm
+      #   with:
+      #     version: 8
+      #     run_install: false
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      # - name: Get pnpm store directory
+      #   shell: bash
+      #   run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-store-
+      # - name: Setup pnpm cache
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ${{ env.STORE_PATH }}
+      #     key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+      #     restore-keys: ${{ runner.os }}-pnpm-store-
             
 
-      - name: Install dependencies
-        run: pnpm install
+      # - name: Install dependencies
+      #   run: pnpm install
 
-      - name: Cache pnpm modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      # - name: Cache pnpm modules
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: node_modules
+      #     key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
       
-      - name: Generate prisma client
-        run: pnpm prisma generate
+      # - name: Generate prisma client
+      #   run: pnpm prisma generate
 
-      - name: Migrate database
-        env:
-          ENV_VARS: ${{ secrets.ENV_VARS }}
-          POSTGRES_USER: ${{ secrets.ENV_VARS.POSTGRES_USER }}
-          # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
-        run: |
-          echo "ENV_VARS: $ENV_VARS"
-          echo "User: $POSTGRES_USER"
-        # run: |
-        #   echo ${POSTGRES_URL}
-        #   mkdir -p ~/.ssh
-        #   echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
-        #   chmod 600 ~/.ssh/id_rsa
-        #   ssh -fN -L 1111:localhost:${secrets.ENV_FILE.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
-        #   pnpm run migrate:deploy
+      # - name: Migrate database
+      #   env:
+      #     ENV_VARS: ${{ secrets.ENV_VARS }}
+      #     POSTGRES_USER: ${{ secrets.ENV_VARS.POSTGRES_USER }}
+      #     # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
+      #   run: |
+      #     echo "ENV_VARS: $ENV_VARS"
+      #     echo "User: $POSTGRES_USER"
+      #   # run: |
+      #   #   echo ${POSTGRES_URL}
+      #   #   mkdir -p ~/.ssh
+      #   #   echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
+      #   #   chmod 600 ~/.ssh/id_rsa
+      #   #   ssh -fN -L 1111:localhost:${secrets.ENV_FILE.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
+      #   #   pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
