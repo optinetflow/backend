@@ -15,7 +15,7 @@ jobs:
     steps:
       - run: |
           echo "Current branch is ${GITHUB_REF##*/}"
-          echo "Changed files: ${{ toJSON(github.event.head_commit) }}"
+          echo "Changed files: ${{ toJSON(github) }}"
       # - name: Checkout
       #   uses: actions/checkout@v3
 
