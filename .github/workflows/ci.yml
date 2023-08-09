@@ -65,8 +65,12 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh -fN -L 1111:localhost:${secrets.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
-          pnpm run migrate:deploy
+        # run: |
+        #   mkdir -p ~/.ssh
+        #   echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
+        #   chmod 600 ~/.ssh/id_rsa
+        #   ssh -fN -L 1111:localhost:${secrets.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
+        #   pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
