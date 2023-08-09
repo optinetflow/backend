@@ -8,7 +8,7 @@ on:
 
 jobs:
   migration:
-    if: ${{ contains(github.event.head_commit.changes.paths | map(attribute('path')), 'prisma/') }}
+    if: ${{ contains(github.event.head_commit.changes.paths, 'prisma/') }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
