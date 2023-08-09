@@ -1,28 +1,23 @@
 name: Optinetflow Node.js CI
 
-# on:
-#   push:
-#     branches:
-#       - main
-#       - dev
-
-on: [push]
-
+on:
+  push:
+    branches:
+      - main
+      - dev
 
 jobs:
   migration:
-    
+    # if: ${{ contains(github.event.head_commit.changes.paths, 'prisma/') }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
+    if: ${{ github.event_name == 'pull_request' && steps.check_changes.outputs.prisma_changed == 'true' }}
     steps:
-      - run: |
-          echo "Current branch is ${GITHUB_REF##*/}"
-          echo "Changed files: ${{ toJSON(github) }}"
-    on:
-      push:
-        branches:
-          - main
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - id: check_changes
+        run: echo "::set-output name=prisma_changed::$(if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '/prisma/'); then echo 'true'; else echo 'false'; fi)"
       # - name: Checkout
       #   uses: actions/checkout@v3
 
