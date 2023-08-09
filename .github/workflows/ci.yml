@@ -67,7 +67,7 @@ jobs:
         #   sudo echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
         #   sudo chmod 600 ~/.ssh/id_rsa
         run: |
-          ssh -fN -L 1111:localhost:${secrets.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
+          ssh -fN -L 1111:localhost:5432 -o StrictHostKeyChecking=no ubuntu@199.244.48.109 -p 2211 2>&1
           pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
