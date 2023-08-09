@@ -94,7 +94,6 @@ jobs:
           NETWORK_NAME: ${{ secrets.NETWORK_NAME }}
         run: |
           - echo $DOCKERHUB_TOKEN
-          - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN"
         # run: |
         #   - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin"
         #   - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull $TAG_COMMIT"
