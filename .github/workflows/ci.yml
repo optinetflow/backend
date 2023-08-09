@@ -8,69 +8,72 @@ on:
 
 jobs:
   migration:
-    if: ${{ contains(github.event.head_commit.changes.paths, 'prisma/') }}
+    # if: ${{ contains(github.event.head_commit.changes.paths, 'prisma/') }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - run: |
+          echo "Current branch is ${GITHUB_REF##*/}"
+          echo "Changed files: ${{ github.event.head_commit.modified }}"
+      # - name: Checkout
+      #   uses: actions/checkout@v3
 
-      - name: 'Create env file'
-        run: echo "${{ vars.ENV_FILE }}" > .env
+      # - name: 'Create env file'
+      #   run: echo "${{ vars.ENV_FILE }}" > .env
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+      # - name: Install Node.js
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: 18
 
-      - uses: pnpm/action-setup@v2
-        name: Install pnpm
-        with:
-          version: 8
-          run_install: false
+      # - uses: pnpm/action-setup@v2
+      #   name: Install pnpm
+      #   with:
+      #     version: 8
+      #     run_install: false
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      # - name: Get pnpm store directory
+      #   shell: bash
+      #   run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-store-
+      # - name: Setup pnpm cache
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ${{ env.STORE_PATH }}
+      #     key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+      #     restore-keys: ${{ runner.os }}-pnpm-store-
             
 
-      - name: Install dependencies
-        run: pnpm install
+      # - name: Install dependencies
+      #   run: pnpm install
 
-      - name: Cache pnpm modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      # - name: Cache pnpm modules
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: node_modules
+      #     key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
       
-      - name: Generate prisma client
-        run: pnpm prisma generate
+      # - name: Generate prisma client
+      #   run: pnpm prisma generate
 
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.PRIVATE_KEY }}
-          known_hosts: unnecessary
-          if_key_exists: replace
+      # - name: Install SSH key
+      #   uses: shimataro/ssh-key-action@v2
+      #   with:
+      #     key: ${{ secrets.PRIVATE_KEY }}
+      #     known_hosts: unnecessary
+      #     if_key_exists: replace
 
-      - name: Migrate database
-        env:
-          DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          SERVER_PORT: ${{ secrets.SERVER_PORT }}
-        run: |
-          ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
-          pnpm run migrate:deploy
+      # - name: Migrate database
+      #   env:
+      #     DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
+      #     DB_PORT: ${{ secrets.DB_PORT }}
+      #     SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
+      #     SERVER_IP: ${{ secrets.SERVER_IP }}
+      #     SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      #   run: |
+      #     ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
+      #     pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
