@@ -8,6 +8,7 @@ on:
 
 jobs:
   migration:
+    if: ${{ contains(join(github.event.commits.*.modified, ','), 'prisma/') }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ startsWith(github.ref, 'refs/heads/main') && 'prod' || 'stage' }}
@@ -58,7 +59,7 @@ jobs:
         with:
           key: ${{ secrets.PRIVATE_KEY }}
           known_hosts: unnecessary
-          if_key_exists: replace # replace / ignore / fail; optional (defaults to fail)
+          if_key_exists: replace
 
       - name: Migrate database
         env:
