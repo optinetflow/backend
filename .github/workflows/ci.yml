@@ -53,21 +53,18 @@ jobs:
       - name: Generate prisma client
         run: pnpm prisma generate
 
-      - name: Add SSH key to agent
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.PRIVATE_KEY }}
-
       - name: Migrate database
         env:
           DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
+        run: |
+          sudo echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
+          sudo chmod 600 ~/.ssh/id_rsa
         # run: |
         #   mkdir -p ~/.ssh
-        #   sudo echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
-        #   sudo chmod 600 ~/.ssh/id_rsa
-        run: |
-          ssh -fN -L 1111:localhost:${secrets.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
-          pnpm run migrate:deploy
+        #   echo ${{ secrets.PRIVATE_KEY }} > ~/.ssh/id_rsa
+        #   chmod 600 ~/.ssh/id_rsa
+        #   ssh -fN -L 1111:localhost:${secrets.DB_PORT} -o StrictHostKeyChecking=no ${secrets.SERVER_USERNAME}@${secrets.SERVER_IP} -p ${secrets.SERVER_PORT} 2>&1
+        #   pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
