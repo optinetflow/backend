@@ -15,7 +15,7 @@ jobs:
     steps:
       - run: |
           echo "Current branch is ${GITHUB_REF##*/}"
-          echo "Changed files: ${{ github.event.head_commit.changes.paths }}"
+          echo "Changed files: ${{ github.event.head_commit }}"
       # - name: Checkout
       #   uses: actions/checkout@v3
 
