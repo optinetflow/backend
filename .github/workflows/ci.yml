@@ -18,13 +18,12 @@ jobs:
       SERVER_PORT: ${{ secrets.SERVER_PORT }}
       TAG_COMMIT: ${{ secrets.DOCKERHUB_USERNAME }}/optinetflow:${{ github.sha }}
       TAG_LATEST: ${{ secrets.DOCKERHUB_USERNAME }}/optinetflow:latest
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: 'Create env file'
-        run: echo "${{ vars.ENV_FILE }}" > .env
 
       - name: Install Node.js
         uses: actions/setup-node@v3
@@ -71,27 +70,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
           DB_PORT: ${{ secrets.DB_PORT }}
-          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          SERVER_PORT: ${{ secrets.SERVER_PORT }}
         run: |
           ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
           pnpm run migrate:deploy
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # - name: Login to Docker Hub
-      #   uses: docker/login-action@v2
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build Docker image
+      - name: Build & Push Docker image
         env:
           PORT: ${{ secrets.PORT }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
           docker build -t $TAG_COMMIT -t $TAG_LATEST --build-arg PORT=$PORT .
@@ -99,11 +84,22 @@ jobs:
           docker push $TAG_LATEST
           docker logout
 
+      - name: 'Create env file'
+        run: echo "${{ vars.ENV_FILE }}" > .env
 
-      - name: Migrate database
+      - name: Deploy docker container
+        env:
+          TEMP_ENV_PATH: /home/ubuntu/temp-backend-env
+          CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
+          NETWORK_NAME: ${{ secrets.NETWORK_NAME }}
         run: |
-          ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
-          pnpm run migrate:deploy
+          - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin"
+          - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull $TAG_COMMIT"
+          - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker container rm -f $CONTAINER_NAME || true"
+          - scp -o StrictHostKeyChecking=no -P $SERVER_PORT .env $SERVER_USERNAME@$SERVER_IP:$TEMP_ENV_PATH
+          - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "cat $TEMP_ENV_PATH/.env && docker run -d --name $CONTAINER_NAME --env-file $TEMP_ENV_PATH/.env --network=${NETWORK_NAME} --restart always $TAG_COMMIT"
+          - ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker logout"
+
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
