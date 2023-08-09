@@ -68,7 +68,7 @@ jobs:
           SERVER_IP: ${{ secrets.SERVER_IP }}
           SERVER_PORT: ${{ secrets.SERVER_PORT }}
         run: |
-          ssh -fN -L 1111:localhost:$DB_PORT -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
+          ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
           pnpm run migrate:deploy
   # build:
   #   runs-on: ubuntu-latest
