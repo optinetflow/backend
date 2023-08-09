@@ -6,6 +6,10 @@ on:
       - main
       - dev
 
+env:
+  TAG_COMMIT: ${{ github.sha }}
+  TAG_LATEST: latest
+
 jobs:
   migration:
     runs-on: ubuntu-latest
@@ -39,7 +43,6 @@ jobs:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-pnpm-store-
-            
 
       - name: Install dependencies
         run: pnpm install
@@ -49,7 +52,7 @@ jobs:
         with:
           path: node_modules
           key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
-      
+
       - name: Generate prisma client
         run: pnpm prisma generate
 
@@ -70,7 +73,21 @@ jobs:
         run: |
           ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
           pnpm run migrate:deploy
-          killall ssh-agent
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        env:
+          PORT: ${{ secrets.PORT }} 
+        run: |
+          docker build -t $TAG_COMMIT -t $TAG_LATEST --build-arg PORT=$PORT .
   # build:
   #   runs-on: ubuntu-latest
   #   environment:
@@ -101,7 +118,6 @@ jobs:
   #     - name: Get pnpm store directory
   #       shell: bash
   #       run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-          
 
   #     - name: Setup pnpm cache
   #       uses: actions/cache@v3
