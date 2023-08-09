@@ -25,39 +25,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # - name: Install Node.js
-      #   uses: actions/setup-node@v3
-      #   with:
-      #     node-version: 18
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-      # - uses: pnpm/action-setup@v2
-      #   name: Install pnpm
-      #   with:
-      #     version: 8
-      #     run_install: false
+      - uses: pnpm/action-setup@v2
+        name: Install pnpm
+        with:
+          version: 8
+          run_install: false
 
-      # - name: Get pnpm store directory
-      #   shell: bash
-      #   run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-      # - name: Setup pnpm cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ${{ env.STORE_PATH }}
-      #     key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-      #     restore-keys: ${{ runner.os }}-pnpm-store-
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
 
-      # - name: Install dependencies
-      #   run: pnpm install
+      - name: Install dependencies
+        run: pnpm install
 
-      # - name: Cache pnpm modules
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: node_modules
-      #     key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-pnpm-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
 
-      # - name: Generate prisma client
-      #   run: pnpm prisma generate
+      - name: Generate prisma client
+        run: pnpm prisma generate
 
       - name: Install SSH key
         uses: shimataro/ssh-key-action@v2
@@ -66,23 +66,23 @@ jobs:
           known_hosts: unnecessary
           if_key_exists: replace
 
-      # - name: Migrate database
-      #   env:
-      #     DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
-      #     DB_PORT: ${{ secrets.DB_PORT }}
-      #   run: |
-      #     ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
-      #     pnpm run migrate:deploy
+      - name: Migrate database
+        env:
+          DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+        run: |
+          ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
+          pnpm run migrate:deploy
 
-      # - name: Build & Push Docker image
-      #   env:
-      #     PORT: ${{ secrets.PORT }}
-      #   run: |
-      #     echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
-      #     docker build -t $TAG_COMMIT -t $TAG_LATEST --build-arg PORT=$PORT .
-      #     docker push $TAG_COMMIT
-      #     docker push $TAG_LATEST
-      #     docker logout
+      - name: Build & Push Docker image
+        env:
+          PORT: ${{ secrets.PORT }}
+        run: |
+          echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
+          docker build -t $TAG_COMMIT -t $TAG_LATEST --build-arg PORT=$PORT .
+          docker push $TAG_COMMIT
+          docker push $TAG_LATEST
+          docker logout
 
       - name: 'Create env file'
         run: echo "${{ vars.ENV_FILE }}" > .env
@@ -92,8 +92,6 @@ jobs:
           TEMP_ENV_PATH: /home/ubuntu/temp-backend-env
           CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
           NETWORK_NAME: ${{ secrets.NETWORK_NAME }}
-        # run: |
-        #   echo $DOCKERHUB_TOKEN
         run: |
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin"
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull $TAG_COMMIT"
