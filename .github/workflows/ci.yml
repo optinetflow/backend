@@ -5,10 +5,7 @@ on:
     branches:
       - main
       - dev
-
-env:
-  TAG_COMMIT: ${{ github.sha }}
-  TAG_LATEST: latest
+  
 
 jobs:
   migration:
@@ -19,6 +16,8 @@ jobs:
       SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
       SERVER_IP: ${{ secrets.SERVER_IP }}
       SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      TAG_COMMIT: ${{ secrets.DOCKERHUB_USERNAME }}/optinetflow:${{ github.sha }}
+      TAG_LATEST: ${{ secrets.DOCKERHUB_USERNAME }}/optinetflow:latest
 
     steps:
       - name: Checkout
