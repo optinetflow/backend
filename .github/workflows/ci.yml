@@ -58,12 +58,12 @@ jobs:
       - name: Generate prisma client
         run: pnpm prisma generate
 
-      # - name: Migrate database
-      #   env:
-      #     POSTGRES_USER: ${{ secrets.ENV_VARS.POSTGRES_USER }}  
-      #     # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
-      #   run: |
-      #     echo "User: $POSTGRES_USER"
+      - name: Migrate database
+        env:
+          POSTGRES_USER: ${{ secrets.ENV_VARS.POSTGRES_USER }}
+          # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
+        run: |
+          echo "User: $POSTGRES_USER"
         # run: |
         #   echo ${POSTGRES_URL}
         #   mkdir -p ~/.ssh
