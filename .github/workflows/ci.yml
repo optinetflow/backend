@@ -63,8 +63,8 @@ jobs:
       - name: Migrate database
         env:
           DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.POSTGRES_DB }}
-          DB_PORT: ${{ secrets.POSTGRES_USER }}
-          SERVER_USERNAME: ${{ secrets.POSTGRES_USER }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          SERVER_USERNAME: ${{ secrets.SERVER_USERNAME }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
           SERVER_PORT: ${{ secrets.SERVER_PORT }}
         run: |
