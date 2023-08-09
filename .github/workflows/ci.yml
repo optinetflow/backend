@@ -24,9 +24,9 @@ jobs:
       #     env-file: .env
 
       - name: Set environment variables
-        uses: actions/jq@v3
+        uses: sergeysova/jq-action@v2
         with:
-          script: |
+          cmd: |
             env_vars=$(echo "${{ secrets.ENV_FILE }}" | jq -r '.[]')
             for var in $env_vars; do
               echo "export $var=\"$(jq -r '$var' "${{ secrets.ENV_FILE }}")\"" >> $GITHUB_ENV
