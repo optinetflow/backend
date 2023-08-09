@@ -93,7 +93,7 @@ jobs:
           CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
           NETWORK_NAME: ${{ secrets.NETWORK_NAME }}
         run: |
-          ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin"
+          ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin && mkdir -p $TEMP_ENV_PATH"
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull $TAG_COMMIT"
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker container rm -f $CONTAINER_NAME || true"
           scp -o StrictHostKeyChecking=no -P $SERVER_PORT .env $SERVER_USERNAME@$SERVER_IP:$TEMP_ENV_PATH
