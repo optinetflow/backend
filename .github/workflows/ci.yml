@@ -60,9 +60,11 @@ jobs:
 
       - name: Migrate database
         env:
+          ENV_VARS: ${{ secrets.ENV_VARS }}
           POSTGRES_USER: ${{ secrets.ENV_VARS.POSTGRES_USER }}
           # POSTGRES_URL: postgresql://${{ secrets.ENV_FILE.POSTGRES_USER }}:${{ secrets.ENV_FILE.POSTGRES_PASSWORD }}@localhost:1111/${{ secrets.ENV_FILE.POSTGRES_DB }}
         run: |
+          echo "ENV_VARS: $ENV_VARS"
           echo "User: $POSTGRES_USER"
         # run: |
         #   echo ${POSTGRES_URL}
