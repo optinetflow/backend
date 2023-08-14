@@ -1,0 +1,35 @@
+version: '3.7'
+
+
+networks:
+  default:
+    external:
+      name: ${NETWORK_NAME}
+
+
+services:
+  nginx:
+    image: nginx:1.21-alpine
+    container_name: nginx
+    restart: unless-stopped
+    volumes:
+      - ./data/nginx:/etc/nginx/templates/
+      - ./data/coming-soon:/var/www/coming-soon
+      - panel:/var/www/panel
+
+    ports:
+      - "80:80"
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_SUFFIX: ".conf"
+
+
+volumes:
+  panel:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PANEL_PATH}
+      o: bind
