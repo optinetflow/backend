@@ -1,6 +1,7 @@
 export type ENV = 'production' | 'staging' | 'development';
 export interface Config {
   env: ENV;
+  publicIP: string;
   version: string;
   serviceName: string;
   nest: NestConfig;

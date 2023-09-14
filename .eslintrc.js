@@ -407,5 +407,7 @@ module.exports = {
     'unicorn/no-array-for-each': 'off',
     '@typescript-eslint/no-unused-vars': 'off',
     '@typescript-eslint/consistent-type-imports': 'off',
+    '@typescript-eslint/no-unsafe-argument': 'off',
+    'no-await-in-loop': 'off'
   },
 };

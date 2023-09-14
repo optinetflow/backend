@@ -4,6 +4,7 @@ import type { Config } from './config.interface';
 const env = (process.env?.NODE_ENV || 'production') as 'production' | 'staging' | 'development';
 const config: Config = {
   env,
+  publicIP: process.env.PUBLIC_IP!,
   version,
   serviceName: name,
   nest: {

@@ -13,7 +13,80 @@ Table User {
   role Role [not null, default: 'USER']
 }
 
+Table Domain {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  domain String [unique, not null]
+  expiredAt DateTime [not null]
+  nsState DomainState [not null, default: 'PENDING']
+  arvanSslState DomainState [not null, default: 'PENDING']
+  letsEncryptSsl DomainState [not null, default: 'PENDING']
+  arvanId String [not null]
+  arvan Arvan [not null]
+}
+
+Table Arvan {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  email String [unique, not null]
+  password String [not null]
+  token String
+  tokenExpiredAt DateTime
+  nsKeys String[] [not null]
+  Domain Domain [not null]
+  Package Package [not null]
+}
+
+Table Server {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  type ServerCountry [not null]
+  ip String [unique, not null]
+  domain String [unique, not null]
+  token String
+  Package Package [not null]
+}
+
+Table Package {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  type PackageType [not null]
+  expiredAt DateTime [not null]
+  traffic Int [not null]
+  download Int [not null]
+  upload Int [not null]
+  userId String [not null]
+  serverId String [not null]
+  user Arvan [not null]
+  server Server [not null]
+}
+
 Enum Role {
   ADMIN
   USER
 }
+
+Enum DomainState {
+  PENDING
+  APPLIED
+}
+
+Enum ServerCountry {
+  NL
+  DE
+}
+
+Enum PackageType {
+  NL
+  DE
+}
+
+Ref: Domain.arvanId > Arvan.id
+
+Ref: Package.userId > Arvan.id
+
+Ref: Package.serverId > Server.id
