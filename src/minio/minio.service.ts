@@ -83,4 +83,27 @@ export class MinioClientService {
       throw new HttpException('An error occured when deleting!', HttpStatus.BAD_REQUEST);
     }
   }
+
+  // public async upload(files: BufferedFile[], bucketName: string = this.bucketName): Promise<string[]> {
+  //   for (const file of files) {
+  //     if (
+  //       !(file.mimetype.includes('png') || file.mimetype.includes('webp') || file.mimetype.includes('officedocument'))
+  //     ) {
+  //       throw new HttpException('File type not supported', HttpStatus.BAD_REQUEST);
+  //     }
+
+  //     const metaData = {
+  //       // eslint-disable-next-line @typescript-eslint/naming-convention
+  //       'Content-Type': file.mimetype,
+  //     };
+
+  //     try {
+  //       await this.client.putObject(bucketName, file.filename, file.buffer, metaData);
+  //     } catch {
+  //       throw new HttpException('Error uploading file', HttpStatus.BAD_REQUEST);
+  //     }
+  //   }
+
+  //   return files.map((file) => file.filename);
+  // }
 }

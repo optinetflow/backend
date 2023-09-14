@@ -21,9 +21,86 @@ model User {
   firstname String?
   lastname  String?
   role      Role     @default(USER)
+
+  @@index([role], name: "UserRoleIndex")
 }
 
 enum Role {
   ADMIN
   USER
+}
+
+model Domain {
+  id             String      @id @default(cuid())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  domain         String      @unique
+  expiredAt      DateTime
+  nsState        DomainState @default(PENDING)
+  arvanSslState  DomainState @default(PENDING)
+  letsEncryptSsl DomainState @default(PENDING)
+  arvanId        String
+  arvan          Arvan       @relation(fields: [arvanId], references: [id])
+
+  @@index([nsState], name: "DomainNsStateIndex")
+  @@index([arvanSslState], name: "DomainArvanSslStateIndex")
+  @@index([letsEncryptSsl], name: "DomainLetsEncryptSslIndex")
+  @@index([arvanId], name: "DomainArvanIdIndex")
+}
+
+enum DomainState {
+  PENDING
+  APPLIED
+}
+
+model Arvan {
+  id             String    @id
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  email          String    @unique
+  password       String
+  token          String?
+  tokenExpiredAt DateTime?
+  nsKeys         String[]
+  Domain         Domain[]
+  Package        Package[]
+}
+
+model Server {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  type      ServerCountry
+  ip        String        @unique
+  domain    String        @unique
+  token     String?
+  Package   Package[]
+}
+
+enum ServerCountry {
+  NL
+  DE
+}
+
+model Package {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  type      PackageType
+  expiredAt DateTime
+  traffic   Int
+  download  Int
+  upload    Int
+  userId    String
+  serverId  String
+  user      Arvan       @relation(fields: [userId], references: [id])
+  server    Server      @relation(fields: [serverId], references: [id])
+
+  @@index([userId], name: "PackageUserIdIndex")
+  @@index([serverId], name: "PackageServerIdIndex")
+}
+
+enum PackageType {
+  NL
+  DE
 }

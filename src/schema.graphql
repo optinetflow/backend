@@ -2,6 +2,20 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Arvan {
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  email: String!
+  id: ID!
+  nsKeys: [String!]!
+  password: String!
+  token: String
+  tokenExpiredAt: DateTime
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
 type Auth {
   """JWT access token"""
   accessToken: JWT!
@@ -16,10 +30,41 @@ input ChangePasswordInput {
   oldPassword: String!
 }
 
+input CreateArvanAccountInput {
+  email: String!
+  password: String!
+}
+
+input CreateDomainInput {
+  domain: String!
+  expiredAt: DateTime!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+type Domain {
+  arvanSslState: DomainState!
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  domain: String!
+  expiredAt: DateTime!
+  id: ID!
+  letsEncryptSsl: DomainState!
+  nsState: DomainState!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
+"""Domain state"""
+enum DomainState {
+  APPLIED
+  PENDING
+}
 
 """
 A field whose value is a JSON Web Token (JWT): https://jwt.io/introduction.
@@ -32,6 +77,8 @@ input LoginInput {
 }
 
 type Mutation {
+  addArvanAccount(data: CreateArvanAccountInput!): Arvan!
+  addDomain(data: CreateDomainInput!): Domain!
   changePassword(data: ChangePasswordInput!): User!
   login(data: LoginInput!): Auth!
   refreshToken(token: JWT!): Token!

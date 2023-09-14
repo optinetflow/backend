@@ -1,10 +1,10 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsMobilePhone, IsNotEmpty, MinLength } from 'class-validator';
+import { IsNotEmpty, Matches, MinLength } from 'class-validator';
 
 @InputType()
 export class SignupInput {
   @Field()
-  @IsMobilePhone()
+  @Matches(/^9\d{9}$/)
   phone: string;
 
   @Field()
