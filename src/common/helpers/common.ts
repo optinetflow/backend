@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { ReadStream } from 'fs';
+import path from 'path';
 
 export async function stream2buffer(stream: ReadStream): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
@@ -148,3 +149,13 @@ export function randomStr(length: number): string {
 }
 
 export const isEqual = (a, b) => JSON.stringify(a.sort()) === JSON.stringify(b.sort());
+
+export const getNestedDir = (dir: string): string => {
+  const parts = dir.split('/');
+
+  return parts.slice(-2).join('/');
+};
+
+export function cutPath(fullPath: string, catPath: string): string {
+  return path.normalize(fullPath.replace(catPath, ''));
+}

@@ -14,21 +14,7 @@ import { Domain } from './models/domain.model';
 @Resolver()
 @UseGuards(GqlAuthGuard)
 export class ArvanResolver {
-  constructor(private arvanService: ArvanService, private prisma: PrismaService) {
-    void (async () => {
-      const defaultArvanAccount = await this.prisma.arvan.findFirst({ where: { email: 'soheyliansara@gmail.com' } });
-
-      if (!defaultArvanAccount?.id) {
-        console.error('DefaultArvanAccount not found!');
-
-        return;
-      }
-
-      this.defaultArvanId = defaultArvanAccount?.id;
-    })();
-  }
-
-  private defaultArvanId: string;
+  constructor(private arvanService: ArvanService, private prisma: PrismaService) {}
 
   // @Query(() => User)
   // me(@UserEntity() user: User): User {
@@ -37,8 +23,14 @@ export class ArvanResolver {
 
   @UseGuards(GqlAuthGuard)
   @Mutation(() => Domain)
-  addDomain(@UserEntity() _user: User, @Args('data') data: CreateDomainInput): Promise<Domain> {
-    return this.arvanService.addDomain(data.domain, data.expiredAt, this.defaultArvanId);
+  async addDomain(@UserEntity() _user: User, @Args('data') data: CreateDomainInput): Promise<Domain> {
+    const arvanAccount = await this.prisma.arvan.findFirst({ where: { email: data.arvanAccount } });
+
+    if (!arvanAccount) {
+      throw new NotAcceptableException('Arvan account not found!');
+    }
+
+    return this.arvanService.addDomain(data.domain, data.expiredAt, arvanAccount.id, data.ignoreAlreadyExist);
   }
 
   @UseGuards(GqlAuthGuard)

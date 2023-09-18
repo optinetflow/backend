@@ -84,7 +84,18 @@ interface DomainInfoRes {
   id: string;
   domain: string;
   ns_keys: string[];
+  dns_cloud: boolean;
   current_ns: string[];
+}
+
+interface AddDnsRecordInput {
+  arvanId: string;
+  domain: string;
+  type?: string;
+  name: string;
+  ip: string;
+  cloud: boolean;
+  port?: string;
 }
 
 @Injectable()
@@ -93,32 +104,9 @@ export class ArvanService {
     private prisma: PrismaService,
     private httpService: HttpService,
     private readonly configService: ConfigService,
-  ) {
-    // this.createArvanAccount('48ca9479-baa6-53ae-b1eb-5d18c1b5e8c9');
-    void (async () => {
-      const defaultArvanAccount = await this.prisma.arvan.findFirst({ where: { email: 'soheyliansara@gmail.com' } });
-
-      if (!defaultArvanAccount?.id) {
-        console.error('DefaultArvanAccount not found!');
-
-        return;
-      }
-
-      this.defaultArvanId = defaultArvanAccount?.id;
-
-      const currentDate = new Date();
-      currentDate.setMonth(currentDate.getMonth() + 11);
-      currentDate.setDate(currentDate.getDate() + 20);
-
-      const currentNs = await getNsRecords('xyz43.ir');
-
-      // await this.addDomain('ksjndjnd-test.com', currentDate, this.defaultArvanId);
-    })();
-  }
+  ) {}
 
   private readonly logger = new Logger(ArvanService.name);
-
-  private defaultArvanId: string;
 
   // createDomain(data: CreateDomainInput) {
   //   return this.prisma.domain.create({ data });
@@ -238,8 +226,57 @@ export class ArvanService {
     );
   }
 
-  async addDomain(domain: string, expiredAt: Date, arvanId: string): Promise<Domain> {
-    let addDomain: AddDomainResponse;
+  async addDomain(domain: string, expiredAt: Date, arvanId: string, ignoreAlreadyExist = false): Promise<Domain> {
+    const server = await this.prisma.server.findFirstOrThrow();
+    const [addDomain, isAlreadyExist] = await this.addDomainToArvan(arvanId, domain, ignoreAlreadyExist);
+
+    if (!isAlreadyExist) {
+      await this.addDnsRecord({
+        name: 'www',
+        ip: server.ip,
+        cloud: true,
+        arvanId,
+        domain,
+      });
+
+      await this.addDnsRecord({
+        name: '@',
+        ip: server.ip,
+        cloud: false,
+        arvanId,
+        domain,
+      });
+
+      await this.setDeveloperModeCaching(arvanId, domain);
+    }
+
+    const issuedSsl = await this.issueSsl(arvanId, domain);
+    const currentNs = await getNsRecords(domain);
+    const isNsApplied = isEqual(currentNs, addDomain.ns_keys);
+
+    try {
+      return await this.prisma.domain.create({
+        data: {
+          domain,
+          expiredAt,
+          arvanId,
+          nsState: isNsApplied ? 'APPLIED' : 'PENDING',
+          arvanSslState: issuedSsl.certificates.length > 0 ? 'APPLIED' : 'PENDING',
+          serverId: server.id,
+        },
+      });
+    } catch {
+      throw new BadRequestException('Domain is already registered on system.');
+    }
+  }
+
+  async addDomainToArvan(
+    arvanId: string,
+    domain: string,
+    ignoreAlreadyExist: boolean,
+  ): Promise<[AddDomainResponse, boolean]> {
+    let result: AddDomainResponse;
+    let isAlreadyExist = false;
 
     try {
       const addDomainReq = await this.authenticatedReq<{ data: AddDomainResponse }>({
@@ -253,73 +290,39 @@ export class ArvanService {
         throw new BadRequestException('Add domain req failed.');
       }
 
-      addDomain = addDomainReq.data.data;
+      result = addDomainReq.data.data;
     } catch (error_) {
       const error = error_ as { response: { status: number } };
 
       if (error?.response?.status === 422) {
-        throw new BadRequestException(errors.arvan.domainAlreadyRegistered);
+        isAlreadyExist = true;
       }
 
-      throw new BadRequestException('Domain is invalid.');
+      if (ignoreAlreadyExist) {
+        const domainInfo = await this.authenticatedReq<{ data: DomainInfoRes }>({
+          arvanId,
+          url: ENDPOINTS.domain(domain),
+          method: 'get',
+        });
+
+        if (!domainInfo.data.data.id) {
+          throw new BadRequestException('Get domain req failed.');
+        }
+
+        result = domainInfo.data.data;
+      } else {
+        if (error?.response?.status === 422) {
+          throw new BadRequestException(errors.arvan.domainAlreadyRegistered);
+        }
+
+        throw new BadRequestException('Domain is invalid.');
+      }
     }
 
-    const publicIP = this.configService.get<string>('publicIP')!;
-    const addDnsRecord1 = await this.authenticatedReq<{ data: AddDnsRecord }>({
-      arvanId,
-      url: ENDPOINTS.addDnsRecord(domain),
-      body: {
-        type: 'A',
-        name: 'www',
-        cloud: true,
-        value: [
-          {
-            country: '',
-            ip: publicIP,
-            port: '443',
-            weight: null,
-          },
-        ],
-        upstream_https: 'https',
-        ip_filter_mode: {
-          count: 'single',
-          geo_filter: 'none',
-          order: 'none',
-        },
-        ttl: 120,
-      },
-      method: 'post',
-    });
-    const addDnsRecord2 = await this.authenticatedReq<{ data: AddDnsRecord }>({
-      arvanId,
-      url: ENDPOINTS.addDnsRecord(domain),
-      body: {
-        type: 'A',
-        name: '@',
-        cloud: false,
-        value: [
-          {
-            country: '',
-            ip: publicIP,
-            port: null,
-            weight: null,
-          },
-        ],
-        upstream_https: 'default',
-        ip_filter_mode: {
-          count: 'single',
-          geo_filter: 'none',
-          order: 'none',
-        },
-        ttl: 120,
-      },
-      method: 'post',
-    });
+    return [result, isAlreadyExist];
+  }
 
-    if (!addDnsRecord1.data.data.id || !addDnsRecord2.data.data.id) {
-      throw new BadRequestException('DNS record setting failed.');
-    }
-
+  async issueSsl(arvanId: string, domain: string): Promise<IssueSSLResponse> {
     const issueSSL = await this.authenticatedReq<{ data: IssueSSLResponse }>({
       arvanId,
       method: 'patch',
@@ -334,6 +337,44 @@ export class ArvanService {
       throw new BadRequestException('Issue in getting  SSL failed.');
     }
 
+    return issueSSL.data.data;
+  }
+
+  async addDnsRecord(data: AddDnsRecordInput): Promise<AddDnsRecord> {
+    const addDnsRecord = await this.authenticatedReq<{ data: AddDnsRecord }>({
+      arvanId: data.arvanId,
+      url: ENDPOINTS.addDnsRecord(data.domain),
+      body: {
+        type: data?.type || 'A',
+        name: data.name,
+        cloud: data.cloud,
+        value: [
+          {
+            country: '',
+            ip: data.type,
+            port: data.cloud ? data?.port || '443' : null,
+            weight: null,
+          },
+        ],
+        upstream_https: data.cloud ? 'https' : 'default',
+        ip_filter_mode: {
+          count: 'single',
+          geo_filter: 'none',
+          order: 'none',
+        },
+        ttl: 120,
+      },
+      method: 'post',
+    });
+
+    if (!addDnsRecord.data.data.id) {
+      throw new BadRequestException('DNS record setting failed.');
+    }
+
+    return addDnsRecord.data.data;
+  }
+
+  async setDeveloperModeCaching(arvanId: string, domain: string): Promise<void> {
     const setDeveloperModeCaching = await this.authenticatedReq<{ message: string }>({
       arvanId,
       method: 'patch',
@@ -346,18 +387,6 @@ export class ArvanService {
     if (!setDeveloperModeCaching.data.message) {
       throw new BadRequestException('Issue in setting developer mode for caching failed.');
     }
-
-    const currentNs = await getNsRecords(domain);
-    const isNsApplied = isEqual(currentNs, addDomain.ns_keys);
-
-    return this.prisma.domain.create({
-      data: {
-        domain,
-        expiredAt,
-        arvanId,
-        nsState: isNsApplied ? 'APPLIED' : 'PENDING',
-      },
-    });
   }
 
   @Interval('notifications', 60 * 60 * 1000)
