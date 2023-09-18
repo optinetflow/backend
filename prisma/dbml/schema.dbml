@@ -23,7 +23,9 @@ Table Domain {
   arvanSslState DomainState [not null, default: 'PENDING']
   letsEncryptSsl DomainState [not null, default: 'PENDING']
   arvanId String [not null]
+  serverId String [not null]
   arvan Arvan [not null]
+  server Server [not null]
 }
 
 Table Arvan {
@@ -48,6 +50,7 @@ Table Server {
   domain String [unique, not null]
   token String
   Package Package [not null]
+  Domain Domain [not null]
 }
 
 Table Package {
@@ -86,6 +89,8 @@ Enum PackageType {
 }
 
 Ref: Domain.arvanId > Arvan.id
+
+Ref: Domain.serverId > Server.id
 
 Ref: Package.userId > Arvan.id
 

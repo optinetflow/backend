@@ -36,8 +36,16 @@ input CreateArvanAccountInput {
 }
 
 input CreateDomainInput {
+  arvanAccount: String!
   domain: String!
   expiredAt: DateTime!
+  ignoreAlreadyExist: Boolean
+}
+
+input CreateServerInput {
+  domain: String!
+  ip: String!
+  type: ServerCountry!
 }
 
 """
@@ -66,6 +74,10 @@ enum DomainState {
   PENDING
 }
 
+input IssueCertInput {
+  domain: String!
+}
+
 """
 A field whose value is a JSON Web Token (JWT): https://jwt.io/introduction.
 """
@@ -79,7 +91,9 @@ input LoginInput {
 type Mutation {
   addArvanAccount(data: CreateArvanAccountInput!): Arvan!
   addDomain(data: CreateDomainInput!): Domain!
+  addServer(data: CreateServerInput!): Server!
   changePassword(data: ChangePasswordInput!): User!
+  issueCert(data: IssueCertInput!): Domain!
   login(data: LoginInput!): Auth!
   refreshToken(token: JWT!): Token!
   signup(data: SignupInput!): Auth!
@@ -96,6 +110,25 @@ type Query {
 enum Role {
   ADMIN
   USER
+}
+
+type Server {
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  domain: String!
+  id: ID!
+  ip: String!
+  token: String
+  type: ServerCountry!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
+"""ServerCountry"""
+enum ServerCountry {
+  DE
+  NL
 }
 
 input SignupInput {

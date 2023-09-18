@@ -18,4 +18,14 @@ export const errors = {
       message: 'Domain is already registered.',
     },
   },
+  server: {
+    addingServerFailed: {
+      type: 'arvan.addingServerFailed',
+      message: "We can't connect to the server.",
+    },
+    serverAlreadyExist: {
+      type: 'arvan.serverAlreadyExist',
+      message: 'Server already exist.',
+    },
+  },
 };

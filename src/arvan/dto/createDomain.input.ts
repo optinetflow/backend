@@ -7,6 +7,12 @@ export class CreateDomainInput {
   @Matches(/^[\dA-Za-z][\dA-Za-z-]{1,61}[\dA-Za-z]\.[A-Za-z]{1,10}$/)
   domain: string;
 
+  @Field()
+  arvanAccount: string;
+
   @Field(() => Date)
   expiredAt: Date;
+
+  @Field(() => Boolean, { nullable: true })
+  ignoreAlreadyExist?: boolean;
 }

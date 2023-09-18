@@ -40,12 +40,15 @@ model Domain {
   arvanSslState  DomainState @default(PENDING)
   letsEncryptSsl DomainState @default(PENDING)
   arvanId        String
+  serverId       String
   arvan          Arvan       @relation(fields: [arvanId], references: [id])
+  server         Server      @relation(fields: [serverId], references: [id])
 
   @@index([nsState], name: "DomainNsStateIndex")
   @@index([arvanSslState], name: "DomainArvanSslStateIndex")
   @@index([letsEncryptSsl], name: "DomainLetsEncryptSslIndex")
   @@index([arvanId], name: "DomainArvanIdIndex")
+  @@index([serverId], name: "DomainServerIdIndex")
 }
 
 enum DomainState {
@@ -75,6 +78,7 @@ model Server {
   domain    String        @unique
   token     String?
   Package   Package[]
+  Domain    Domain[]
 }
 
 enum ServerCountry {
