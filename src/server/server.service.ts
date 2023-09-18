@@ -52,7 +52,7 @@ export class ServerService {
     try {
       await asyncShellExec(
         `ssh -o StrictHostKeyChecking=no ubuntu@${ip} -p 2211 'sudo su -c "
-          ~/.acme.sh/acme.sh --issue -d ${domain} --standalone && 
+          ~/.acme.sh/acme.sh --issue --force -d ${domain} --standalone &&
           mkdir -p /v/${domain} && 
           ~/.acme.sh/acme.sh --installcert -d ${domain} --key-file /v/${domain}/private.key --fullchain-file /v/${domain}/cert.crt
         "'`,
