@@ -12,7 +12,4 @@ export class CreateDomainInput {
 
   @Field(() => Date)
   expiredAt: Date;
-
-  @Field(() => Boolean, { nullable: true })
-  ignoreAlreadyExist?: boolean;
 }

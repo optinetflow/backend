@@ -30,7 +30,7 @@ export class ArvanResolver {
       throw new NotAcceptableException('Arvan account not found!');
     }
 
-    return this.arvanService.addDomain(data.domain, data.expiredAt, arvanAccount.id, data.ignoreAlreadyExist);
+    return this.arvanService.addDomain(data.domain, data.expiredAt, arvanAccount.id);
   }
 
   @UseGuards(GqlAuthGuard)
