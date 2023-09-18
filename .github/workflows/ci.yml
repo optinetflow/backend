@@ -75,7 +75,7 @@ jobs:
           pnpm run migrate:deploy
 
       - name: 'Create id_rsa file'
-        run: echo "${{ vars.ID_RSA }}" > id_rsa
+        run: echo "${{ secrets.ID_RSA }}" > id_rsa
 
       - name: Build & Push Docker image
         env:
