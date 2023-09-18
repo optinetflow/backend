@@ -226,9 +226,9 @@ export class ArvanService {
     );
   }
 
-  async addDomain(domain: string, expiredAt: Date, arvanId: string, ignoreAlreadyExist = false): Promise<Domain> {
+  async addDomain(domain: string, expiredAt: Date, arvanId: string): Promise<Domain> {
     const server = await this.prisma.server.findFirstOrThrow();
-    const [addDomain, isAlreadyExist] = await this.addDomainToArvan(arvanId, domain, ignoreAlreadyExist);
+    const [addDomain, isAlreadyExist] = await this.addDomainToArvan(arvanId, domain);
 
     if (!isAlreadyExist) {
       await this.addDnsRecord({
@@ -238,7 +238,6 @@ export class ArvanService {
         arvanId,
         domain,
       });
-
       await this.addDnsRecord({
         name: '@',
         ip: server.ip,
@@ -270,11 +269,7 @@ export class ArvanService {
     }
   }
 
-  async addDomainToArvan(
-    arvanId: string,
-    domain: string,
-    ignoreAlreadyExist: boolean,
-  ): Promise<[AddDomainResponse, boolean]> {
+  async addDomainToArvan(arvanId: string, domain: string): Promise<[AddDomainResponse, boolean]> {
     let result: AddDomainResponse;
     let isAlreadyExist = false;
 
@@ -298,25 +293,17 @@ export class ArvanService {
         isAlreadyExist = true;
       }
 
-      if (ignoreAlreadyExist) {
-        const domainInfo = await this.authenticatedReq<{ data: DomainInfoRes }>({
-          arvanId,
-          url: ENDPOINTS.domain(domain),
-          method: 'get',
-        });
+      const domainInfo = await this.authenticatedReq<{ data: DomainInfoRes }>({
+        arvanId,
+        url: ENDPOINTS.domain(domain),
+        method: 'get',
+      });
 
-        if (!domainInfo.data.data.id) {
-          throw new BadRequestException('Get domain req failed.');
-        }
-
-        result = domainInfo.data.data;
-      } else {
-        if (error?.response?.status === 422) {
-          throw new BadRequestException(errors.arvan.domainAlreadyRegistered);
-        }
-
-        throw new BadRequestException('Domain is invalid.');
+      if (!domainInfo.data.data.id) {
+        throw new BadRequestException('Get domain req failed.');
       }
+
+      result = domainInfo.data.data;
     }
 
     return [result, isAlreadyExist];
@@ -351,7 +338,7 @@ export class ArvanService {
         value: [
           {
             country: '',
-            ip: data.type,
+            ip: data.ip,
             port: data.cloud ? data?.port || '443' : null,
             weight: null,
           },
