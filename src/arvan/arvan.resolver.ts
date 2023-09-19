@@ -8,7 +8,10 @@ import { User } from '../users/models/user.model';
 import { ArvanService } from './arvan.service';
 import { CreateArvanAccountInput } from './dto/createArvanAccount.input';
 import { CreateDomainInput } from './dto/createDomain.input';
+import { DomainsFiltersInput } from './dto/domainsFilters.input';
+import { UpdateDnsPortInput } from './dto/updateDnsPort.input';
 import { Arvan } from './models/arvan.model';
+import { Dns } from './models/dns.model';
 import { Domain } from './models/domain.model';
 
 @Resolver()
@@ -22,6 +25,15 @@ export class ArvanResolver {
   // }
 
   @UseGuards(GqlAuthGuard)
+  @Query(() => [Domain])
+  async domains(
+    @UserEntity() _user: User,
+    @Args('filters', { nullable: true }) filters?: DomainsFiltersInput,
+  ): Promise<Domain[]> {
+    return this.arvanService.getDomains(filters);
+  }
+
+  @UseGuards(GqlAuthGuard)
   @Mutation(() => Domain)
   async addDomain(@UserEntity() _user: User, @Args('data') data: CreateDomainInput): Promise<Domain> {
     const arvanAccount = await this.prisma.arvan.findFirst({ where: { email: data.arvanAccount } });
@@ -30,7 +42,22 @@ export class ArvanResolver {
       throw new NotAcceptableException('Arvan account not found!');
     }
 
-    return this.arvanService.addDomain(data.domain, data.expiredAt, arvanAccount.id);
+    const next11Month = new Date();
+    next11Month.setMonth(next11Month.getMonth() + 11);
+
+    return this.arvanService.addDomain(data.domain, next11Month, arvanAccount.id);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => Dns)
+  async updatePort(@UserEntity() _user: User, @Args('data') data: UpdateDnsPortInput): Promise<Dns> {
+    const arvanAccount = await this.prisma.arvan.findFirst({ where: { email: data.arvanAccount } });
+
+    if (!arvanAccount) {
+      throw new NotAcceptableException('Arvan account not found!');
+    }
+
+    return this.arvanService.updateDnsRecordPort(arvanAccount.id, data.domain, data.port);
   }
 
   @UseGuards(GqlAuthGuard)
