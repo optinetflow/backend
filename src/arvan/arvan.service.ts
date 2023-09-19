@@ -8,8 +8,9 @@ import { firstValueFrom } from 'rxjs';
 import { errors } from '../common/errors';
 import { getNsRecords, isEqual, randomStr } from '../common/helpers';
 import { CreateArvanAccountInput } from './dto/createArvanAccount.input';
-import { CreateDomainInput } from './dto/createDomain.input';
+import { DomainsFiltersInput } from './dto/domainsFilters.input';
 import { Arvan } from './models/arvan.model';
+import { Dns } from './models/dns.model';
 import { Domain } from './models/domain.model';
 
 const DEJBAN_URL = 'https://dejban.arvancloud.ir/v1';
@@ -20,7 +21,8 @@ const ENDPOINTS = {
   // myAccounts: `${DEJBAN_URL}/users/my-accounts`,
   domain: (domain: string) => `${DOMAINS_URL}/${domain}`,
   addDomain: `${DOMAINS_URL}/dns-service`,
-  addDnsRecord: (domain: string) => `${DOMAINS_URL}/${domain}/dns-records`,
+  dnsRecords: (domain: string) => `${DOMAINS_URL}/${domain}/dns-records`,
+  dnsRecord: (domain: string, id: string) => `${DOMAINS_URL}/${domain}/dns-records/${id}`,
   issueSSL: (domain: string) => `${DOMAINS_URL}/${domain}/ssl`,
   caching: (domain: string) => `${DOMAINS_URL}/${domain}/caching`,
 };
@@ -37,28 +39,6 @@ interface AddDomainResponse {
   domain: string;
   dns_cloud: boolean;
   ns_keys: string[];
-}
-
-interface MyAccounts {
-  data: Array<{
-    accountId: string;
-    accountName: string;
-    owner: boolean;
-  }>;
-}
-
-interface AddDnsRecord {
-  id: string;
-  type: string;
-  name: string;
-  value: {
-    ip: string;
-    port: string;
-    weight: number;
-    country: string;
-  };
-  ttl: number;
-  cloud: boolean;
 }
 
 interface AuthenticatedReq {
@@ -98,6 +78,13 @@ interface AddDnsRecordInput {
   port?: string;
 }
 
+interface UpdateDnsRecordInput {
+  arvanId: string;
+  domain: string;
+  dnsRecordId: string;
+  body: Dns;
+}
+
 @Injectable()
 export class ArvanService {
   constructor(
@@ -111,6 +98,27 @@ export class ArvanService {
   // createDomain(data: CreateDomainInput) {
   //   return this.prisma.domain.create({ data });
   // }
+
+  async getDomains(filters?: DomainsFiltersInput): Promise<Domain[]> {
+    return this.prisma.domain.findMany({
+      where: {
+        ...(filters?.domain && {
+          domain: {
+            contains: filters.domain,
+          },
+        }),
+        ...(filters?.nsState && {
+          nsState: filters.nsState,
+        }),
+        ...(filters?.arvanSslState && {
+          arvanSslState: filters.arvanSslState,
+        }),
+        ...(filters?.letsEncryptSsl && {
+          letsEncryptSsl: filters.letsEncryptSsl,
+        }),
+      },
+    });
+  }
 
   async createArvanAccount(data: CreateArvanAccountInput): Promise<Arvan> {
     const isAlreadyExist = await this.prisma.arvan.findFirst({
@@ -327,10 +335,10 @@ export class ArvanService {
     return issueSSL.data.data;
   }
 
-  async addDnsRecord(data: AddDnsRecordInput): Promise<AddDnsRecord> {
-    const addDnsRecord = await this.authenticatedReq<{ data: AddDnsRecord }>({
+  async addDnsRecord(data: AddDnsRecordInput): Promise<Dns> {
+    const addDnsRecord = await this.authenticatedReq<{ data: Dns }>({
       arvanId: data.arvanId,
-      url: ENDPOINTS.addDnsRecord(data.domain),
+      url: ENDPOINTS.dnsRecords(data.domain),
       body: {
         type: data?.type || 'A',
         name: data.name,
@@ -374,6 +382,53 @@ export class ArvanService {
     if (!setDeveloperModeCaching.data.message) {
       throw new BadRequestException('Issue in setting developer mode for caching failed.');
     }
+  }
+
+  async updateDnsRecord(data: UpdateDnsRecordInput): Promise<Dns> {
+    const dnsRecord = await this.authenticatedReq<{ data: Dns }>({
+      arvanId: data.arvanId,
+      url: ENDPOINTS.dnsRecord(data.domain, data.dnsRecordId),
+      body: data.body as Dns & Record<string, unknown>,
+      method: 'put',
+    });
+
+    if (!dnsRecord.data.data.id) {
+      throw new BadRequestException('DNS record updating failed.');
+    }
+
+    return dnsRecord.data.data;
+  }
+
+  async updateDnsRecordPort(arvanId: string, domain: string, port: string): Promise<Dns> {
+    const dnsRecords = await this.getDnsRecords(arvanId, domain);
+    const wwwRecord = dnsRecords.find((dns) => dns.name === 'www');
+
+    if (!wwwRecord) {
+      throw new BadRequestException('WWW Record not found!');
+    }
+
+    const body: Dns = { ...wwwRecord, value: wwwRecord.value.map((v) => ({ ...v, port })) };
+
+    return this.updateDnsRecord({
+      arvanId,
+      domain,
+      dnsRecordId: wwwRecord.id,
+      body,
+    });
+  }
+
+  async getDnsRecords(arvanId: string, domain: string): Promise<Dns[]> {
+    const dnsRecord = await this.authenticatedReq<{ data: Dns[] }>({
+      arvanId,
+      url: ENDPOINTS.dnsRecords(domain),
+      method: 'get',
+    });
+
+    if (!dnsRecord.data.data) {
+      throw new BadRequestException('Getting DNS records failed.');
+    }
+
+    return dnsRecord.data.data;
   }
 
   @Interval('notifications', 60 * 60 * 1000)

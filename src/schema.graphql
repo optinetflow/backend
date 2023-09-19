@@ -38,8 +38,6 @@ input CreateArvanAccountInput {
 input CreateDomainInput {
   arvanAccount: String!
   domain: String!
-  expiredAt: DateTime!
-  ignoreAlreadyExist: Boolean
 }
 
 input CreateServerInput {
@@ -52,6 +50,28 @@ input CreateServerInput {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+type Dns {
+  cloud: Boolean!
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  id: String!
+  name: String!
+  ttl: Int!
+  type: String!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+  value: [DnsValue!]!
+}
+
+type DnsValue {
+  country: String!
+  ip: String!
+  port: String!
+  weight: Int!
+}
 
 type Domain {
   arvanSslState: DomainState!
@@ -72,6 +92,13 @@ type Domain {
 enum DomainState {
   APPLIED
   PENDING
+}
+
+input DomainsFiltersInput {
+  arvanSslState: DomainState
+  domain: String
+  letsEncryptSsl: DomainState
+  nsState: DomainState
 }
 
 input IssueCertInput {
@@ -97,10 +124,12 @@ type Mutation {
   login(data: LoginInput!): Auth!
   refreshToken(token: JWT!): Token!
   signup(data: SignupInput!): Auth!
+  updatePort(data: UpdateDnsPortInput!): Dns!
   updateUser(data: UpdateUserInput!): User!
 }
 
 type Query {
+  domains(filters: DomainsFiltersInput): [Domain!]!
   hello(name: String!): String!
   helloWorld: String!
   me: User!
@@ -144,6 +173,12 @@ type Token {
 
   """JWT refresh token"""
   refreshToken: JWT!
+}
+
+input UpdateDnsPortInput {
+  arvanAccount: String!
+  domain: String!
+  port: String!
 }
 
 input UpdateUserInput {
