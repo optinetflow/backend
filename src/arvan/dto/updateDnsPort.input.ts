@@ -8,8 +8,5 @@ export class UpdateDnsPortInput {
   domain: string;
 
   @Field()
-  arvanAccount: string;
-
-  @Field()
   port: string;
 }
