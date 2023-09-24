@@ -51,13 +51,7 @@ export class ArvanResolver {
   @UseGuards(GqlAuthGuard)
   @Mutation(() => Dns)
   async updatePort(@UserEntity() _user: User, @Args('data') data: UpdateDnsPortInput): Promise<Dns> {
-    const arvanAccount = await this.prisma.arvan.findFirst({ where: { email: data.arvanAccount } });
-
-    if (!arvanAccount) {
-      throw new NotAcceptableException('Arvan account not found!');
-    }
-
-    return this.arvanService.updateDnsRecordPort(arvanAccount.id, data.domain, data.port);
+    return this.arvanService.updateDnsRecordPort(data.domain, data.port);
   }
 
   @UseGuards(GqlAuthGuard)

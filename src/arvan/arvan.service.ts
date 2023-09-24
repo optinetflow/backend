@@ -95,10 +95,6 @@ export class ArvanService {
 
   private readonly logger = new Logger(ArvanService.name);
 
-  // createDomain(data: CreateDomainInput) {
-  //   return this.prisma.domain.create({ data });
-  // }
-
   async getDomains(filters?: DomainsFiltersInput): Promise<Domain[]> {
     return this.prisma.domain.findMany({
       where: {
@@ -399,7 +395,21 @@ export class ArvanService {
     return dnsRecord.data.data;
   }
 
-  async updateDnsRecordPort(arvanId: string, domain: string, port: string): Promise<Dns> {
+  async updateDnsRecordPort(domain: string, port: string): Promise<Dns> {
+    const domainInfo = await this.prisma.domain.findUnique({
+      where: {
+        domain,
+      },
+      include: {
+        arvan: true,
+      },
+    });
+
+    if (!domainInfo) {
+      throw new BadRequestException('Domain not found!');
+    }
+
+    const arvanId = domainInfo.arvan.id;
     const dnsRecords = await this.getDnsRecords(arvanId, domain);
     const wwwRecord = dnsRecords.find((dns) => dns.name === 'www');
 
@@ -431,7 +441,7 @@ export class ArvanService {
     return dnsRecord.data.data;
   }
 
-  @Interval('notifications', 60 * 60 * 1000)
+  @Interval('notifications', 30 * 60 * 1000)
   async updateNsStates() {
     this.logger.debug('Called every 1 hours');
     const appliedNsDomains: string[] = [];
@@ -473,6 +483,7 @@ export class ArvanService {
     const appliedSslDomains: string[] = [];
     const pendingDomains = await this.prisma.domain.findMany({
       where: {
+        nsState: 'APPLIED',
         arvanSslState: 'PENDING',
       },
       include: {

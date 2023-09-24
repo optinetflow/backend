@@ -176,7 +176,6 @@ type Token {
 }
 
 input UpdateDnsPortInput {
-  arvanAccount: String!
   domain: String!
   port: String!
 }

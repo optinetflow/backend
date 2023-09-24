@@ -28,7 +28,9 @@ export const asyncShellExec = (command: string, onOutput?: (output: string) => v
 
     child.on('close', (code) => {
       if (code !== 0) {
-        return reject(new Error(`Command exited with code ${code}`));
+        output += `Command exited with code ${code}`;
+
+        return reject(output);
       }
 
       resolve(output);
