@@ -51,11 +51,11 @@ export class ServerService {
   async getLetEncryptSsl(domain: string, ip: string): Promise<Domain> {
     try {
       await asyncShellExec(
-        `ssh -o StrictHostKeyChecking=no ubuntu@${ip} -p 2211 'sudo su -c "
+        `ssh -o StrictHostKeyChecking=no root@${ip} -p 2211 '
           ~/.acme.sh/acme.sh --issue --force -d ${domain} --standalone &&
           mkdir -p /v/${domain} && 
           ~/.acme.sh/acme.sh --installcert -d ${domain} --key-file /v/${domain}/private.key --fullchain-file /v/${domain}/cert.crt
-        "'`,
+        '`,
       );
     } catch {
       throw new BadRequestException(`Cert is already issued on ${ip} server.`);
@@ -83,9 +83,10 @@ export class ServerService {
   async copyFromServer(ip: string, sourcePath: string, localPath: string) {
     try {
       await asyncShellExec(
-        `mkdir -p ${localPath} &&
-        ssh -o StrictHostKeyChecking=no ubuntu@${ip} -p 2211 'sudo su -c "chown -R ubuntu ${sourcePath}"' &&
-        scp -o StrictHostKeyChecking=no -P 2211 -r ubuntu@${ip}:${sourcePath} ${localPath}`,
+        `
+          mkdir -p ${localPath} &&
+          scp -o StrictHostKeyChecking=no -P 2211 -r root@${ip}:${sourcePath} ${localPath}
+        `,
       );
     } catch (error) {
       console.error('Error in copping from server.', error);
@@ -96,7 +97,7 @@ export class ServerService {
 
   async createServer(input: CreateServerInput): Promise<Server> {
     try {
-      await asyncShellExec(`ssh -o StrictHostKeyChecking=no ubuntu@${input.ip} -p 2211 'sudo su -c "ls"'`);
+      await asyncShellExec(`ssh -o StrictHostKeyChecking=no root@${input.ip} -p 2211 'ls'`);
     } catch {
       throw new BadRequestException(errors.server.addingServerFailed);
     }
@@ -115,20 +116,44 @@ export class ServerService {
   }
 
   async syncCertFiles() {
-    const servers = await this.prisma.server.findMany();
+    const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
+
     await this.minioService.downloadDir('certs', '/v');
 
     for (const server of servers) {
       try {
         await asyncShellExec(
           `
-          ssh -o StrictHostKeyChecking=no ubuntu@${server.ip} -p 2211 'sudo su -c "mkdir -p /v && chown -R ubuntu /v"' &&
-          scp -o StrictHostKeyChecking=no -P 2211 -r /v/* ubuntu@${server.ip}:/v
+            scp -o StrictHostKeyChecking=no -P 2211 -r /v/* root@${server.ip}:/v
           `,
           (data) => console.info('data', data),
         );
       } catch (error) {
         console.error('Error in syncing cert files.', error);
+      }
+    }
+  }
+
+  @Interval('notifications', 2 * 60 * 1000)
+  async getXuiDatabases() {
+    this.logger.debug('Called every 2 minutes');
+    const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
+
+    for (const server of servers) {
+      try {
+        await asyncShellExec(
+          `
+            mkdir -p /x-ui/${server.id} &&
+            scp -o StrictHostKeyChecking=no -P 2211 -r root@${server.ip}:/etc/x-ui/x-ui.db /x-ui/${server.id}/
+          `,
+        );
+        await this.minioService.uploadByPath({
+          filePath: `/x-ui/${server.id}/x-ui.db`,
+          toMinioDir: 'x-ui',
+          fileName: `${server.id}.db`,
+        });
+      } catch {
+        throw new BadRequestException(errors.server.addingServerFailed);
       }
     }
   }

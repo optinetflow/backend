@@ -13,6 +13,12 @@ import type { MinioConfig } from '../common/configs/config.interface';
 import { cutPath, objectsList, stream2buffer } from '../common/helpers';
 import type { BufferedFile } from './minio.model';
 
+interface UploadByPath {
+  filePath: string;
+  toMinioDir: string;
+  fileName?: string;
+  bucketName?: string;
+}
 @Injectable()
 export class MinioClientService {
   constructor(private readonly configService: ConfigService) {
@@ -95,18 +101,22 @@ export class MinioClientService {
 
     for (const file of files) {
       const filePath = path.join(dir, file);
-      await this.uploadByPath(filePath, toMinioDir, bucketName);
+      await this.uploadByPath({
+        filePath,
+        toMinioDir,
+        bucketName,
+      });
     }
   }
 
-  async uploadByPath(filePath: string, toMinioDir: string, bucketName: string = this.bucketName): Promise<void> {
+  async uploadByPath({ filePath, toMinioDir, bucketName = this.bucketName, fileName }: UploadByPath): Promise<void> {
     const buffer = await readFile(filePath);
 
     const metaData = {
       'Content-Type': mime.contentType(path.extname(filePath)),
     };
 
-    await this.client.putObject(bucketName, `${toMinioDir}/${path.basename(filePath)}`, buffer, metaData);
+    await this.client.putObject(bucketName, `${toMinioDir}/${fileName || path.basename(filePath)}`, buffer, metaData);
   }
 
   async downloadDir(fromMinioDir, toLocalDir) {
