@@ -248,6 +248,7 @@ export class ArvanService {
         arvanId,
         domain,
       });
+
       await this.addDnsRecord({
         name: '@',
         ip: server.ip,
@@ -303,17 +304,21 @@ export class ArvanService {
         isAlreadyExist = true;
       }
 
-      const domainInfo = await this.authenticatedReq<{ data: DomainInfoRes }>({
-        arvanId,
-        url: ENDPOINTS.domain(domain),
-        method: 'get',
-      });
+      try {
+        const domainInfo = await this.authenticatedReq<{ data: DomainInfoRes }>({
+          arvanId,
+          url: ENDPOINTS.domain(domain),
+          method: 'get',
+        });
 
-      if (!domainInfo.data.data.id) {
-        throw new BadRequestException('Get domain req failed.');
+        if (!domainInfo.data.data.id) {
+          throw new BadRequestException('Get domain req failed.');
+        }
+
+        result = domainInfo.data.data;
+      } catch {
+        throw new BadRequestException(`You can not register ${domain}. Contact support for more information.`);
       }
-
-      result = domainInfo.data.data;
     }
 
     return [result, isAlreadyExist];
