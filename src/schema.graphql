@@ -25,9 +25,26 @@ type Auth {
   user: User!
 }
 
+"""A custom scalar type for big numbers"""
+scalar BigNumber
+
 input ChangePasswordInput {
   newPassword: String!
   oldPassword: String!
+}
+
+type ClientStat {
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  down: BigNumber!
+  email: String!
+  enable: Boolean!
+  id: ID!
+  total: BigNumber!
+  up: BigNumber!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
 }
 
 input CreateArvanAccountInput {
@@ -101,6 +118,11 @@ input DomainsFiltersInput {
   nsState: DomainState
 }
 
+input GetClientStatsFiltersInput {
+  email: String
+  id: String
+}
+
 input IssueCertInput {
   domain: String!
 }
@@ -129,6 +151,7 @@ type Mutation {
 }
 
 type Query {
+  clientStats(filters: GetClientStatsFiltersInput): [ClientStat!]!
   domains(filters: DomainsFiltersInput): [Domain!]!
   hello(name: String!): String!
   helloWorld: String!
@@ -147,7 +170,7 @@ type Server {
   domain: String!
   id: ID!
   ip: String!
-  token: String
+  token: String!
   type: ServerCountry!
 
   """Identifies the date and time when the object was last updated."""

@@ -28,4 +28,10 @@ export const errors = {
       message: 'Server already exist.',
     },
   },
+  xui: {
+    accountNotFound: {
+      type: 'xui.accountNotFound',
+      message: 'X-UI account is wrong.',
+    },
+  },
 };

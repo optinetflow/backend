@@ -76,7 +76,7 @@ model Server {
   type      ServerCountry
   ip        String        @unique
   domain    String        @unique
-  token     String?
+  token     String
   Package   Package[]
   Domain    Domain[]
 }
@@ -107,4 +107,16 @@ model Package {
 enum PackageType {
   NL
   DE
+}
+
+model ClientStat {
+  id         String   @id
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  expiryTime BigInt
+  total      BigInt
+  down       BigInt
+  up         BigInt
+  email      String
+  enable     Boolean
 }
