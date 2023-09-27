@@ -21,6 +21,6 @@ export class Server extends BaseModel {
   @Field(() => ServerCountry)
   type: ServerCountry;
 
-  @Field(() => String, { nullable: true })
-  token?: string | null;
+  @Field()
+  token: string;
 }

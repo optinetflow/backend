@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { GqlOptionsFactory } from '@nestjs/graphql';
 
 import { GraphqlConfig } from './common/configs/config.interface';
+import { BigNumberScalar } from './common/scalars/bigNumber';
 
 @Injectable()
 export class GqlConfigService implements GqlOptionsFactory {
@@ -25,6 +26,9 @@ export class GqlConfigService implements GqlOptionsFactory {
       playground: graphqlConfig?.playgroundEnabled,
       introspection: graphqlConfig?.introspection,
       context: ({ req }) => ({ req }),
+      resolvers: {
+        BigNumber: BigNumberScalar,
+      },
     };
   }
 }

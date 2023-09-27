@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/cognitive-complexity */
+import * as Cookie from 'cookie';
 import type { ReadStream } from 'fs';
 import path from 'path';
 
@@ -158,4 +159,18 @@ export const getNestedDir = (dir: string): string => {
 
 export function cutPath(fullPath: string, catPath: string): string {
   return path.normalize(fullPath.replace(catPath, ''));
+}
+
+export function isSessionExpired(setCookieHeader: string): boolean {
+  const cookies = Cookie.parse(setCookieHeader);
+
+  if (cookies.Expires) {
+    const expiresDateString = cookies.Expires;
+    const expiresDate = new Date(expiresDateString);
+    const currentDate = new Date();
+
+    return expiresDate <= currentDate ? true : false;
+  }
+
+  return true;
 }

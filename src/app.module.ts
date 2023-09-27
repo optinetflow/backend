@@ -15,6 +15,7 @@ import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
 import { ServerModule } from './server/server.module';
 import { UsersModule } from './users/users.module';
+import { XuiModule } from './xui/xui.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     ArvanModule,
     ServerModule,
+    XuiModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],

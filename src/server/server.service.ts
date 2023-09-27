@@ -10,6 +10,7 @@ import { Domain } from '../arvan/models/domain.model';
 import { errors } from '../common/errors';
 import { asyncShellExec } from '../common/helpers';
 import { MinioClientService } from '../minio/minio.service';
+import { XuiService } from '../xui/xui.service';
 import { CreateServerInput } from './dto/createServer.input';
 import { IssueCertInput } from './dto/issueCert.input';
 import { Server } from './models/server.model';
@@ -21,6 +22,7 @@ export class ServerService {
     private httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
+    private readonly xuiService: XuiService,
   ) {}
 
   private readonly logger = new Logger(ServerService.name);
@@ -102,12 +104,15 @@ export class ServerService {
       throw new BadRequestException(errors.server.addingServerFailed);
     }
 
+    const token = await this.xuiService.login(input.domain);
+
     try {
       return await this.prisma.server.create({
         data: {
           ip: input.ip,
           domain: input.domain,
           type: input.type,
+          token,
         },
       });
     } catch {
