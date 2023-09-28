@@ -11,7 +11,6 @@ import { ClientStat } from './models/clientStat.model';
 import { XuiService } from './xui.service';
 
 @Resolver()
-@UseGuards(GqlAuthGuard)
 export class XuiResolver {
   constructor(private xuiService: XuiService, private prisma: PrismaService) {}
 
