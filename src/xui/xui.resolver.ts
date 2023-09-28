@@ -15,7 +15,7 @@ import { XuiService } from './xui.service';
 export class XuiResolver {
   constructor(private xuiService: XuiService, private prisma: PrismaService) {}
 
-  @UseGuards(GqlAuthGuard)
+  // @UseGuards(GqlAuthGuard)
   @Query(() => [ClientStat])
   clientStats(@Args('filters', { nullable: true }) filter?: GetClientStatsFiltersInput): Promise<ClientStat[]> {
     return this.xuiService.getClientStats(filter);
