@@ -119,7 +119,7 @@ export class MinioClientService {
 
   public async getDir(dir: string, bucketName: string = this.bucketName): Promise<BucketItem[]> {
     try {
-      return await objectsList(this.client, this.bucketName, dir);
+      return await objectsList(this.client, bucketName, dir);
     } catch {
       throw new NotFoundException('Object not found in MinIo');
     }
