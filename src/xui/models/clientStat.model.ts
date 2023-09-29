@@ -21,4 +21,7 @@ export class ClientStat extends BaseModel {
 
   @Field(() => Boolean)
   enable: boolean;
+
+  @Field(() => BigNumberScalar)
+  expiryTime: bigint;
 }
