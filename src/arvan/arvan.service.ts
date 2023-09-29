@@ -450,9 +450,9 @@ export class ArvanService {
     return dnsRecord.data.data;
   }
 
-  @Interval('notifications', 30 * 60 * 1000)
+  @Interval('notifications', 10 * 60 * 1000)
   async updateNsStates() {
-    this.logger.debug('Called every 1 hours');
+    this.logger.debug('Called every 10 mins');
     const appliedNsDomains: string[] = [];
     const pendingDomains = await this.prisma.domain.findMany({
       where: {
@@ -465,6 +465,12 @@ export class ArvanService {
 
     for (const pendingDomain of pendingDomains) {
       const currentNs = await getNsRecords(pendingDomain.domain);
+      console.info(
+        pendingDomain.domain,
+        currentNs,
+        pendingDomain.arvan.nsKeys,
+        isEqual(currentNs, pendingDomain.arvan.nsKeys),
+      );
       const isNsApplied = isEqual(currentNs, pendingDomain.arvan.nsKeys);
 
       if (isNsApplied) {
@@ -506,6 +512,8 @@ export class ArvanService {
         method: 'get',
         url: ENDPOINTS.issueSSL(pendingDomain.domain),
       });
+
+      console.info('SSL', pendingDomain.domain, sslInfo?.data?.data?.certificates?.length > 0);
 
       if (sslInfo?.data?.data?.certificates?.length > 0) {
         appliedSslDomains.push(pendingDomain.id);

@@ -147,6 +147,9 @@ type Mutation {
   login(data: LoginInput!): Auth!
   refreshToken(token: JWT!): Token!
   signup(data: SignupInput!): Auth!
+  updateArvanSslStates: Boolean!
+  updateLetsEncryptSslStates: Boolean!
+  updateNsStates: Boolean!
   updatePort(data: UpdateDnsPortInput!): Dns!
   updateUser(data: UpdateUserInput!): User!
 }
