@@ -139,29 +139,29 @@ export class ServerService {
     }
   }
 
-  @Interval('notifications', 2 * 60 * 1000)
-  async getXuiDatabases() {
-    this.logger.debug('Called every 2 minutes');
-    const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
+  // @Interval('notifications', 2 * 60 * 1000)
+  // async getXuiDatabases() {
+  //   this.logger.debug('Called every 2 minutes');
+  //   const servers = await this.prisma.server.findMany();
 
-    for (const server of servers) {
-      try {
-        await asyncShellExec(
-          `
-            mkdir -p /x-ui/${server.id} &&
-            scp -o StrictHostKeyChecking=no -P 2211 -r root@${server.ip}:/etc/x-ui/x-ui.db /x-ui/${server.id}/
-          `,
-        );
-        await this.minioService.uploadByPath({
-          filePath: `/x-ui/${server.id}/x-ui.db`,
-          toMinioDir: 'x-ui',
-          fileName: `${server.id}.db`,
-        });
-      } catch {
-        throw new BadRequestException(errors.server.addingServerFailed);
-      }
-    }
-  }
+  //   for (const server of servers) {
+  //     try {
+  //       await asyncShellExec(
+  //         `
+  //           mkdir -p /x-ui/${server.id} &&
+  //           scp -o StrictHostKeyChecking=no -P 2211 -r root@${server.ip}:/etc/x-ui/x-ui.db /x-ui/${server.id}/
+  //         `,
+  //       );
+  //       await this.minioService.uploadByPath({
+  //         filePath: `/x-ui/${server.id}/x-ui.db`,
+  //         toMinioDir: 'x-ui',
+  //         fileName: `${server.id}.db`,
+  //       });
+  //     } catch {
+  //       throw new BadRequestException(errors.server.addingServerFailed);
+  //     }
+  //   }
+  // }
 
   @Interval('notifications', 60 * 60 * 1000)
   async updateLetsEncryptSslStates() {
