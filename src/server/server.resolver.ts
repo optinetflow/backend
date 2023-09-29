@@ -34,4 +34,12 @@ export class ServerResolver {
   addServer(@UserEntity() _user: User, @Args('data') data: CreateServerInput): Promise<Server> {
     return this.serverService.createServer(data);
   }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => Boolean)
+  updateLetsEncryptSslStates(@UserEntity() _user: User): boolean {
+    void this.serverService.updateLetsEncryptSslStates();
+
+    return true;
+  }
 }

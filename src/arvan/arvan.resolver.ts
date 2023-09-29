@@ -59,4 +59,20 @@ export class ArvanResolver {
   addArvanAccount(@UserEntity() _user: User, @Args('data') data: CreateArvanAccountInput): Promise<Arvan> {
     return this.arvanService.createArvanAccount(data);
   }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => Boolean)
+  updateNsStates(@UserEntity() _user: User): boolean {
+    void this.arvanService.updateNsStates();
+
+    return true;
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => Boolean)
+  updateArvanSslStates(@UserEntity() _user: User): boolean {
+    void this.arvanService.updateArvanSslStates();
+
+    return true;
+  }
 }

@@ -60,6 +60,8 @@ export class ServerService {
         '`,
       );
     } catch {
+      console.error(`Cert is already issued on ${ip} server.`);
+
       throw new BadRequestException(`Cert is already issued on ${ip} server.`);
     }
 
@@ -76,7 +78,7 @@ export class ServerService {
         },
       });
     } catch (error) {
-      console.error('Error in getting LetEncrypt Ssl.', error);
+      console.error('Error in copping LetEncrypt from server.', error);
 
       throw new BadRequestException('Error in issuing cert.');
     }
@@ -134,9 +136,23 @@ export class ServerService {
           (data) => console.info('data', data),
         );
       } catch (error) {
-        console.error('Error in syncing cert files.', error);
+        console.error('Error in syncing cert files to the server by scp', error);
       }
     }
+
+    const certObjects = await this.minioService.getDir('cert');
+    const issuedDomains = certObjects.map((i) => i.name.split('/')[1]);
+
+    await this.prisma.domain.updateMany({
+      where: {
+        domain: {
+          in: issuedDomains,
+        },
+      },
+      data: {
+        letsEncryptSsl: 'APPLIED',
+      },
+    });
   }
 
   // @Interval('notifications', 2 * 60 * 1000)
@@ -180,6 +196,7 @@ export class ServerService {
     for (const pendingDomain of pendingDomains) {
       try {
         await this.getLetEncryptSsl(pendingDomain.domain, pendingDomain.server.ip);
+        console.info('Let CERT created.', pendingDomain.domain);
         appliedDomains.push(pendingDomain.id);
       } catch {
         console.error(`We couldn't get LetEncryptSsl for ${pendingDomain.domain}`);

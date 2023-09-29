@@ -6,7 +6,7 @@ import type { ReadStream } from 'fs';
 import { createWriteStream } from 'fs';
 import { mkdir, readdir, readFile } from 'fs/promises';
 import mime from 'mime-types';
-import { Client } from 'minio';
+import { BucketItem, Client } from 'minio';
 import path from 'path';
 
 import type { MinioConfig } from '../common/configs/config.interface';
@@ -25,8 +25,6 @@ export class MinioClientService {
     this.logger = new Logger('MinioService');
     this.bucketName = this.configService.get<MinioConfig>('minio')!.bucket;
     this.region = this.configService.get<MinioConfig>('minio')!.region;
-
-    // this.downloadDir('certs', '/v');
   }
 
   private readonly logger: Logger;
@@ -117,6 +115,14 @@ export class MinioClientService {
     };
 
     await this.client.putObject(bucketName, `${toMinioDir}/${fileName || path.basename(filePath)}`, buffer, metaData);
+  }
+
+  public async getDir(dir: string, bucketName: string = this.bucketName): Promise<BucketItem[]> {
+    try {
+      return await objectsList(this.client, this.bucketName, dir);
+    } catch {
+      throw new NotFoundException('Object not found in MinIo');
+    }
   }
 
   async downloadDir(fromMinioDir, toLocalDir) {
