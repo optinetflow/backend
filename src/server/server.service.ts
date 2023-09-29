@@ -129,6 +129,13 @@ export class ServerService {
 
     for (const server of servers) {
       try {
+        await this.copyFromServer(server.ip, '/v', '/');
+        await this.minioService.uploadDir('/v', '/certs');
+      } catch (error) {
+        console.error('Error in copping cert files from the server to minio', error);
+      }
+
+      try {
         await asyncShellExec(
           `
             scp -o StrictHostKeyChecking=no -P 2211 -r /v/* root@${server.ip}:/v
