@@ -39,6 +39,7 @@ type ClientStat {
   down: BigNumber!
   email: String!
   enable: Boolean!
+  expiryTime: BigNumber!
   id: ID!
   total: BigNumber!
   up: BigNumber!
