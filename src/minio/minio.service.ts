@@ -10,7 +10,7 @@ import { BucketItem, Client } from 'minio';
 import path from 'path';
 
 import type { MinioConfig } from '../common/configs/config.interface';
-import { cutPath, objectsList, stream2buffer } from '../common/helpers';
+import { cutPath, objectsList, readFilesRecursively, stream2buffer } from '../common/helpers';
 import type { BufferedFile } from './minio.model';
 
 interface UploadByPath {
@@ -95,13 +95,14 @@ export class MinioClientService {
   }
 
   async uploadDir(dir: string, toMinioDir: string, bucketName: string = this.bucketName): Promise<void> {
-    const files = await readdir(dir);
+    const files = await readFilesRecursively(dir);
 
     for (const file of files) {
       const filePath = path.join(dir, file);
+
       await this.uploadByPath({
         filePath,
-        toMinioDir,
+        toMinioDir: `${toMinioDir}/${cutPath(file, path.basename(file))}`,
         bucketName,
       });
     }
