@@ -226,7 +226,8 @@ export class ServerService {
           letsEncryptSsl: 'APPLIED',
         },
       });
-      await this.syncCertFiles();
     }
+
+    await this.syncCertFiles();
   }
 }
