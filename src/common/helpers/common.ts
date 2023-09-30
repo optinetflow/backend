@@ -1,6 +1,8 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import * as Cookie from 'cookie';
 import type { ReadStream } from 'fs';
+import fs from 'fs';
+import { readdir } from 'fs/promises';
 import path from 'path';
 
 export async function stream2buffer(stream: ReadStream): Promise<Buffer> {
@@ -158,7 +160,9 @@ export const getNestedDir = (dir: string): string => {
 };
 
 export function cutPath(fullPath: string, catPath: string): string {
-  return path.normalize(fullPath.replace(catPath, ''));
+  const resolvedPath = path.normalize(fullPath.replace(catPath, ''));
+
+  return ['.', '/'].includes(resolvedPath) ? '' : resolvedPath;
 }
 
 export function isSessionExpired(setCookieHeader: string): boolean {
@@ -173,4 +177,11 @@ export function isSessionExpired(setCookieHeader: string): boolean {
   }
 
   return true;
+}
+
+export async function readFilesRecursively(dir: string): Promise<string[]> {
+  const files: string[] = [];
+  const dirsAndFiles = await readdir(dir, { recursive: true });
+
+  return dirsAndFiles.filter((dirOrFile) => fs.statSync(path.join(dir, dirOrFile)).isFile());
 }

@@ -89,7 +89,7 @@ export class ServerService {
       await asyncShellExec(
         `
           mkdir -p ${localPath} &&
-          scp -o StrictHostKeyChecking=no -P 2211 -r root@${ip}:${sourcePath} ${localPath}
+          rsync -e 'ssh -p 2211 -o StrictHostKeyChecking=no' -avz root@${ip}:${sourcePath} ${localPath}
         `,
       );
     } catch (error) {
@@ -122,10 +122,8 @@ export class ServerService {
     }
   }
 
-  async syncCertFiles() {
+  async uploadCertsToMinio() {
     const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
-
-    await this.minioService.downloadDir('certs', '/v');
 
     for (const server of servers) {
       try {
@@ -134,13 +132,20 @@ export class ServerService {
       } catch (error) {
         console.error('Error in copping cert files from the server to minio', error);
       }
+    }
+  }
 
+  async syncCertFiles() {
+    await this.uploadCertsToMinio();
+    const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
+    await this.minioService.downloadDir('certs', '/v');
+
+    for (const server of servers) {
       try {
         await asyncShellExec(
           `
-            scp -o StrictHostKeyChecking=no -P 2211 -r /v/* root@${server.ip}:/v
+            rsync -e 'ssh -p 2211 -o StrictHostKeyChecking=no' -avz /v/* root@${server.ip}:/v
           `,
-          (data) => console.info('data', data),
         );
       } catch (error) {
         console.error('Error in syncing cert files to the server by scp', error);
