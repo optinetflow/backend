@@ -239,10 +239,9 @@ export class XuiService {
     }
   }
 
-  @Interval('notifications', 1 * 60 * 1000)
+  @Interval('syncClientStats', 1 * 60 * 1000)
   async syncClientStats() {
-    this.logger.debug('Called every 1 min');
-    this.logger.debug('syncClientStats');
+    this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany();
 
     for (const server of servers) {

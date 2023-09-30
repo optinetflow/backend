@@ -450,9 +450,9 @@ export class ArvanService {
     return dnsRecord.data.data;
   }
 
-  @Interval('notifications', 10 * 60 * 1000)
+  @Interval('updateNsStates', 10 * 60 * 1000)
   async updateNsStates() {
-    this.logger.debug('Called every 10 mins');
+    this.logger.debug('UpdateNsStates called every 10 mins');
     const appliedNsDomains: string[] = [];
     const pendingDomains = await this.prisma.domain.findMany({
       where: {
@@ -492,9 +492,9 @@ export class ArvanService {
     }
   }
 
-  @Interval('notifications', 60 * 60 * 1000)
+  @Interval('updateArvanSslStates', 60 * 60 * 1000)
   async updateArvanSslStates() {
-    this.logger.debug('Called every 1 hours');
+    this.logger.debug('UpdateArvanSslStates called every 1 hours');
     const appliedSslDomains: string[] = [];
     const pendingDomains = await this.prisma.domain.findMany({
       where: {
