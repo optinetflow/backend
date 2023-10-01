@@ -79,8 +79,8 @@ Table ClientStat {
   up BigInt [not null]
   email String [not null]
   enable Boolean [not null]
-  serverId String
-  server Server
+  serverId String [not null]
+  server Server [not null]
 }
 
 Enum Role {
