@@ -51,6 +51,7 @@ Table Server {
   token String [not null]
   Package Package [not null]
   Domain Domain [not null]
+  ClientStat ClientStat [not null]
 }
 
 Table Package {
@@ -78,6 +79,8 @@ Table ClientStat {
   up BigInt [not null]
   email String [not null]
   enable Boolean [not null]
+  serverId String
+  server Server
 }
 
 Enum Role {
@@ -107,3 +110,5 @@ Ref: Domain.serverId > Server.id
 Ref: Package.userId > Arvan.id
 
 Ref: Package.serverId > Server.id
+
+Ref: ClientStat.serverId > Server.id
