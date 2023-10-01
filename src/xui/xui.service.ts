@@ -92,11 +92,7 @@ export class XuiService {
     private httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
-  ) {
-    // (async () => {
-    //   this.syncClientStats();
-    // })();
-  }
+  ) {}
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -186,7 +182,7 @@ export class XuiService {
     return clientStats.filter((i) => i.id);
   }
 
-  async upsertClientStats(stats: InboundClientStat[]) {
+  async upsertClientStats(stats: InboundClientStat[], serverId: string) {
     if (stats.length === 0) {
       return; // Nothing to upsert
     }
@@ -195,12 +191,12 @@ export class XuiService {
       (stat) =>
         Prisma.sql`(${stat.id}, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${stat.total}, ${
           stat.expiryTime
-        }, to_timestamp(${Date.now()} / 1000.0))`,
+        }, to_timestamp(${Date.now()} / 1000.0), ${serverId})`,
     );
 
     try {
       await this.prisma.$queryRaw`
-        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt")
+        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId")
         VALUES ${Prisma.join(updatedValues)}
         ON CONFLICT (id) DO UPDATE
         SET
@@ -211,7 +207,8 @@ export class XuiService {
           down = EXCLUDED.down,
           total = EXCLUDED.total,
           "expiryTime" = EXCLUDED."expiryTime",
-          "updatedAt" = EXCLUDED."updatedAt"
+          "updatedAt" = EXCLUDED."updatedAt",
+          "serverId" = EXCLUDED."serverId"
       `;
     } catch (error) {
       console.error('Error upserting ClientStats:', error);
@@ -249,7 +246,7 @@ export class XuiService {
         const updatedClientStats = await this.getInbounds(server.id);
 
         // Upsert ClientStat records in bulk
-        await this.upsertClientStats(updatedClientStats);
+        await this.upsertClientStats(updatedClientStats, server.id);
       } catch (error) {
         console.error(`Error syncing ClientStats for server: ${server.id}`, error);
       }
