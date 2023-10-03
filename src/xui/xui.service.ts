@@ -103,7 +103,9 @@ export class XuiService {
     private httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
-  ) {}
+  ) {
+    this.syncClientStats()
+  }
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -138,7 +140,7 @@ export class XuiService {
   async getAuthorization(serverId: string): Promise<[string, Server]> {
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId } });
 
-    if (isSessionExpired(server.token)) {
+    if (!isSessionExpired(server.token)) {
       return [`session=${Cookie.parse(server.token).session}`, server];
     }
 
@@ -203,12 +205,12 @@ export class XuiService {
       (stat) =>
         Prisma.sql`(${stat.id}, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${stat.total}, ${
           stat.expiryTime
-        }, to_timestamp(${Date.now()} / 1000.0), ${serverId}, ${stat.port})`,
+        }, to_timestamp(${Date.now()} / 1000.0), ${serverId})`,
     );
 
     try {
       await this.prisma.$queryRaw`
-        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId", "port")
+        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId")
         VALUES ${Prisma.join(updatedValues)}
         ON CONFLICT (id) DO UPDATE
         SET
@@ -220,8 +222,7 @@ export class XuiService {
           total = EXCLUDED.total,
           "expiryTime" = EXCLUDED."expiryTime",
           "updatedAt" = EXCLUDED."updatedAt",
-          "serverId" = EXCLUDED."serverId",
-          "port" = EXCLUDED."port"
+          "serverId" = EXCLUDED."serverId"
 
       `;
     } catch (error) {

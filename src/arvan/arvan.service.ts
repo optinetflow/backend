@@ -233,7 +233,7 @@ export class ArvanService {
   async addDomain(domain: string, expiredAt: Date, arvanId: string): Promise<Domain> {
     const server = await this.prisma.server.findFirstOrThrow({
       where: {
-        domain: 'xyz20.ir',
+        domain: 'kajneshan1.ir',
       },
     });
     const [addDomain, isAlreadyExist] = await this.addDomainToArvan(arvanId, domain);

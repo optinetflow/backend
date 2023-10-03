@@ -13,14 +13,15 @@ generator dbml {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  phone     String   @unique
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  phone     String    @unique
   password  String
   firstname String?
   lastname  String?
-  role      Role     @default(USER)
+  role      Role      @default(USER)
+  Package   Package[]
 
   @@index([role], name: "UserRoleIndex")
 }
@@ -39,10 +40,13 @@ model Domain {
   nsState        DomainState @default(PENDING)
   arvanSslState  DomainState @default(PENDING)
   letsEncryptSsl DomainState @default(PENDING)
+  port           Int?
+  isAutomated    Boolean?
   arvanId        String
   serverId       String
   arvan          Arvan       @relation(fields: [arvanId], references: [id])
   server         Server      @relation(fields: [serverId], references: [id])
+  Package        Package[]
 
   @@index([nsState], name: "DomainNsStateIndex")
   @@index([arvanSslState], name: "DomainArvanSslStateIndex")
@@ -66,7 +70,6 @@ model Arvan {
   tokenExpiredAt DateTime?
   nsKeys         String[]
   Domain         Domain[]
-  Package        Package[]
 }
 
 model Server {
@@ -94,15 +97,18 @@ model Package {
   type      PackageType
   expiredAt DateTime
   traffic   Int
-  download  Int
-  upload    Int
   userId    String
   serverId  String
-  user      Arvan       @relation(fields: [userId], references: [id])
+  statId    String
+  domainId  String
+  user      User        @relation(fields: [userId], references: [id])
   server    Server      @relation(fields: [serverId], references: [id])
+  stat      ClientStat  @relation(fields: [statId], references: [id])
+  domain    Domain      @relation(fields: [domainId], references: [id])
 
   @@index([userId], name: "PackageUserIdIndex")
   @@index([serverId], name: "PackageServerIdIndex")
+  @@index([statId], name: "PackageStatIdIndex")
 }
 
 enum PackageType {
@@ -111,9 +117,9 @@ enum PackageType {
 }
 
 model ClientStat {
-  id         String   @id
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id         String    @id
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   expiryTime BigInt
   total      BigInt
   down       BigInt
@@ -121,8 +127,12 @@ model ClientStat {
   email      String
   enable     Boolean
   serverId   String
-  port       Int
-  server     Server   @relation(fields: [serverId], references: [id])
+  server     Server    @relation(fields: [serverId], references: [id])
+  Package    Package[]
 
   @@index([serverId], name: "ClientStatServerIdIndex")
+  @@index([expiryTime], name: "ClientStatExpiryTimeIndex")
+  @@index([total], name: "ClientStatTotalIndex")
+  @@index([down], name: "ClientStatDownIndex")
+  @@index([up], name: "ClientStatUpIndex")
 }
