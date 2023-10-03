@@ -80,7 +80,7 @@ Table ClientStat {
   email String [not null]
   enable Boolean [not null]
   serverId String [not null]
-  port Int
+  port Int [not null]
   server Server [not null]
 }
 
