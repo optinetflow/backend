@@ -11,6 +11,7 @@ Table User {
   firstname String
   lastname String
   role Role [not null, default: 'USER']
+  Package Package [not null]
 }
 
 Table Domain {
@@ -22,10 +23,13 @@ Table Domain {
   nsState DomainState [not null, default: 'PENDING']
   arvanSslState DomainState [not null, default: 'PENDING']
   letsEncryptSsl DomainState [not null, default: 'PENDING']
+  port Int
+  isAutomated Boolean
   arvanId String [not null]
   serverId String [not null]
   arvan Arvan [not null]
   server Server [not null]
+  Package Package [not null]
 }
 
 Table Arvan {
@@ -38,7 +42,6 @@ Table Arvan {
   tokenExpiredAt DateTime
   nsKeys String[] [not null]
   Domain Domain [not null]
-  Package Package [not null]
 }
 
 Table Server {
@@ -61,12 +64,14 @@ Table Package {
   type PackageType [not null]
   expiredAt DateTime [not null]
   traffic Int [not null]
-  download Int [not null]
-  upload Int [not null]
   userId String [not null]
   serverId String [not null]
-  user Arvan [not null]
+  statId String [not null]
+  domainId String [not null]
+  user User [not null]
   server Server [not null]
+  stat ClientStat [not null]
+  domain Domain [not null]
 }
 
 Table ClientStat {
@@ -80,8 +85,8 @@ Table ClientStat {
   email String [not null]
   enable Boolean [not null]
   serverId String [not null]
-  port Int [not null]
   server Server [not null]
+  Package Package [not null]
 }
 
 Enum Role {
@@ -108,8 +113,12 @@ Ref: Domain.arvanId > Arvan.id
 
 Ref: Domain.serverId > Server.id
 
-Ref: Package.userId > Arvan.id
+Ref: Package.userId > User.id
 
 Ref: Package.serverId > Server.id
+
+Ref: Package.statId > ClientStat.id
+
+Ref: Package.domainId > Domain.id
 
 Ref: ClientStat.serverId > Server.id
