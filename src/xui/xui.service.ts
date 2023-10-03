@@ -47,7 +47,7 @@ interface InboundStreamSettings {
 }
 
 interface InboundClientStat {
-  id: string;
+  id: number;
   inboundId: number;
   enable: boolean;
   email: string;
@@ -74,6 +74,17 @@ interface InboundListRes {
     sniffing: string;
     clientStats: InboundClientStat[];
   }>;
+}
+interface Stat {
+  id: string;
+  port: number;
+  inboundId: number;
+  enable: boolean;
+  email: string;
+  up: number;
+  down: number;
+  total: number;
+  expiryTime: number;
 }
 
 const ENDPOINTS = (domain: string) => {
@@ -157,7 +168,7 @@ export class XuiService {
     );
   }
 
-  async getInbounds(serverId: string): Promise<InboundClientStat[]> {
+  async getInbounds(serverId: string): Promise<Stat[]> {
     const inbounds = await this.authenticatedReq<InboundListRes>({
       serverId,
       url: (domain) => ENDPOINTS(domain).inbounds,
@@ -168,13 +179,14 @@ export class XuiService {
       throw new BadRequestException('Getting DNS records failed.');
     }
 
-    const clientStats: InboundClientStat[] = [];
+    const clientStats: Stat[] = [];
     inbounds.data.obj.forEach((item) => {
       const setting = JSON.parse(item.settings) as InboundSetting;
       clientStats.push(
         ...item.clientStats.map((stat) => ({
           ...stat,
           id: setting.clients.filter((i) => i.id).find((client) => client.email === stat.email)?.id || '',
+          port: item.port,
         })),
       );
     });
@@ -182,7 +194,7 @@ export class XuiService {
     return clientStats.filter((i) => i.id);
   }
 
-  async upsertClientStats(stats: InboundClientStat[], serverId: string) {
+  async upsertClientStats(stats: Stat[], serverId: string) {
     if (stats.length === 0) {
       return; // Nothing to upsert
     }
@@ -191,12 +203,12 @@ export class XuiService {
       (stat) =>
         Prisma.sql`(${stat.id}, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${stat.total}, ${
           stat.expiryTime
-        }, to_timestamp(${Date.now()} / 1000.0), ${serverId})`,
+        }, to_timestamp(${Date.now()} / 1000.0), ${serverId}, ${stat.port})`,
     );
 
     try {
       await this.prisma.$queryRaw`
-        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId")
+        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId", "port")
         VALUES ${Prisma.join(updatedValues)}
         ON CONFLICT (id) DO UPDATE
         SET
@@ -208,7 +220,9 @@ export class XuiService {
           total = EXCLUDED.total,
           "expiryTime" = EXCLUDED."expiryTime",
           "updatedAt" = EXCLUDED."updatedAt",
-          "serverId" = EXCLUDED."serverId"
+          "serverId" = EXCLUDED."serverId",
+          "port" = EXCLUDED."port"
+
       `;
     } catch (error) {
       console.error('Error upserting ClientStats:', error);

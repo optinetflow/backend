@@ -121,7 +121,8 @@ model ClientStat {
   email      String
   enable     Boolean
   serverId   String
-  server     Server  @relation(fields: [serverId], references: [id])
+  port       Int?
+  server     Server   @relation(fields: [serverId], references: [id])
 
   @@index([serverId], name: "ClientStatServerIdIndex")
 }

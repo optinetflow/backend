@@ -87,7 +87,7 @@ type Dns {
 type DnsValue {
   country: String!
   ip: String!
-  port: String!
+  port: String
   weight: Int!
 }
 
@@ -148,6 +148,7 @@ type Mutation {
   refreshToken(token: JWT!): Token!
   signup(data: SignupInput!): Auth!
   updateArvanSslStates: Boolean!
+  updateIp(data: UpdateDnsIpInput!): [Dns!]!
   updateLetsEncryptSslStates: Boolean!
   updateNsStates: Boolean!
   updatePort(data: UpdateDnsPortInput!): Dns!
@@ -200,6 +201,11 @@ type Token {
 
   """JWT refresh token"""
   refreshToken: JWT!
+}
+
+input UpdateDnsIpInput {
+  domain: String!
+  ip: String!
 }
 
 input UpdateDnsPortInput {

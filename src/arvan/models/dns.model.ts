@@ -10,8 +10,8 @@ class DnsValue {
   @Field()
   ip: string;
 
-  @Field()
-  port: string;
+  @Field(() => String, { nullable: true })
+  port?: string | null;
 
   @Field(() => Int)
   weight: number;
