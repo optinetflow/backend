@@ -9,6 +9,7 @@ import { ArvanService } from './arvan.service';
 import { CreateArvanAccountInput } from './dto/createArvanAccount.input';
 import { CreateDomainInput } from './dto/createDomain.input';
 import { DomainsFiltersInput } from './dto/domainsFilters.input';
+import { UpdateDnsIpInput } from './dto/updateDnsIp.input';
 import { UpdateDnsPortInput } from './dto/updateDnsPort.input';
 import { Arvan } from './models/arvan.model';
 import { Dns } from './models/dns.model';
@@ -52,6 +53,12 @@ export class ArvanResolver {
   @Mutation(() => Dns)
   async updatePort(@UserEntity() _user: User, @Args('data') data: UpdateDnsPortInput): Promise<Dns> {
     return this.arvanService.updateDnsRecordPort(data.domain, data.port);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => [Dns])
+  async updateIp(@UserEntity() _user: User, @Args('data') data: UpdateDnsIpInput): Promise<Dns[]> {
+    return this.arvanService.updateDnsRecordIp(data.domain, data.ip);
   }
 
   @UseGuards(GqlAuthGuard)

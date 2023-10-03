@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger, NotAcceptableException, NotFou
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from 'nestjs-prisma';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, retry } from 'rxjs';
 
 import { errors } from '../common/errors';
 import { getNsRecords, isEqual, randomStr } from '../common/helpers';
@@ -434,6 +434,53 @@ export class ArvanService {
       dnsRecordId: wwwRecord.id,
       body,
     });
+  }
+
+  async updateDnsRecordIp(domain: string, ip: string): Promise<Dns[]> {
+    const domainInfo = await this.prisma.domain.findUnique({
+      where: {
+        domain,
+      },
+      include: {
+        arvan: true,
+      },
+    });
+
+    if (!domainInfo) {
+      throw new BadRequestException('Domain not found!');
+    }
+
+    const arvanId = domainInfo.arvan.id;
+    const dnsRecords = await this.getDnsRecords(arvanId, domain);
+    const wwwRecord = dnsRecords.find((dns) => dns.name === 'www');
+    const rootRecord = dnsRecords.find((dns) => dns.name === '@');
+
+    if (!wwwRecord) {
+      throw new BadRequestException('WWW Record not found!');
+    }
+
+    if (!rootRecord) {
+      throw new BadRequestException('@ Record not found!');
+    }
+
+    const wwwBody: Dns = { ...wwwRecord, value: wwwRecord.value.map((v) => ({ ...v, ip })) };
+    const rootBody: Dns = { ...rootRecord, value: rootRecord.value.map((v) => ({ ...v, ip })) };
+
+    const wwwResult = await this.updateDnsRecord({
+      arvanId,
+      domain,
+      dnsRecordId: wwwRecord.id,
+      body: wwwBody,
+    });
+
+    const rootResult = await this.updateDnsRecord({
+      arvanId,
+      domain,
+      dnsRecordId: rootRecord.id,
+      body: rootBody,
+    });
+
+    return [rootResult, wwwResult];
   }
 
   async getDnsRecords(arvanId: string, domain: string): Promise<Dns[]> {
