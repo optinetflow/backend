@@ -103,9 +103,7 @@ export class XuiService {
     private httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
-  ) {
-    this.syncClientStats()
-  }
+  ) {}
 
   private readonly logger = new Logger(XuiService.name);
 
