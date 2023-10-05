@@ -28,6 +28,10 @@ type Auth {
 """A custom scalar type for big numbers"""
 scalar BigNumber
 
+input BuyPackageInput {
+  type: PackageType!
+}
+
 input ChangePasswordInput {
   newPassword: String!
   oldPassword: String!
@@ -142,6 +146,7 @@ type Mutation {
   addArvanAccount(data: CreateArvanAccountInput!): Arvan!
   addDomain(data: CreateDomainInput!): Domain!
   addServer(data: CreateServerInput!): Server!
+  buyPackage(data: BuyPackageInput!): String!
   changePassword(data: ChangePasswordInput!): User!
   issueCert(data: IssueCertInput!): Domain!
   login(data: LoginInput!): Auth!
@@ -153,6 +158,13 @@ type Mutation {
   updateNsStates: Boolean!
   updatePort(data: UpdateDnsPortInput!): Dns!
   updateUser(data: UpdateUserInput!): User!
+}
+
+"""PackageType"""
+enum PackageType {
+  NL_1M
+  NL_3M
+  NL_6M
 }
 
 type Query {

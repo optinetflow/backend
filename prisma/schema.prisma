@@ -112,8 +112,9 @@ model Package {
 }
 
 enum PackageType {
-  NL
-  DE
+  NL_1M
+  NL_3M
+  NL_6M
 }
 
 model ClientStat {
