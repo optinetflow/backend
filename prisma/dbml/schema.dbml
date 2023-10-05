@@ -105,8 +105,9 @@ Enum ServerCountry {
 }
 
 Enum PackageType {
-  NL
-  DE
+  NL_1M
+  NL_3M
+  NL_6M
 }
 
 Ref: Domain.arvanId > Arvan.id

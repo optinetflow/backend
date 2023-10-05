@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Prisma, Server } from '@prisma/client';
+import { PackageType, Prisma, Server } from '@prisma/client';
 import * as Cookie from 'cookie';
 import { PrismaService } from 'nestjs-prisma';
 import { firstValueFrom } from 'rxjs';
@@ -11,6 +11,7 @@ import { firstValueFrom } from 'rxjs';
 import { errors } from '../common/errors';
 import { isSessionExpired } from '../common/helpers';
 import { MinioClientService } from '../minio/minio.service';
+import { User } from '../users/models/user.model';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
 
@@ -226,6 +227,12 @@ export class XuiService {
     } catch (error) {
       console.error('Error upserting ClientStats:', error);
     }
+  }
+
+  buyPackage(user: User, type: PackageType): string {
+    console.info(user, type);
+
+    return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
   }
 
   async getClientStats(filters?: GetClientStatsFiltersInput): Promise<ClientStat[]> {
