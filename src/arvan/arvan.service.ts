@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Server } from '@prisma/client';
+import { DomainState, Server } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { firstValueFrom, retry } from 'rxjs';
 
@@ -272,15 +272,21 @@ export class ArvanService {
     const isNsApplied = isEqual(currentNs, addDomain.ns_keys);
 
     try {
-      return await this.prisma.domain.create({
-        data: {
+      const data = {
+        domain,
+        expiredAt,
+        arvanId,
+        nsState: isNsApplied ? DomainState.APPLIED : DomainState.PENDING,
+        arvanSslState: issuedSsl.certificates.length > 0 ? DomainState.APPLIED : DomainState.PENDING,
+        serverId: server.id,
+      };
+
+      return await this.prisma.domain.upsert({
+        where: {
           domain,
-          expiredAt,
-          arvanId,
-          nsState: isNsApplied ? 'APPLIED' : 'PENDING',
-          arvanSslState: issuedSsl.certificates.length > 0 ? 'APPLIED' : 'PENDING',
-          serverId: server.id,
         },
+        create: data,
+        update: data,
       });
     } catch {
       throw new BadRequestException('Domain is already registered on system.');
