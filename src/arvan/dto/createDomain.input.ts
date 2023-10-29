@@ -10,6 +10,13 @@ export class CreateDomainInput {
   @Field()
   arvanAccount: string;
 
+  @Field()
+  @Matches(/^[\dA-Za-z][\dA-Za-z-]{1,61}[\dA-Za-z]\.[A-Za-z]{1,10}$/)
+  serverDomain: string;
+
+  @Field(() => String, { nullable: true })
+  expiredAt?: string | null;
+
   // @Field(() => Date, { nullable: true })
   // expiredAt?: Date | null;
 }

@@ -1,5 +1,8 @@
+import 'jalali-moment';
+
 import { NotAcceptableException, UseGuards } from '@nestjs/common';
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import moment from 'moment';
 import { PrismaService } from 'nestjs-prisma';
 
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
@@ -43,10 +46,25 @@ export class ArvanResolver {
       throw new NotAcceptableException('Arvan account not found!');
     }
 
-    const next11Month = new Date();
-    next11Month.setMonth(next11Month.getMonth() + 11);
+    let date: Date | undefined;
 
-    return this.arvanService.addDomain(data.domain, next11Month, arvanAccount.id);
+    // if (data.expiredAt) {
+    //   const jalaliMoment = moment(data.expiredAt, 'jYYYY-jM-jD');
+    //   date = jalaliMoment.toDate();
+    // }
+
+    if (data.expiredAt) {
+      const jalaliMoment = moment(data.expiredAt, 'YYYY-M-D');
+      date = jalaliMoment.toDate();
+    }
+
+    if (!date) {
+      const next11Month = new Date();
+      next11Month.setMonth(next11Month.getMonth() + 11);
+      date = next11Month;
+    }
+
+    return this.arvanService.addDomain(data.domain, date, arvanAccount.id, data.serverDomain);
   }
 
   @UseGuards(GqlAuthGuard)
