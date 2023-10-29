@@ -6,6 +6,7 @@ import { Interval } from '@nestjs/schedule';
 import { PackageType, Prisma, Server } from '@prisma/client';
 import * as Cookie from 'cookie';
 import { PrismaService } from 'nestjs-prisma';
+import * as querystring from 'querystring';
 import { firstValueFrom } from 'rxjs';
 
 import { errors } from '../common/errors';
@@ -20,7 +21,7 @@ interface AuthenticatedReq {
   url: (domain: string) => string;
   method: 'post' | 'get' | 'patch' | 'put';
   headers?: Record<string, string>;
-  body?: Record<string, unknown>;
+  body?: Record<string, unknown> | string;
 }
 
 interface InboundSetting {
@@ -94,8 +95,28 @@ const ENDPOINTS = (domain: string) => {
   return {
     login: `${url}/login`,
     inbounds: `${url}/xui/inbound/list`,
+    addInbound: `${url}/xui/inbound/add`,
   };
 };
+
+function jsonObjectToQueryString(jsonObject) {
+  // Create a new query string.
+  const queryString = new URLSearchParams();
+
+  // Iterate over the key-value pairs in the JSON object and add them to the query string.
+  for (const [key, value] of Object.entries(jsonObject)) {
+    if (typeof value === 'object') {
+      // If the value is an object, stringify it and append to the query string
+      queryString.append(key, JSON.stringify(value));
+    } else {
+      // Append key-value pair to the query string
+      queryString.append(key, String(value));
+    }
+  }
+
+  // Return the query string.
+  return queryString.toString();
+}
 
 @Injectable()
 export class XuiService {
@@ -231,6 +252,72 @@ export class XuiService {
 
   buyPackage(user: User, type: PackageType): string {
     console.info(user, type);
+
+    return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
+  }
+
+  async addPackage(serverId: string): Promise<string> {
+    const jsonData = {
+      up: 0,
+      down: 0,
+      total: 0,
+      remark: 'kajneshan150.ir',
+      enable: true,
+      expiryTime: 0,
+      listen: '',
+      port: 10_047,
+      protocol: 'vless',
+      settings: {
+        clients: [
+          {
+            id: 'bb8d1168-3f9d-4c33-f352-e870841fd2a4',
+            flow: '',
+            email: '2dgb6xwn3',
+            limitIp: 0,
+            totalGB: 42_949_672_960,
+            fingerprint: 'chrome',
+            expiryTime: '',
+          },
+        ],
+        decryption: 'none',
+        fallbacks: [],
+      },
+      streamSettings: {
+        network: 'ws',
+        security: 'tls',
+        tlsSettings: {
+          serverName: 'www.kajneshan150.ir',
+          minVersion: '1.2',
+          maxVersion: '1.3',
+          cipherSuites: '',
+          certificates: [
+            {
+              certificateFile: '/v/kajneshan150.ir/cert.crt',
+              keyFile: '/v/kajneshan150.ir/private.key',
+            },
+          ],
+          alpn: ['h2', 'http/1.1'],
+        },
+        wsSettings: {
+          acceptProxyProtocol: false,
+          path: '/ws',
+          headers: {},
+        },
+      },
+      sniffing: {
+        enabled: true,
+        destOverride: ['http', 'tls'],
+      },
+    };
+
+    const params = jsonObjectToQueryString(jsonData);
+
+    await this.authenticatedReq<InboundListRes>({
+      serverId,
+      url: (domain) => ENDPOINTS(domain).addInbound,
+      method: 'post',
+      body: params,
+    });
 
     return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
   }

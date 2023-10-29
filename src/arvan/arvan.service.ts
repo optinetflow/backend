@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
+import { Server } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { firstValueFrom, retry } from 'rxjs';
 
@@ -10,7 +11,7 @@ import { getNsRecords, isEqual, randomStr } from '../common/helpers';
 import { CreateArvanAccountInput } from './dto/createArvanAccount.input';
 import { DomainsFiltersInput } from './dto/domainsFilters.input';
 import { Arvan } from './models/arvan.model';
-import { Dns } from './models/dns.model';
+import { Dns, UpstreamHttps } from './models/dns.model';
 import { Domain } from './models/domain.model';
 
 const DEJBAN_URL = 'https://dejban.arvancloud.ir/v1';
@@ -230,12 +231,19 @@ export class ArvanService {
     );
   }
 
-  async addDomain(domain: string, expiredAt: Date, arvanId: string): Promise<Domain> {
-    const server = await this.prisma.server.findFirstOrThrow({
-      where: {
-        domain: 'kajneshan1.ir',
-      },
-    });
+  async addDomain(domain: string, expiredAt: Date, arvanId: string, serverDomain: string): Promise<Domain> {
+    let server: Server;
+
+    try {
+      server = await this.prisma.server.findFirstOrThrow({
+        where: {
+          domain: serverDomain,
+        },
+      });
+    } catch {
+      throw new BadRequestException('ServerDomain is not found.');
+    }
+
     const [addDomain, isAlreadyExist] = await this.addDomainToArvan(arvanId, domain);
 
     if (!isAlreadyExist) {
@@ -254,10 +262,11 @@ export class ArvanService {
         arvanId,
         domain,
       });
-
-      await this.setDeveloperModeCaching(arvanId, domain);
+    } else {
+      await this.updateDnsRecordIp(domain, server.ip, arvanId);
     }
 
+    await this.setDeveloperModeCaching(arvanId, domain);
     const issuedSsl = await this.issueSsl(arvanId, domain);
     const currentNs = await getNsRecords(domain);
     const isNsApplied = isEqual(currentNs, addDomain.ns_keys);
@@ -375,17 +384,23 @@ export class ArvanService {
   }
 
   async setDeveloperModeCaching(arvanId: string, domain: string): Promise<void> {
-    const setDeveloperModeCaching = await this.authenticatedReq<{ message: string }>({
-      arvanId,
-      method: 'patch',
-      url: ENDPOINTS.caching(domain),
-      body: {
-        cache_developer_mode: true,
-      },
-    });
+    try {
+      const setDeveloperModeCaching = await this.authenticatedReq<{ message: string }>({
+        arvanId,
+        method: 'patch',
+        url: ENDPOINTS.caching(domain),
+        body: {
+          cache_developer_mode: true,
+        },
+      });
 
-    if (!setDeveloperModeCaching.data.message) {
-      throw new BadRequestException('Issue in setting developer mode for caching failed.');
+      if (!setDeveloperModeCaching.data.message) {
+        throw new BadRequestException('Issue in setting developer mode for caching failed.');
+      }
+    } catch (_error) {
+      const error = _error as { response?: { data: { message: string } } };
+
+      throw new BadRequestException(error.response?.data.message);
     }
   }
 
@@ -436,22 +451,27 @@ export class ArvanService {
     });
   }
 
-  async updateDnsRecordIp(domain: string, ip: string): Promise<Dns[]> {
-    const domainInfo = await this.prisma.domain.findUnique({
-      where: {
-        domain,
-      },
-      include: {
-        arvan: true,
-      },
-    });
+  async updateDnsRecordIp(domain: string, ip: string, arvanId?: string): Promise<Dns[]> {
+    let arvanAccountId = arvanId;
 
-    if (!domainInfo) {
-      throw new BadRequestException('Domain not found!');
+    if (!arvanId) {
+      const domainInfo = await this.prisma.domain.findUnique({
+        where: {
+          domain,
+        },
+        include: {
+          arvan: true,
+        },
+      });
+
+      if (!domainInfo) {
+        throw new BadRequestException('Domain not found!');
+      }
+
+      arvanAccountId = domainInfo.arvan.id;
     }
 
-    const arvanId = domainInfo.arvan.id;
-    const dnsRecords = await this.getDnsRecords(arvanId, domain);
+    const dnsRecords = await this.getDnsRecords(arvanAccountId!, domain);
     const wwwRecord = dnsRecords.find((dns) => dns.name === 'www');
     const rootRecord = dnsRecords.find((dns) => dns.name === '@');
 
@@ -463,18 +483,28 @@ export class ArvanService {
       throw new BadRequestException('@ Record not found!');
     }
 
-    const wwwBody: Dns = { ...wwwRecord, value: wwwRecord.value.map((v) => ({ ...v, ip })) };
-    const rootBody: Dns = { ...rootRecord, value: rootRecord.value.map((v) => ({ ...v, ip })) };
+    const wwwBody: Dns = {
+      ...wwwRecord,
+      cloud: true,
+      upstream_https: UpstreamHttps.https,
+      value: wwwRecord.value.map((v) => ({ ...v, ip })),
+    };
+    const rootBody: Dns = {
+      ...rootRecord,
+      cloud: false,
+      upstream_https: UpstreamHttps.default,
+      value: rootRecord.value.map((v) => ({ ...v, ip })),
+    };
 
     const wwwResult = await this.updateDnsRecord({
-      arvanId,
+      arvanId: arvanAccountId!,
       domain,
       dnsRecordId: wwwRecord.id,
       body: wwwBody,
     });
 
     const rootResult = await this.updateDnsRecord({
-      arvanId,
+      arvanId: arvanAccountId!,
       domain,
       dnsRecordId: rootRecord.id,
       body: rootBody,

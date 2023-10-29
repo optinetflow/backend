@@ -5,6 +5,17 @@ import { DomainState } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
 
+export enum UpstreamHttps {
+  https = 'https',
+  http = 'http',
+  default = 'default',
+  auto = 'auto',
+}
+
+registerEnumType(UpstreamHttps, {
+  name: 'UpstreamHttps',
+  description: 'Upstream Https',
+});
 @ObjectType()
 class DnsValue {
   @Field()
@@ -39,4 +50,7 @@ export class Dns extends BaseModel {
 
   @Field(() => [DnsValue])
   value: DnsValue[];
+
+  @Field(() => UpstreamHttps)
+  upstream_https: UpstreamHttps;
 }

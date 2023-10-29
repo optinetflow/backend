@@ -60,6 +60,8 @@ input CreateArvanAccountInput {
 input CreateDomainInput {
   arvanAccount: String!
   domain: String!
+  expiredAt: String
+  serverDomain: String!
 }
 
 input CreateServerInput {
@@ -85,6 +87,7 @@ type Dns {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  upstream_https: UpstreamHttps!
   value: [DnsValue!]!
 }
 
@@ -162,9 +165,30 @@ type Mutation {
 
 """PackageType"""
 enum PackageType {
-  NL_1M
-  NL_3M
-  NL_6M
+  M1_20G
+  M1_40G
+  M1_60G
+  M1_80G
+  M1_100G
+  M1_120G
+  M1_160G
+  M1_200G
+  M3_60G
+  M3_120G
+  M3_180G
+  M3_240G
+  M3_300G
+  M3_360G
+  M3_480G
+  M3_600G
+  M6_120G
+  M6_240G
+  M6_360G
+  M6_480G
+  M6_600G
+  M6_720G
+  M6_960G
+  M6_1200G
 }
 
 type Query {
@@ -228,6 +252,14 @@ input UpdateDnsPortInput {
 input UpdateUserInput {
   firstname: String
   lastname: String
+}
+
+"""Upstream Https"""
+enum UpstreamHttps {
+  auto
+  default
+  http
+  https
 }
 
 type User {
