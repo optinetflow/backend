@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PackageType, Prisma, Server } from '@prisma/client';
 import * as Cookie from 'cookie';
+import https from 'https';
 import { PrismaService } from 'nestjs-prisma';
 import * as querystring from 'querystring';
 import { firstValueFrom } from 'rxjs';
@@ -137,6 +138,9 @@ export class XuiService {
             // eslint-disable-next-line @typescript-eslint/naming-convention
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
           },
+          httpsAgent: new https.Agent({
+            rejectUnauthorized: false,
+          }),
         }),
       );
       const cookie = login?.headers['set-cookie']?.[0];
@@ -181,7 +185,12 @@ export class XuiService {
   async authenticatedReq<T>({ serverId, url, method, body, headers }: AuthenticatedReq) {
     const [auth, server] = await this.getAuthorization(serverId);
 
-    const config = { headers: { ...(headers || {}), cookie: auth } };
+    const config = {
+      headers: { ...(headers || {}), cookie: auth },
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+      }),
+    };
 
     return firstValueFrom(
       method === 'get'
