@@ -95,8 +95,8 @@ const ENDPOINTS = (domain: string) => {
 
   return {
     login: `${url}/login`,
-    inbounds: `${url}/xui/inbound/list`,
-    addInbound: `${url}/xui/inbound/add`,
+    inbounds: `${url}/panel/inbound/list`,
+    addInbound: `${url}/panel/inbound/add`,
   };
 };
 
