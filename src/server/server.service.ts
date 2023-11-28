@@ -123,7 +123,7 @@ export class ServerService {
   }
 
   async uploadCertsToMinio() {
-    const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
     for (const server of servers) {
       try {
@@ -137,7 +137,7 @@ export class ServerService {
 
   async syncCertFiles() {
     await this.uploadCertsToMinio();
-    const servers = (await this.prisma.server.findMany()).filter((s) => s.domain !== 'akbari51.sbs');
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
     await this.minioService.downloadDir('certs', '/v');
 
     for (const server of servers) {
@@ -170,7 +170,7 @@ export class ServerService {
   // @Interval('notifications', 2 * 60 * 1000)
   async getXuiDatabases() {
     this.logger.debug('GetXuiDatabases called every 2 minutes');
-    const servers = await this.prisma.server.findMany();
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
     for (const server of servers) {
       try {
