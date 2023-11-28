@@ -162,7 +162,7 @@ export class XuiService {
   }
 
   async getAuthorization(serverId: string): Promise<[string, Server]> {
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId } });
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId, deletedAt: null } });
 
     if (!isSessionExpired(server.token)) {
       return [`session=${Cookie.parse(server.token).session}`, server];
@@ -173,6 +173,7 @@ export class XuiService {
     await this.prisma.server.update({
       where: {
         id: serverId,
+        deletedAt: null,
       },
       data: {
         token,
@@ -355,7 +356,7 @@ export class XuiService {
   @Interval('syncClientStats', 1 * 60 * 1000)
   async syncClientStats() {
     this.logger.debug('SyncClientStats called every 1 min');
-    const servers = await this.prisma.server.findMany();
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
     for (const server of servers) {
       try {
