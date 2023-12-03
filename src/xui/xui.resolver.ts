@@ -24,6 +24,6 @@ export class XuiResolver {
   @UseGuards(GqlAuthGuard)
   @Mutation(() => String)
   buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): string {
-    return this.xuiService.buyPackage(user, data.type);
+    return this.xuiService.buyPackage(user, data.packageId);
   }
 }

@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { PackageType, Prisma, Server } from '@prisma/client';
+import { Prisma, Server } from '@prisma/client';
 import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
@@ -258,8 +258,8 @@ export class XuiService {
     }
   }
 
-  buyPackage(user: User, type: PackageType): string {
-    console.info(user, type);
+  buyPackage(user: User, packageId: string): string {
+    console.info(user, packageId);
 
     return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
   }
