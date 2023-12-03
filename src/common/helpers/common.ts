@@ -4,6 +4,7 @@ import type { ReadStream } from 'fs';
 import fs from 'fs';
 import { readdir } from 'fs/promises';
 import path from 'path';
+import * as querystring from 'querystring';
 
 export async function stream2buffer(stream: ReadStream): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
@@ -184,4 +185,27 @@ export async function readFilesRecursively(dir: string): Promise<string[]> {
   const dirsAndFiles = await readdir(dir, { recursive: true });
 
   return dirsAndFiles.filter((dirOrFile) => fs.statSync(path.join(dir, dirOrFile)).isFile());
+}
+
+export function jsonObjectToQueryString(jsonObject) {
+  // Create a new query string.
+  const queryString = new URLSearchParams();
+
+  // Iterate over the key-value pairs in the JSON object and add them to the query string.
+  for (const [key, value] of Object.entries(jsonObject)) {
+    if (typeof value === 'object') {
+      // If the value is an object, stringify it and append to the query string
+      queryString.append(key, JSON.stringify(value));
+    } else {
+      // Append key-value pair to the query string
+      queryString.append(key, String(value));
+    }
+  }
+
+  // Return the query string.
+  return queryString.toString();
+}
+
+export function removePort(url: string): string {
+  return url.split(':')[0];
 }
