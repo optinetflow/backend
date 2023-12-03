@@ -10,8 +10,12 @@ Table User {
   password String [not null]
   firstname String
   lastname String
+  balance Int [not null, default: 0]
   role Role [not null, default: 'USER']
-  Package Package [not null]
+  userPackage UserPackage [not null]
+  sendTransfer Transfer [not null]
+  recieveTransfer Transfer [not null]
+  Payment Payment [not null]
 }
 
 Table Domain {
@@ -29,7 +33,6 @@ Table Domain {
   serverId String [not null]
   arvan Arvan [not null]
   server Server [not null]
-  Package Package [not null]
 }
 
 Table Arvan {
@@ -53,7 +56,7 @@ Table Server {
   ip String [unique, not null]
   domain String [unique, not null]
   token String [not null]
-  Package Package [not null]
+  userPackage UserPackage [not null]
   Domain Domain [not null]
   ClientStat ClientStat [not null]
 }
@@ -62,17 +65,25 @@ Table Package {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  type PackageType [not null]
-  expiredAt DateTime [not null]
   traffic Int [not null]
+  expirationDays Int [not null]
+  price Int [not null]
+  userCount Int [not null]
+  UserPackage UserPackage [not null]
+}
+
+Table UserPackage {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  packageId String [not null]
   userId String [not null]
   serverId String [not null]
   statId String [not null]
-  domainId String [not null]
+  package Package [not null]
   user User [not null]
   server Server [not null]
   stat ClientStat [not null]
-  domain Domain [not null]
 }
 
 Table ClientStat {
@@ -87,7 +98,28 @@ Table ClientStat {
   enable Boolean [not null]
   serverId String [not null]
   server Server [not null]
-  Package Package [not null]
+  Package UserPackage [not null]
+}
+
+Table Payment {
+  id String [pk]
+  amount Int [not null]
+  status PaymentState [not null, default: 'PENDING']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  payerId String [not null]
+  payer User [not null]
+}
+
+Table Transfer {
+  id String [pk]
+  amount Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  senderId String [not null]
+  receiverId String [not null]
+  sender User [not null]
+  receiver User [not null]
 }
 
 Enum Role {
@@ -103,45 +135,30 @@ Enum DomainState {
 Enum ServerCountry {
   NL
   DE
+  TR
 }
 
-Enum PackageType {
-  M1_20G
-  M1_40G
-  M1_60G
-  M1_80G
-  M1_100G
-  M1_120G
-  M1_160G
-  M1_200G
-  M3_60G
-  M3_120G
-  M3_180G
-  M3_240G
-  M3_300G
-  M3_360G
-  M3_480G
-  M3_600G
-  M6_120G
-  M6_240G
-  M6_360G
-  M6_480G
-  M6_600G
-  M6_720G
-  M6_960G
-  M6_1200G
+Enum PaymentState {
+  PENDING
+  APPLIED
 }
 
 Ref: Domain.arvanId > Arvan.id
 
 Ref: Domain.serverId > Server.id
 
-Ref: Package.userId > User.id
+Ref: UserPackage.packageId > Package.id
 
-Ref: Package.serverId > Server.id
+Ref: UserPackage.userId > User.id
 
-Ref: Package.statId > ClientStat.id
+Ref: UserPackage.serverId > Server.id
 
-Ref: Package.domainId > Domain.id
+Ref: UserPackage.statId > ClientStat.id
 
 Ref: ClientStat.serverId > Server.id
+
+Ref: Payment.payerId > User.id
+
+Ref: Transfer.senderId > User.id
+
+Ref: Transfer.receiverId > User.id

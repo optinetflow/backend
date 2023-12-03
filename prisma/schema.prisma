@@ -13,15 +13,19 @@ generator dbml {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  phone     String    @unique
-  password  String
-  firstname String?
-  lastname  String?
-  role      Role      @default(USER)
-  Package   Package[]
+  id              String        @id @default(cuid())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  phone           String        @unique
+  password        String
+  firstname       String?
+  lastname        String?
+  balance         Int           @default(0)
+  role            Role          @default(USER)
+  userPackage     UserPackage[]
+  sendTransfer    Transfer[]    @relation("TransferSenderRelation")
+  recieveTransfer Transfer[]    @relation("TransferReceiverRelation")
+  Payment         Payment[]
 
   @@index([role], name: "UserRoleIndex")
 }
@@ -46,7 +50,6 @@ model Domain {
   serverId       String
   arvan          Arvan       @relation(fields: [arvanId], references: [id])
   server         Server      @relation(fields: [serverId], references: [id])
-  Package        Package[]
 
   @@index([nsState], name: "DomainNsStateIndex")
   @@index([arvanSslState], name: "DomainArvanSslStateIndex")
@@ -73,78 +76,59 @@ model Arvan {
 }
 
 model Server {
-  id         String        @id @default(cuid())
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  deletedAt  DateTime?
-  type       ServerCountry
-  ip         String        @unique
-  domain     String        @unique
-  token      String
-  Package    Package[]
-  Domain     Domain[]
-  ClientStat ClientStat[]
+  id          String        @id @default(cuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  type        ServerCountry
+  ip          String        @unique
+  domain      String        @unique
+  token       String
+  userPackage UserPackage[]
+  Domain      Domain[]
+  ClientStat  ClientStat[]
 }
 
 enum ServerCountry {
   NL
   DE
+  TR
 }
 
 model Package {
-  id        String      @id @default(cuid())
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  type      PackageType
-  expiredAt DateTime
-  traffic   Int
+  id             String        @id @default(cuid())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  traffic        Int
+  expirationDays Int
+  price          Int
+  userCount      Int
+  UserPackage    UserPackage[]
+}
+
+model UserPackage {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  packageId String
   userId    String
   serverId  String
   statId    String
-  domainId  String
-  user      User        @relation(fields: [userId], references: [id])
-  server    Server      @relation(fields: [serverId], references: [id])
-  stat      ClientStat  @relation(fields: [statId], references: [id])
-  domain    Domain      @relation(fields: [domainId], references: [id])
+  package   Package    @relation(fields: [packageId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  server    Server     @relation(fields: [serverId], references: [id])
+  stat      ClientStat @relation(fields: [statId], references: [id])
 
-  @@index([userId], name: "PackageUserIdIndex")
-  @@index([serverId], name: "PackageServerIdIndex")
-  @@index([statId], name: "PackageStatIdIndex")
-}
-
-enum PackageType {
-  M1_20G
-  M1_40G
-  M1_60G
-  M1_80G
-  M1_100G
-  M1_120G
-  M1_160G
-  M1_200G
-
-  M3_60G
-  M3_120G
-  M3_180G
-  M3_240G
-  M3_300G
-  M3_360G
-  M3_480G
-  M3_600G
-
-  M6_120G
-  M6_240G
-  M6_360G
-  M6_480G
-  M6_600G
-  M6_720G
-  M6_960G
-  M6_1200G
+  @@index([userId], name: "UserPackageUserIdIndex")
+  @@index([serverId], name: "UserPackageServerIdIndex")
+  @@index([statId], name: "UserPackageStatIdIndex")
+  @@index([packageId], name: "UserPackagePackageIdIndex")
 }
 
 model ClientStat {
-  id         String    @id
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id         String        @id
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
   expiryTime BigInt
   total      BigInt
   down       BigInt
@@ -152,12 +136,54 @@ model ClientStat {
   email      String
   enable     Boolean
   serverId   String
-  server     Server    @relation(fields: [serverId], references: [id])
-  Package    Package[]
+  server     Server        @relation(fields: [serverId], references: [id])
+  Package    UserPackage[]
 
   @@index([serverId], name: "ClientStatServerIdIndex")
   @@index([expiryTime], name: "ClientStatExpiryTimeIndex")
   @@index([total], name: "ClientStatTotalIndex")
   @@index([down], name: "ClientStatDownIndex")
   @@index([up], name: "ClientStatUpIndex")
+}
+
+enum PaymentState {
+  PENDING
+  APPLIED
+}
+
+// model Wallet {
+//   id        String      @id @default(cuid())
+//   userId    String
+//   balance   Int  @default(0)
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   user     User    @relation(fields: [userId], references: [id])
+//   payments Payment[]
+//   transfers Transfer[]
+// }
+
+model Payment {
+  id        String       @id @default(cuid())
+  amount    Int
+  status    PaymentState @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  payerId   String
+
+  // wallet Wallet @relation(fields: [walletId], references: [id])
+  payer User @relation(fields: [payerId], references: [id])
+}
+
+model Transfer {
+  id         String   @id @default(cuid())
+  amount     Int
+  // status    PaymentState @default(PENDING)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  senderId   String
+  receiverId String
+
+  sender   User @relation("TransferSenderRelation", fields: [senderId], references: [id])
+  receiver User @relation("TransferReceiverRelation", fields: [receiverId], references: [id])
 }

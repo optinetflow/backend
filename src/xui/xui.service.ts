@@ -6,12 +6,13 @@ import { Interval } from '@nestjs/schedule';
 import { PackageType, Prisma, Server } from '@prisma/client';
 import * as Cookie from 'cookie';
 import https from 'https';
+import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import * as querystring from 'querystring';
 import { firstValueFrom } from 'rxjs';
+import { v4 as uuid } from 'uuid';
 
 import { errors } from '../common/errors';
-import { isSessionExpired } from '../common/helpers';
+import { isSessionExpired, jsonObjectToQueryString, removePort } from '../common/helpers';
 import { MinioClientService } from '../minio/minio.service';
 import { User } from '../users/models/user.model';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
@@ -89,6 +90,17 @@ interface Stat {
   total: number;
   expiryTime: number;
 }
+interface AddClient {
+  id: string;
+  port: number;
+  inboundId: number;
+  enable: boolean;
+  email: string;
+  up: number;
+  down: number;
+  total: number;
+  expiryTime: number;
+}
 
 const ENDPOINTS = (domain: string) => {
   const url = `https://v.${domain}/v`;
@@ -97,27 +109,9 @@ const ENDPOINTS = (domain: string) => {
     login: `${url}/login`,
     inbounds: `${url}/panel/inbound/list`,
     addInbound: `${url}/panel/inbound/add`,
+    addClient: `${url}/panel/inbound/addClient`,
   };
 };
-
-function jsonObjectToQueryString(jsonObject) {
-  // Create a new query string.
-  const queryString = new URLSearchParams();
-
-  // Iterate over the key-value pairs in the JSON object and add them to the query string.
-  for (const [key, value] of Object.entries(jsonObject)) {
-    if (typeof value === 'object') {
-      // If the value is an object, stringify it and append to the query string
-      queryString.append(key, JSON.stringify(value));
-    } else {
-      // Append key-value pair to the query string
-      queryString.append(key, String(value));
-    }
-  }
-
-  // Return the query string.
-  return queryString.toString();
-}
 
 @Injectable()
 export class XuiService {
@@ -126,7 +120,11 @@ export class XuiService {
     private httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
-  ) {}
+  ) {
+    // (async () => {
+    //   await this.addClient('clphh0vw50000s40zl8q27ix5', 6);
+    // })();
+  }
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -266,7 +264,7 @@ export class XuiService {
     return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
   }
 
-  async addPackage(serverId: string): Promise<string> {
+  async addClientOld(serverId: string): Promise<string> {
     const jsonData = {
       up: 0,
       down: 0,
@@ -330,6 +328,43 @@ export class XuiService {
     });
 
     return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
+  }
+
+  async addClient(serverId: string, inboundId: number): Promise<string> {
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId } });
+    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+    const id = uuid();
+    const jsonData = {
+      id: inboundId,
+      settings: {
+        clients: [
+          {
+            id,
+            flow: '',
+            email: nanoid(),
+            limitIp: 0,
+            totalGB: 1024 * 1024 * 1024 * 40,
+            expiryTime: -60 * 60 * 24 * 30 * 1000,
+            enable: true,
+            tgId: '',
+            subId: nanoid(),
+          },
+        ],
+      },
+    };
+
+    const params = jsonObjectToQueryString(jsonData);
+
+    const x = await this.authenticatedReq<{ success: boolean }>({
+      serverId,
+      url: (domain) => ENDPOINTS(domain).addClient,
+      method: 'post',
+      body: params,
+    });
+
+    return `vless://${id}@${removePort(
+      server.domain,
+    )}:443?type=ws&path=%2Fws&security=tls&fp=&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent('Masih')}`;
   }
 
   async getClientStats(filters?: GetClientStatsFiltersInput): Promise<ClientStat[]> {
