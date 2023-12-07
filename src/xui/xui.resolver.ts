@@ -9,6 +9,7 @@ import { User } from '../users/models/user.model';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
+import { Package } from './models/package.model';
 import { XuiService } from './xui.service';
 
 @Resolver()
@@ -21,9 +22,14 @@ export class XuiResolver {
     return this.xuiService.getClientStats(filter);
   }
 
+  @Query(() => [Package])
+  packages(): Promise<Package[]> {
+    return this.xuiService.getPackages();
+  }
+
   @UseGuards(GqlAuthGuard)
   @Mutation(() => String)
-  buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): string {
+  buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): Promise<string> {
     return this.xuiService.buyPackage(user, data.packageId);
   }
 }

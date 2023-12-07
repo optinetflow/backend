@@ -29,7 +29,7 @@ type Auth {
 scalar BigNumber
 
 input BuyPackageInput {
-  type: PackageType!
+  packageId: String!
 }
 
 input ChangePasswordInput {
@@ -66,6 +66,7 @@ input CreateDomainInput {
 
 input CreateServerInput {
   domain: String!
+  inboundId: Int!
   ip: String!
   type: ServerCountry!
 }
@@ -163,32 +164,17 @@ type Mutation {
   updateUser(data: UpdateUserInput!): User!
 }
 
-"""PackageType"""
-enum PackageType {
-  M1_20G
-  M1_40G
-  M1_60G
-  M1_80G
-  M1_100G
-  M1_120G
-  M1_160G
-  M1_200G
-  M3_60G
-  M3_120G
-  M3_180G
-  M3_240G
-  M3_300G
-  M3_360G
-  M3_480G
-  M3_600G
-  M6_120G
-  M6_240G
-  M6_360G
-  M6_480G
-  M6_600G
-  M6_720G
-  M6_960G
-  M6_1200G
+type Package {
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  expirationDays: Int!
+  id: ID!
+  price: Int!
+  traffic: Int!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+  userCount: Int!
 }
 
 type Query {
@@ -197,6 +183,7 @@ type Query {
   hello(name: String!): String!
   helloWorld: String!
   me: User!
+  packages: [Package!]!
 }
 
 """User role"""
@@ -210,6 +197,7 @@ type Server {
   createdAt: DateTime!
   domain: String!
   id: ID!
+  inboundId: Int!
   ip: String!
   token: String!
   type: ServerCountry!
@@ -222,6 +210,7 @@ type Server {
 enum ServerCountry {
   DE
   NL
+  TR
 }
 
 input SignupInput {

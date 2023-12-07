@@ -1,4 +1,4 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { ServerCountry } from '@prisma/client';
 import { Matches } from 'class-validator';
 
@@ -13,4 +13,7 @@ export class CreateServerInput {
 
   @Field(() => ServerCountry)
   type: ServerCountry;
+
+  @Field(() => Int)
+  inboundId: number;
 }

@@ -115,6 +115,7 @@ export class ServerService {
           domain: input.domain,
           type: input.type,
           token,
+          inboundId: input.inboundId,
         },
       });
     } catch {

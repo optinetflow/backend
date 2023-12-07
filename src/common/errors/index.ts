@@ -33,5 +33,13 @@ export const errors = {
       type: 'xui.accountNotFound',
       message: 'X-UI account is wrong.',
     },
+    addClientError: {
+      type: 'xui.addClientError',
+      message: 'Add client failed.',
+    },
+    updatePaymentFailed: {
+      type: 'xui.updatePaymentFailed',
+      message: 'Update payment got failed.',
+    },
   },
 };
