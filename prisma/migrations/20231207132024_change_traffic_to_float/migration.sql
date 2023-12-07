@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Package" ALTER COLUMN "traffic" SET DATA TYPE DOUBLE PRECISION;
