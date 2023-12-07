@@ -102,7 +102,7 @@ model Package {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
-  traffic        Int
+  traffic        Float
   expirationDays Int
   price          Int
   userCount      Int
