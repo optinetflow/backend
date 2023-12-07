@@ -90,16 +90,9 @@ interface Stat {
   total: number;
   expiryTime: number;
 }
-interface AddClient {
-  id: string;
-  port: number;
-  inboundId: number;
-  enable: boolean;
-  email: string;
-  up: number;
-  down: number;
-  total: number;
-  expiryTime: number;
+interface AddClientInput {
+  serverId: string;
+  packageId: string;
 }
 
 const ENDPOINTS = (domain: string) => {
@@ -122,7 +115,8 @@ export class XuiService {
     private readonly minioService: MinioClientService,
   ) {
     // (async () => {
-    //   await this.addClient('clphh0vw50000s40zl8q27ix5', 6);
+    //   // await this.addClient('clphh0vw50000s40zl8q27ix5', 6);
+    //   // this.syncClientStats()
     // })();
   }
 
@@ -231,9 +225,9 @@ export class XuiService {
 
     const updatedValues = stats.map(
       (stat) =>
-        Prisma.sql`(${stat.id}, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${stat.total}, ${
+        Prisma.sql`(${stat.id}::uuid, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${stat.total}, ${
           stat.expiryTime
-        }, to_timestamp(${Date.now()} / 1000.0), ${serverId})`,
+        }, to_timestamp(${Date.now()} / 1000.0), ${serverId}::uuid)`,
     );
 
     try {
@@ -258,93 +252,95 @@ export class XuiService {
     }
   }
 
-  buyPackage(user: User, packageId: string): string {
-    console.info(user, packageId);
+  async buyPackage(user: User, packageId: string): Promise<string> {
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir2.arvanvpn.online:44555' } });
 
-    return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
+    return this.addClient(user, { serverId: server.id, packageId });
   }
 
-  async addClientOld(serverId: string): Promise<string> {
-    const jsonData = {
-      up: 0,
-      down: 0,
-      total: 0,
-      remark: 'kajneshan150.ir',
-      enable: true,
-      expiryTime: 0,
-      listen: '',
-      port: 10_047,
-      protocol: 'vless',
-      settings: {
-        clients: [
-          {
-            id: 'bb8d1168-3f9d-4c33-f352-e870841fd2a4',
-            flow: '',
-            email: '2dgb6xwn3',
-            limitIp: 0,
-            totalGB: 42_949_672_960,
-            fingerprint: 'chrome',
-            expiryTime: '',
-          },
-        ],
-        decryption: 'none',
-        fallbacks: [],
-      },
-      streamSettings: {
-        network: 'ws',
-        security: 'tls',
-        tlsSettings: {
-          serverName: 'www.kajneshan150.ir',
-          minVersion: '1.2',
-          maxVersion: '1.3',
-          cipherSuites: '',
-          certificates: [
-            {
-              certificateFile: '/v/kajneshan150.ir/cert.crt',
-              keyFile: '/v/kajneshan150.ir/private.key',
-            },
-          ],
-          alpn: ['h2', 'http/1.1'],
-        },
-        wsSettings: {
-          acceptProxyProtocol: false,
-          path: '/ws',
-          headers: {},
-        },
-      },
-      sniffing: {
-        enabled: true,
-        destOverride: ['http', 'tls'],
-      },
-    };
+  // async addClientOld(serverId: string): Promise<string> {
+  //   const jsonData = {
+  //     up: 0,
+  //     down: 0,
+  //     total: 0,
+  //     remark: 'kajneshan150.ir',
+  //     enable: true,
+  //     expiryTime: 0,
+  //     listen: '',
+  //     port: 10_047,
+  //     protocol: 'vless',
+  //     settings: {
+  //       clients: [
+  //         {
+  //           id: 'bb8d1168-3f9d-4c33-f352-e870841fd2a4',
+  //           flow: '',
+  //           email: '2dgb6xwn3',
+  //           limitIp: 0,
+  //           totalGB: 42_949_672_960,
+  //           fingerprint: 'chrome',
+  //           expiryTime: '',
+  //         },
+  //       ],
+  //       decryption: 'none',
+  //       fallbacks: [],
+  //     },
+  //     streamSettings: {
+  //       network: 'ws',
+  //       security: 'tls',
+  //       tlsSettings: {
+  //         serverName: 'www.kajneshan150.ir',
+  //         minVersion: '1.2',
+  //         maxVersion: '1.3',
+  //         cipherSuites: '',
+  //         certificates: [
+  //           {
+  //             certificateFile: '/v/kajneshan150.ir/cert.crt',
+  //             keyFile: '/v/kajneshan150.ir/private.key',
+  //           },
+  //         ],
+  //         alpn: ['h2', 'http/1.1'],
+  //       },
+  //       wsSettings: {
+  //         acceptProxyProtocol: false,
+  //         path: '/ws',
+  //         headers: {},
+  //       },
+  //     },
+  //     sniffing: {
+  //       enabled: true,
+  //       destOverride: ['http', 'tls'],
+  //     },
+  //   };
 
-    const params = jsonObjectToQueryString(jsonData);
+  //   const params = jsonObjectToQueryString(jsonData);
 
-    await this.authenticatedReq<InboundListRes>({
-      serverId,
-      url: (domain) => ENDPOINTS(domain).addInbound,
-      method: 'post',
-      body: params,
-    });
+  //   await this.authenticatedReq<InboundListRes>({
+  //     serverId,
+  //     url: (domain) => ENDPOINTS(domain).addInbound,
+  //     method: 'post',
+  //     body: params,
+  //   });
 
-    return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
-  }
+  //   return 'vless://9cfa3758-a5bd-4f9b-87ab-da7fb492bc52@www.kajneshan15.ir:443?type=ws&security=tls&path=%2Fws&sni=www.kajneshan15.ir&fp=chrome#kajneshan15.ir-M.D%20976v0c1ah';
+  // }
 
-  async addClient(serverId: string, inboundId: number): Promise<string> {
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId } });
+  async addClient(user: User, input: AddClientInput): Promise<string> {
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input.serverId } });
+    const pack = await this.prisma.package.findFirstOrThrow({ where: { id: input.packageId } });
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+    const email = nanoid();
     const id = uuid();
     const jsonData = {
-      id: inboundId,
+      id: server.inboundId,
       settings: {
         clients: [
           {
             id,
             flow: '',
-            email: nanoid(),
+            email,
             limitIp: 0,
-            totalGB: 1024 * 1024 * 1024 * 40,
-            expiryTime: -60 * 60 * 24 * 30 * 1000,
+            totalGB: 1024 * 1024 * 1024 * pack.traffic,
+            expiryTime: -60 * 60 * 24 * 1000 * pack.expirationDays,
             enable: true,
             tgId: '',
             subId: nanoid(),
@@ -355,16 +351,70 @@ export class XuiService {
 
     const params = jsonObjectToQueryString(jsonData);
 
-    const x = await this.authenticatedReq<{ success: boolean }>({
-      serverId,
+    const res = await this.authenticatedReq<{ success: boolean }>({
+      serverId: input.serverId,
       url: (domain) => ENDPOINTS(domain).addClient,
       method: 'post',
       body: params,
     });
 
+    if (!res.data.success) {
+      throw new BadRequestException(errors.xui.addClientError);
+    }
+
+    try {
+      const paymentId = uuid();
+      const clientStat = {
+        id,
+        down: 0,
+        up: 0,
+        total: 1024 * 1024 * 1024 * pack.traffic,
+        serverId: input.serverId,
+        expiryTime: -60 * 60 * 24 * 1000 * pack.expirationDays,
+        enable: true,
+        email,
+      };
+      await this.prisma.$transaction([
+        this.prisma.payment.create({
+          data: {
+            id: paymentId,
+            amount: -pack.price,
+            payerId: user.id,
+            status: 'APPLIED',
+          },
+        }),
+        this.prisma.clientStat.upsert({
+          where: {
+            id,
+          },
+          create: clientStat,
+          update: clientStat,
+        }),
+        this.prisma.userPackage.create({
+          data: {
+            packageId: input.packageId,
+            serverId: input.serverId,
+            userId: user.id,
+            statId: id,
+            paymentId,
+          },
+        }),
+        this.prisma.user.update({
+          where: { id: user.id },
+          data: { balance: { decrement: pack.price } },
+        }),
+      ]);
+    } catch (error) {
+      console.error(error);
+
+      throw new BadRequestException(errors.xui.updatePaymentFailed);
+    }
+
     return `vless://${id}@${removePort(
       server.domain,
-    )}:443?type=ws&path=%2Fws&security=tls&fp=&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent('Masih')}`;
+    )}:443?type=ws&path=%2Fws&security=tls&fp=&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent(
+      `arvanvpn.online ${email}`,
+    )}`;
   }
 
   async getClientStats(filters?: GetClientStatsFiltersInput): Promise<ClientStat[]> {
@@ -373,7 +423,7 @@ export class XuiService {
         where: {
           ...(filters?.id && {
             id: {
-              contains: filters.id,
+              equals: filters.id,
             },
           }),
           ...(filters?.email && {
@@ -386,6 +436,10 @@ export class XuiService {
     } catch {
       throw new BadRequestException('Get ClientStats failed.');
     }
+  }
+
+  async getPackages() {
+    return this.prisma.package.findMany({ where: { deletedAt: null } });
   }
 
   @Interval('syncClientStats', 1 * 60 * 1000)

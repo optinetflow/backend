@@ -12,31 +12,31 @@ generator dbml {
   provider = "prisma-dbml-generator"
 }
 
-model User {
-  id              String        @id @default(cuid())
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  phone           String        @unique
-  password        String
-  firstname       String?
-  lastname        String?
-  balance         Int           @default(0)
-  role            Role          @default(USER)
-  userPackage     UserPackage[]
-  sendTransfer    Transfer[]    @relation("TransferSenderRelation")
-  recieveTransfer Transfer[]    @relation("TransferReceiverRelation")
-  Payment         Payment[]
-
-  @@index([role], name: "UserRoleIndex")
-}
-
 enum Role {
   ADMIN
   USER
 }
 
+model User {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  phone       String        @unique
+  password    String
+  firstname   String?
+  lastname    String?
+  balance     Int           @default(0)
+  role        Role          @default(USER)
+  userPackage UserPackage[]
+  Payment     Payment[]
+  // sendTransfer    Transfer[]    @relation("TransferSenderRelation")
+  // recieveTransfer Transfer[]    @relation("TransferReceiverRelation")
+
+  @@index([role], name: "UserRoleIndex")
+}
+
 model Domain {
-  id             String      @id @default(cuid())
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   domain         String      @unique
@@ -46,8 +46,8 @@ model Domain {
   letsEncryptSsl DomainState @default(PENDING)
   port           Int?
   isAutomated    Boolean?
-  arvanId        String
-  serverId       String
+  arvanId        String @db.Uuid
+  serverId       String @db.Uuid
   arvan          Arvan       @relation(fields: [arvanId], references: [id])
   server         Server      @relation(fields: [serverId], references: [id])
 
@@ -64,7 +64,7 @@ enum DomainState {
 }
 
 model Arvan {
-  id             String    @id
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   email          String    @unique
@@ -75,30 +75,33 @@ model Arvan {
   Domain         Domain[]
 }
 
-model Server {
-  id          String        @id @default(cuid())
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-  type        ServerCountry
-  ip          String        @unique
-  domain      String        @unique
-  token       String
-  userPackage UserPackage[]
-  Domain      Domain[]
-  ClientStat  ClientStat[]
-}
-
 enum ServerCountry {
   NL
   DE
   TR
 }
 
+model Server {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  type        ServerCountry
+  ip          String        @unique
+  domain      String        @unique
+  inboundId   Int           @default(1)
+  token       String
+  userPackage UserPackage[]
+  Domain      Domain[]
+  ClientStat  ClientStat[]
+}
+
+
 model Package {
-  id             String        @id @default(cuid())
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
   traffic        Int
   expirationDays Int
   price          Int
@@ -107,13 +110,15 @@ model Package {
 }
 
 model UserPackage {
-  id        String     @id @default(cuid())
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-  packageId String
-  userId    String
-  serverId  String
-  statId    String
+  packageId String     @db.Uuid
+  userId    String     @db.Uuid
+  serverId  String     @db.Uuid
+  statId    String     @db.Uuid
+  paymentId String     @db.Uuid
+  payment   Payment    @relation(fields: [paymentId], references: [id])
   package   Package    @relation(fields: [packageId], references: [id])
   user      User       @relation(fields: [userId], references: [id])
   server    Server     @relation(fields: [serverId], references: [id])
@@ -126,7 +131,7 @@ model UserPackage {
 }
 
 model ClientStat {
-  id         String        @id
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   expiryTime BigInt
@@ -135,7 +140,7 @@ model ClientStat {
   up         BigInt
   email      String
   enable     Boolean
-  serverId   String
+  serverId   String        @db.Uuid      
   server     Server        @relation(fields: [serverId], references: [id])
   Package    UserPackage[]
 
@@ -151,39 +156,37 @@ enum PaymentState {
   APPLIED
 }
 
-// model Wallet {
-//   id        String      @id @default(cuid())
-//   userId    String
-//   balance   Int  @default(0)
+model Payment {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  amount         Int
+  status         PaymentState @default(PENDING)
+  payerId        String       @db.Uuid
+  discountAmount Int?
+
+  payer       User          @relation(fields: [payerId], references: [id])
+  UserPackage UserPackage[]
+}
+
+// model Transation {
+//   id        String   @id
+//   amount    Int
 //   createdAt DateTime @default(now())
 //   updatedAt DateTime @updatedAt
+//   payerId   String
 
-//   user     User    @relation(fields: [userId], references: [id])
-//   payments Payment[]
-//   transfers Transfer[]
+//   payer User @relation(fields: [payerId], references: [id])
 // }
 
-model Payment {
-  id        String       @id @default(cuid())
-  amount    Int
-  status    PaymentState @default(PENDING)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  payerId   String
+// model Transfer {
+//   id         String   @id 
+//   amount     Int
+//   createdAt  DateTime @default(now())
+//   updatedAt  DateTime @updatedAt
+//   senderId   String
+//   receiverId String
 
-  // wallet Wallet @relation(fields: [walletId], references: [id])
-  payer User @relation(fields: [payerId], references: [id])
-}
-
-model Transfer {
-  id         String   @id @default(cuid())
-  amount     Int
-  // status    PaymentState @default(PENDING)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  senderId   String
-  receiverId String
-
-  sender   User @relation("TransferSenderRelation", fields: [senderId], references: [id])
-  receiver User @relation("TransferReceiverRelation", fields: [receiverId], references: [id])
-}
+//   sender   User @relation("TransferSenderRelation", fields: [senderId], references: [id])
+//   receiver User @relation("TransferReceiverRelation", fields: [receiverId], references: [id])
+// }

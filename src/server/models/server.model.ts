@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Field, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { Field, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { DomainState, ServerCountry } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
@@ -23,4 +23,7 @@ export class Server extends BaseModel {
 
   @Field()
   token: string;
+
+  @Field(() => Int)
+  inboundId: number;
 }
