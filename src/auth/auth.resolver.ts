@@ -1,21 +1,27 @@
-import { Args, Mutation, Parent, ResolveField, Resolver } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { Args, Context, Mutation, Parent, ResolveField, Resolver } from '@nestjs/graphql';
+import type { Request as RequestType } from 'express';
 
+import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { UserEntity } from '../common/decorators/user.decorator';
 import { User } from '../users/models/user.model';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { RefreshTokenInput } from './dto/refresh-token.input';
 import { SignupInput } from './dto/signup.input';
 import { Auth } from './models/auth.model';
+import { Login } from './models/login.model';
 import { Token } from './models/token.model';
 
 @Resolver(() => Auth)
 export class AuthResolver {
   constructor(private readonly auth: AuthService) {}
 
+  @UseGuards(GqlAuthGuard)
   @Mutation(() => Auth)
-  async signup(@Args('data') data: SignupInput) {
+  async signup(@UserEntity() user: User, @Args('data') data: SignupInput) {
     data.phone = data.phone.toLowerCase();
-    const { accessToken, refreshToken } = await this.auth.createUser(data);
+    const { accessToken, refreshToken } = await this.auth.createUser(user, data);
 
     return {
       accessToken,
@@ -24,13 +30,27 @@ export class AuthResolver {
   }
 
   @Mutation(() => Auth)
-  async login(@Args('data') { phone, password }: LoginInput) {
-    const { accessToken, refreshToken } = await this.auth.login(phone.toLowerCase(), password);
+  async signupA(@Args('data') data: SignupInput) {
+    data.phone = data.phone.toLowerCase();
+    const { accessToken, refreshToken } = await this.auth.createUser(null, data);
 
     return {
       accessToken,
       refreshToken,
     };
+  }
+
+  @Mutation(() => Login)
+  async login(@Args('data') { phone, password }: LoginInput, @Context() context: { req: RequestType }): Promise<Login> {
+    return this.auth.login(phone.toLowerCase(), password, context.req);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => Boolean)
+  logout(@Context() context: { req: RequestType }): boolean {
+    this.auth.logout(context.req);
+
+    return true;
   }
 
   @Mutation(() => Token)

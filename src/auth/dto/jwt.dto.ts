@@ -9,3 +9,8 @@ export interface JwtDto {
    */
   exp: number;
 }
+
+export interface TokenCookie {
+  accessT: string;
+  refreshT: string;
+}

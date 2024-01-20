@@ -1,11 +1,12 @@
 import type { OnModuleInit } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 
+import { MinioResolver } from './minio.resolver';
 import { MinioClientService } from './minio.service';
 
 @Global()
 @Module({
-  providers: [MinioClientService],
+  providers: [MinioResolver, MinioClientService],
   exports: [MinioClientService],
 })
 export class MinioClientModule implements OnModuleInit {

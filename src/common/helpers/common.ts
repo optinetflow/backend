@@ -4,7 +4,6 @@ import type { ReadStream } from 'fs';
 import fs from 'fs';
 import { readdir } from 'fs/promises';
 import path from 'path';
-import * as querystring from 'querystring';
 
 export async function stream2buffer(stream: ReadStream): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
@@ -208,4 +207,84 @@ export function jsonObjectToQueryString(jsonObject) {
 
 export function removePort(url: string): string {
   return url.split(':')[0];
+}
+
+export const getFileFromURL = async (url: string) => {
+  const response = await fetch(url);
+
+  const arrayOfBuffer = await response.arrayBuffer();
+
+  return Buffer.from(arrayOfBuffer);
+};
+
+export function b64UrlToJson(b64url: string): Record<string, unknown> {
+  try {
+    const base64Decoded = atob(b64url);
+
+    return Object.fromEntries(new URLSearchParams(base64Decoded).entries());
+  } catch {
+    console.error('Error parsing b64url to JSON.');
+
+    return {};
+  }
+}
+
+export function jsonToB64Url(json: Record<string, string>): string {
+  try {
+    const jsonEncoded = new URLSearchParams(json).toString();
+    const base64URLEncoded = btoa(jsonEncoded);
+
+    return base64URLEncoded.replace(/=+$/, '');
+  } catch {
+    console.error('Error converting JSON to b64url.');
+
+    return '';
+  }
+}
+
+export const extractFileName = (pathStr?: string | null) => pathStr && path.basename(pathStr, path.extname(pathStr));
+
+export function bytesToGB(bytes: number): number {
+  const gigabyte = 1024 * 1024 * 1024; // 1 gigabyte = 1024 megabytes * 1024 kilobytes * 1024 bytes
+
+  return bytes / gigabyte;
+}
+
+/* eslint-disable sonarjs/no-nested-template-literals */
+export function convertPersianCurrency(number: number): string {
+  const numberAbs = Math.abs(number);
+
+  if (numberAbs >= 1 && numberAbs < 1000) {
+    return `${number > 0 ? number : `${-number}-`} هزار تومان`;
+  }
+
+  if (numberAbs >= 1000 && numberAbs < 1_000_000) {
+    return `${number > 0 ? number / 1000 : `${-number / 1000}-`} میلیون تومان`;
+  }
+
+  return number.toString();
+}
+
+export const getVlessLink = (id: string, domain: string, name: string) =>
+  `vless://${id}@${removePort(
+    domain,
+  )}:30022?type=ws&path=%2Fws&security=tls&fp=&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent(name)}`;
+
+export function floorTo(number: number, decimalPlaces: number) {
+  const factor = Math.pow(10, decimalPlaces);
+
+  return Math.floor(number * factor) / factor;
+}
+
+export function roundTo(number: number, decimalPlaces: number) {
+  const factor = Math.pow(10, decimalPlaces);
+
+  return Math.round(number * factor) / factor;
+}
+
+export function getRemainingDays(expiryTime: number): number {
+  const remainingTime = expiryTime - Date.now();
+  const millisecondsInDay = 24 * 60 * 60 * 1000;
+
+  return roundTo(remainingTime / millisecondsInDay, 0);
 }

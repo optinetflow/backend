@@ -8,12 +8,59 @@ Table User {
   updatedAt DateTime [not null]
   phone String [unique, not null]
   password String [not null]
-  firstname String
-  lastname String
-  balance Int [not null, default: 0]
+  firstname String [not null]
+  lastname String [not null]
+  balance Float [not null, default: 0]
+  profitBalance Float [not null, default: 0]
+  totalProfit Float [not null, default: 0]
+  parentId String
+  referId String
   role Role [not null, default: 'USER']
+  isDisabled Boolean [not null, default: false]
+  isParentDisabled Boolean [not null, default: false]
+  maxRechargeDiscountPercent Float
+  parent User
+  children User [not null]
+  refer User
+  referers User [not null]
   userPackage UserPackage [not null]
-  Payment Payment [not null]
+  payment Payment [not null]
+  telegram TelegramUser
+  bankCard BankCard [not null]
+  file File [not null]
+}
+
+Table TelegramUser {
+  id BigInt [pk]
+  userId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  phone String [unique]
+  firstname String [not null]
+  lastname String [not null]
+  username String
+  bigAvatar String
+  smallAvatar String
+  user User [not null]
+}
+
+Table BankCard {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  userId String [not null]
+  number String [unique, not null]
+  name String [not null]
+  user User [not null]
+}
+
+Table File {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  userId String [not null]
+  name String [not null]
+  user User [not null]
 }
 
 Table Domain {
@@ -42,7 +89,7 @@ Table Arvan {
   token String
   tokenExpiredAt DateTime
   nsKeys String[] [not null]
-  Domain Domain [not null]
+  domain Domain [not null]
 }
 
 Table Server {
@@ -57,7 +104,7 @@ Table Server {
   token String [not null]
   userPackage UserPackage [not null]
   Domain Domain [not null]
-  ClientStat ClientStat [not null]
+  clientStat ClientStat [not null]
 }
 
 Table Package {
@@ -65,23 +112,37 @@ Table Package {
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   deletedAt DateTime
-  traffic Int [not null]
-  expirationDays Int [not null]
-  price Int [not null]
+  traffic Float [not null]
+  expirationDays Float [not null]
+  price Float [not null]
   userCount Int [not null]
-  UserPackage UserPackage [not null]
+  userPackage UserPackage [not null]
+}
+
+Table RechargePackage {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  amount Float [not null]
+  discountPercent Float [not null]
 }
 
 Table UserPackage {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
+  deletedAt DateTime
+  finishedAt DateTime
+  name String [not null]
   packageId String [not null]
   userId String [not null]
   serverId String [not null]
   statId String [not null]
-  paymentId String [not null]
-  payment Payment [not null]
+  paymentId String
+  thresholdWarningSentAt DateTime
+  order String [not null, default: 'n']
+  payment Payment
   package Package [not null]
   user User [not null]
   server Server [not null]
@@ -99,6 +160,10 @@ Table ClientStat {
   email String [not null]
   enable Boolean [not null]
   serverId String [not null]
+  flow String [not null]
+  subId String [not null]
+  tgId String [not null]
+  limitIp Int [not null]
   server Server [not null]
   Package UserPackage [not null]
 }
@@ -107,10 +172,13 @@ Table Payment {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  amount Int [not null]
+  amount Float [not null]
+  type PaymentType [not null]
   status PaymentState [not null, default: 'PENDING']
+  receiptImage String
   payerId String [not null]
-  discountAmount Int
+  profitAmount Float [not null, default: 0]
+  parentProfit Float [not null, default: 0]
   payer User [not null]
   UserPackage UserPackage [not null]
 }
@@ -134,7 +202,24 @@ Enum ServerCountry {
 Enum PaymentState {
   PENDING
   APPLIED
+  REJECTED
 }
+
+Enum PaymentType {
+  PACKAGE_PURCHASE
+  WALLET_RECHARGE
+  SERVER_COST
+}
+
+Ref: User.parentId - User.id
+
+Ref: User.referId - User.id
+
+Ref: TelegramUser.userId - User.id
+
+Ref: BankCard.userId > User.id
+
+Ref: File.userId > User.id
 
 Ref: Domain.arvanId > Arvan.id
 

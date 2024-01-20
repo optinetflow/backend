@@ -29,7 +29,14 @@ type Auth {
 scalar BigNumber
 
 input BuyPackageInput {
+  name: String!
   packageId: String!
+  receipt: String
+}
+
+input BuyRechargePackageInput {
+  receipt: String!
+  rechargePackageId: String!
 }
 
 input ChangePasswordInput {
@@ -141,6 +148,11 @@ A field whose value is a JSON Web Token (JWT): https://jwt.io/introduction.
 """
 scalar JWT
 
+type Login {
+  tokens: Token!
+  user: User!
+}
+
 input LoginInput {
   password: String!
   phone: String!
@@ -151,17 +163,23 @@ type Mutation {
   addDomain(data: CreateDomainInput!): Domain!
   addServer(data: CreateServerInput!): Server!
   buyPackage(data: BuyPackageInput!): String!
+  buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
   issueCert(data: IssueCertInput!): Domain!
-  login(data: LoginInput!): Auth!
+  login(data: LoginInput!): Login!
+  logout: Boolean!
   refreshToken(token: JWT!): Token!
+  renewPackage(input: RenewPackageInput!): String!
   signup(data: SignupInput!): Auth!
+  signupA(data: SignupInput!): Auth!
   updateArvanSslStates: Boolean!
+  updateChild(input: UpdateChildInput!): User!
   updateIp(data: UpdateDnsIpInput!): [Dns!]!
   updateLetsEncryptSslStates: Boolean!
   updateNsStates: Boolean!
   updatePort(data: UpdateDnsPortInput!): Dns!
   updateUser(data: UpdateUserInput!): User!
+  uploadImage(input: UploadInput!): String!
 }
 
 type Package {
@@ -170,20 +188,55 @@ type Package {
   expirationDays: Int!
   id: ID!
   price: Int!
-  traffic: Int!
+  traffic: Float!
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
   userCount: Int!
 }
 
+type Parent {
+  bankCard: [ParentBankCard!]
+  id: String!
+  telegram: ParentTelegram
+}
+
+type ParentBankCard {
+  number: String
+}
+
+type ParentTelegram {
+  username: String
+}
+
 type Query {
+  children: [User!]!
   clientStats(filters: GetClientStatsFiltersInput): [ClientStat!]!
   domains(filters: DomainsFiltersInput): [Domain!]!
   hello(name: String!): String!
   helloWorld: String!
   me: User!
   packages: [Package!]!
+  rechargePackages: [RechargePackage!]!
+  userPackages: [UserPackage!]!
+}
+
+type RechargePackage {
+  amount: Float!
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  discountPercent: Float!
+  id: ID!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
+input RenewPackageInput {
+  packageId: String!
+  receipt: String
+  userPackageId: String!
 }
 
 """User role"""
@@ -214,10 +267,22 @@ enum ServerCountry {
 }
 
 input SignupInput {
-  firstname: String
-  lastname: String
+  firstname: String!
+  lastname: String!
   password: String!
   phone: String!
+  referId: String
+  role: Role
+}
+
+type TelegramUser {
+  bigAvatar: String
+  firstname: String!
+  id: BigNumber!
+  lastname: String!
+  phone: String
+  smallAvatar: String
+  username: String
 }
 
 type Token {
@@ -226,6 +291,15 @@ type Token {
 
   """JWT refresh token"""
   refreshToken: JWT!
+}
+
+input UpdateChildInput {
+  childId: String!
+  firstname: String
+  isDisabled: Boolean
+  lastname: String
+  password: String
+  phone: String
 }
 
 input UpdateDnsIpInput {
@@ -241,6 +315,15 @@ input UpdateDnsPortInput {
 input UpdateUserInput {
   firstname: String
   lastname: String
+  password: String
+  phone: String
+}
+
+"""The `Upload` scalar type represents a file upload."""
+scalar Upload
+
+input UploadInput {
+  image: Upload!
 }
 
 """Upstream Https"""
@@ -252,13 +335,38 @@ enum UpstreamHttps {
 }
 
 type User {
+  balance: Float!
+
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
-  firstname: String
+  firstname: String!
   id: ID!
-  lastname: String
+  isDisabled: Boolean
+  isParentDisabled: Boolean
+  lastname: String!
+  maxRechargeDiscountPercent: Float
+  parent: Parent
+  parentId: String
   phone: String!
+  profitBalance: Float!
+  referId: String
   role: Role!
+  telegram: TelegramUser
+  totalProfit: Float!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
+type UserPackage {
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  expiryTime: BigNumber!
+  id: ID!
+  link: String!
+  name: String!
+  remainingTraffic: BigNumber!
+  totalTraffic: BigNumber!
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!

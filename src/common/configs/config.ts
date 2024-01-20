@@ -4,6 +4,7 @@ import type { Config } from './config.interface';
 const env = (process.env?.NODE_ENV || 'production') as 'production' | 'staging' | 'development';
 const config: Config = {
   env,
+  webPanelUrl: process.env.WEB_PANEL_URL!,
   publicIP: process.env.PUBLIC_IP!,
   version,
   serviceName: name,
@@ -41,6 +42,13 @@ const config: Config = {
     rootPassword: process.env.MINIO_ROOT_PASSWORD!,
     region: process.env.MINIO_REGION_NAME!,
     bucket: process.env.MINIO_BUCKET!,
+  },
+  telegraf: {
+    token: process.env.TELEGRAM_BOT_TOKEN!,
+    reportGroupId: process.env.REPORT_GROUP_ID!,
+  },
+  xui: {
+    password: process.env.XUI_PASSWORD!,
   },
 };
 
