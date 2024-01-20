@@ -1,6 +1,7 @@
 export type ENV = 'production' | 'staging' | 'development';
 export interface Config {
   env: ENV;
+  webPanelUrl: string;
   publicIP: string;
   version: string;
   serviceName: string;
@@ -10,6 +11,8 @@ export interface Config {
   graphql: GraphqlConfig;
   security: SecurityConfig;
   minio: MinioConfig;
+  telegraf: Telegraf;
+  xui: XUI;
 }
 
 export interface NestConfig {
@@ -51,4 +54,13 @@ export interface MinioConfig {
   rootPassword: string;
   bucket: string;
   region: string;
+}
+
+export interface Telegraf {
+  token: string;
+  reportGroupId: string;
+}
+
+export interface XUI {
+  password: string;
 }

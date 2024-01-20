@@ -32,7 +32,8 @@
     "strictFunctionTypes": true,
     "noFallthroughCasesInSwitch": true,
     "strictPropertyInitialization": false,
-    "typeRoots": ["src/@types", "node_modules/@types"]
+    "typeRoots": ["src/@types", "node_modules/@types"],
+    "allowJs": true
   },
   "exclude": ["node_modules", "dist", "graphql", "**/*.spec.ts"],
   "include": ["src/**/*"]

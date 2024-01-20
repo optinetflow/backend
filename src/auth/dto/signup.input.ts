@@ -1,20 +1,31 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, Matches, MinLength } from 'class-validator';
+import { Role } from '@prisma/client';
+import { IsNotEmpty, IsOptional, IsUUID, Matches, MinLength } from 'class-validator';
 
 @InputType()
 export class SignupInput {
+  @Field()
+  firstname: string;
+
+  @Field()
+  lastname: string;
+
   @Field()
   @Matches(/^9\d{9}$/)
   phone: string;
 
   @Field()
   @IsNotEmpty()
-  @MinLength(8)
+  @MinLength(4)
   password: string;
 
-  @Field({ nullable: true })
-  firstname?: string;
+  @Field(() => Role, { nullable: true })
+  @IsUUID()
+  @IsOptional()
+  role?: Role;
 
-  @Field({ nullable: true })
-  lastname?: string;
+  @Field(() => String, { nullable: true })
+  @IsUUID()
+  @IsOptional()
+  referId?: string;
 }

@@ -2,6 +2,9 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
+import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.js';
 import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 
 import { AppModule } from './app.module';
@@ -12,6 +15,11 @@ async function bootstrap() {
 
   // Validation
   app.useGlobalPipes(new ValidationPipe());
+
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  app.use('/graphql', graphqlUploadExpress({ maxFileSize: 1_000_000, maxFiles: 10 }));
+  app.use(cookieParser());
 
   // enable shutdown hook
   app.enableShutdownHooks();

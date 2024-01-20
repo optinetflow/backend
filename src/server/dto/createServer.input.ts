@@ -1,10 +1,11 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { ServerCountry } from '@prisma/client';
-import { Matches } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 @InputType()
 export class CreateServerInput {
   @Field()
+  @IsUUID()
   ip: string;
 
   @Field()

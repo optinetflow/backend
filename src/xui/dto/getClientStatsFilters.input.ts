@@ -1,10 +1,11 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { DomainState } from '@prisma/client';
-import { IsNotEmpty, Matches, MinLength } from 'class-validator';
+import { IsOptional, IsUUID } from 'class-validator';
 
 @InputType()
 export class GetClientStatsFiltersInput {
   @Field(() => String, { nullable: true })
+  @IsUUID()
+  @IsOptional()
   id?: string;
 
   @Field(() => String, { nullable: true })

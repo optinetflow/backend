@@ -2,8 +2,6 @@ import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 
 export interface BufferedFile {
   filename: string;
-  encoding: string;
-  mimetype: string;
   buffer: Buffer | string;
 }
 

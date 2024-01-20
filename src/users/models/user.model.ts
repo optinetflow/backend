@@ -1,15 +1,39 @@
 import 'reflect-metadata';
 
-import { Field, HideField, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { Field, Float, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { Role } from '@prisma/client';
 import { IsMobilePhone } from 'class-validator';
 
 import { BaseModel } from '../../common/models/base.model';
+import { TelegramUser } from '../../telegram/models/telegramUser.model';
 
 registerEnumType(Role, {
   name: 'Role',
   description: 'User role',
 });
+@ObjectType()
+export class ParentTelegram {
+  @Field(() => String, { nullable: true })
+  username?: string | null;
+}
+
+@ObjectType()
+export class ParentBankCard {
+  @Field(() => String, { nullable: true })
+  number?: string | null;
+}
+
+@ObjectType()
+export class Parent {
+  @Field()
+  id: string;
+
+  @Field(() => ParentTelegram, { nullable: true })
+  telegram?: ParentTelegram | null;
+
+  @Field(() => [ParentBankCard], { nullable: true })
+  bankCard?: ParentBankCard[] | null;
+}
 
 @ObjectType()
 export class User extends BaseModel {
@@ -17,15 +41,45 @@ export class User extends BaseModel {
   @IsMobilePhone()
   phone: string;
 
-  @Field(() => String, { nullable: true })
-  firstname?: string;
+  @Field(() => String)
+  firstname: string;
 
-  @Field(() => String, { nullable: true })
-  lastname?: string;
+  @Field(() => String)
+  lastname: string;
 
   @Field(() => Role)
   role: Role;
 
   @HideField()
   password: string;
+
+  @Field(() => Float)
+  balance: number;
+
+  @Field(() => Float)
+  profitBalance: number;
+
+  @Field(() => Float)
+  totalProfit: number;
+
+  @Field(() => String, { nullable: true })
+  parentId?: string | null;
+
+  @Field(() => String, { nullable: true })
+  referId?: string | null;
+
+  @Field(() => Boolean, { nullable: true })
+  isDisabled?: boolean | null;
+
+  @Field(() => Boolean, { nullable: true })
+  isParentDisabled?: boolean | null;
+
+  @Field(() => TelegramUser, { nullable: true })
+  telegram?: TelegramUser | null;
+
+  @Field(() => Parent, { nullable: true })
+  parent?: Parent | null;
+
+  @Field(() => Float, { nullable: true })
+  maxRechargeDiscountPercent?: number | null;
 }

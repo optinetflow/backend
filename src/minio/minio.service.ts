@@ -1,16 +1,21 @@
 /*  eslint-disable no-await-in-loop, @typescript-eslint/naming-convention */
 
-import { HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ReadStream } from 'fs';
 import { createWriteStream } from 'fs';
 import { mkdir, readdir, readFile } from 'fs/promises';
+import Upload from 'graphql-upload/Upload.js';
 import mime from 'mime-types';
 import { BucketItem, Client } from 'minio';
+import { PrismaService } from 'nestjs-prisma';
 import path from 'path';
+import sharp from 'sharp';
+import { v4 as uuid } from 'uuid';
 
 import type { MinioConfig } from '../common/configs/config.interface';
-import { cutPath, objectsList, readFilesRecursively, stream2buffer } from '../common/helpers';
+import { cutPath, getFileFromURL, objectsList, readFilesRecursively, stream2buffer } from '../common/helpers';
+import { User } from '../users/models/user.model';
 import type { BufferedFile } from './minio.model';
 
 interface UploadByPath {
@@ -21,7 +26,7 @@ interface UploadByPath {
 }
 @Injectable()
 export class MinioClientService {
-  constructor(private readonly configService: ConfigService) {
+  constructor(private prisma: PrismaService, private readonly configService: ConfigService) {
     this.logger = new Logger('MinioService');
     this.bucketName = this.configService.get<MinioConfig>('minio')!.bucket;
     this.region = this.configService.get<MinioConfig>('minio')!.region;
@@ -53,19 +58,8 @@ export class MinioClientService {
 
   public async upload(files: BufferedFile[], bucketName: string = this.bucketName): Promise<string[]> {
     for (const file of files) {
-      if (
-        !(file.mimetype.includes('png') || file.mimetype.includes('webp') || file.mimetype.includes('officedocument'))
-      ) {
-        throw new HttpException('File type not supported', HttpStatus.BAD_REQUEST);
-      }
-
-      const metaData = {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': file.mimetype,
-      };
-
       try {
-        await this.client.putObject(bucketName, file.filename, file.buffer, metaData);
+        await this.client.putObject(bucketName, file.filename, file.buffer);
       } catch {
         throw new HttpException('Error uploading file', HttpStatus.BAD_REQUEST);
       }
@@ -159,5 +153,36 @@ export class MinioClientService {
 
       return Promise.reject(error);
     }
+  }
+
+  async uploadImageTemporary(user: User, image: Upload): Promise<string> {
+    const id = uuid();
+    const nonPromiseImage = await image;
+    const imageStream = (await nonPromiseImage.createReadStream()) as ReadStream;
+    const imageBuffer = await stream2buffer(imageStream);
+    const uploadPath = `tempImage/${id}.jpg`;
+    let resizedImage: Buffer;
+
+    try {
+      resizedImage = await sharp(imageBuffer).resize(500).jpeg().toBuffer();
+    } catch {
+      throw new BadRequestException('Image resizing failed!');
+    }
+
+    try {
+      await this.upload([{ filename: uploadPath, buffer: resizedImage }]);
+    } catch {
+      throw new BadRequestException('Uploading image to minio got failed!');
+    }
+
+    await this.prisma.file.create({
+      data: {
+        id,
+        name: uploadPath,
+        userId: user.id,
+      },
+    });
+
+    return id;
   }
 }

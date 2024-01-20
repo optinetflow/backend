@@ -18,38 +18,96 @@ enum Role {
 }
 
 model User {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  phone       String        @unique
-  password    String
-  firstname   String?
-  lastname    String?
-  balance     Int           @default(0)
-  role        Role          @default(USER)
+  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  phone                      String   @unique
+  password                   String // @db.VarChar(255)
+  firstname                  String // @db.VarChar(255)
+  lastname                   String // @db.VarChar(255)
+  balance                    Float    @default(0)
+  profitBalance              Float    @default(0)
+  totalProfit                Float    @default(0)
+  parentId                   String?  @db.Uuid
+  referId                    String?  @db.Uuid
+  role                       Role     @default(USER)
+  isDisabled                 Boolean  @default(false)
+  isParentDisabled           Boolean  @default(false)
+  maxRechargeDiscountPercent Float?
+
+  parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
+  children    User[]        @relation("UserParentRelation")
+  refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
+  referers    User[]        @relation("UserReferRelation")
   userPackage UserPackage[]
-  Payment     Payment[]
-  // sendTransfer    Transfer[]    @relation("TransferSenderRelation")
-  // recieveTransfer Transfer[]    @relation("TransferReceiverRelation")
+  payment     Payment[]
+  telegram    TelegramUser?
+  bankCard    BankCard[]
+  file        File[]
 
   @@index([role], name: "UserRoleIndex")
+  @@index([parentId], name: "UserParentIdIndex")
+  @@index([referId], name: "UserReferIdIndex")
+}
+
+model TelegramUser {
+  id          BigInt   @id
+  userId      String   @unique @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  phone       String?  @unique
+  firstname   String   @db.VarChar(255)
+  lastname    String   @db.VarChar(255)
+  username    String?  @db.VarChar(64)
+  bigAvatar   String?  @db.VarChar(255)
+  smallAvatar String?  @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], name: "TelegramUserUserIdIndex")
+}
+
+model BankCard {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String   @db.Uuid
+  number    String   @unique
+  name      String   @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], name: "BankCardUserIdIndex")
+}
+
+model File {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String   @db.Uuid
+  name      String   @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], name: "FileUserIdIndex")
 }
 
 model Domain {
   id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-  domain         String      @unique
+  domain         String      @unique // @db.VarChar(255)
   expiredAt      DateTime
   nsState        DomainState @default(PENDING)
   arvanSslState  DomainState @default(PENDING)
   letsEncryptSsl DomainState @default(PENDING)
   port           Int?
   isAutomated    Boolean?
-  arvanId        String @db.Uuid
-  serverId       String @db.Uuid
-  arvan          Arvan       @relation(fields: [arvanId], references: [id])
-  server         Server      @relation(fields: [serverId], references: [id])
+  arvanId        String      @db.Uuid
+  serverId       String      @db.Uuid
+
+  arvan  Arvan  @relation(fields: [arvanId], references: [id])
+  server Server @relation(fields: [serverId], references: [id])
 
   @@index([nsState], name: "DomainNsStateIndex")
   @@index([arvanSslState], name: "DomainArvanSslStateIndex")
@@ -67,12 +125,12 @@ model Arvan {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  email          String    @unique
-  password       String
-  token          String?
+  email          String    @unique @db.VarChar(255)
+  password       String // @db.VarChar(255)
+  token          String? // @db.VarChar(255)
   tokenExpiredAt DateTime?
-  nsKeys         String[]
-  Domain         Domain[]
+  nsKeys         String[]  @db.VarChar(255)
+  domain         Domain[]
 }
 
 enum ServerCountry {
@@ -87,15 +145,14 @@ model Server {
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
   type        ServerCountry
-  ip          String        @unique
-  domain      String        @unique
+  ip          String        @unique // @db.VarChar(255)
+  domain      String        @unique // @db.VarChar(255)
   inboundId   Int           @default(1)
-  token       String
+  token       String // @db.VarChar(255)
   userPackage UserPackage[]
   Domain      Domain[]
-  ClientStat  ClientStat[]
+  clientStat  ClientStat[]
 }
-
 
 model Package {
   id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -103,26 +160,41 @@ model Package {
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
   traffic        Float
-  expirationDays Int
-  price          Int
+  expirationDays Float
+  price          Float
   userCount      Int
-  UserPackage    UserPackage[]
+  userPackage    UserPackage[]
+}
+
+model RechargePackage {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  amount          Float
+  discountPercent Float
 }
 
 model UserPackage {
-  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  packageId String     @db.Uuid
-  userId    String     @db.Uuid
-  serverId  String     @db.Uuid
-  statId    String     @db.Uuid
-  paymentId String     @db.Uuid
-  payment   Payment    @relation(fields: [paymentId], references: [id])
-  package   Package    @relation(fields: [packageId], references: [id])
-  user      User       @relation(fields: [userId], references: [id])
-  server    Server     @relation(fields: [serverId], references: [id])
-  stat      ClientStat @relation(fields: [statId], references: [id])
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  deletedAt              DateTime?
+  finishedAt             DateTime?
+  name                   String    @db.VarChar(255)
+  packageId              String    @db.Uuid
+  userId                 String    @db.Uuid
+  serverId               String    @db.Uuid
+  statId                 String    @db.Uuid
+  paymentId              String?   @db.Uuid
+  thresholdWarningSentAt DateTime?
+  order                  String    @default("n") @db.VarChar(255)
+
+  payment Payment?   @relation(fields: [paymentId], references: [id])
+  package Package    @relation(fields: [packageId], references: [id])
+  user    User       @relation(fields: [userId], references: [id])
+  server  Server     @relation(fields: [serverId], references: [id])
+  stat    ClientStat @relation(fields: [statId], references: [id])
 
   @@index([userId], name: "UserPackageUserIdIndex")
   @@index([serverId], name: "UserPackageServerIdIndex")
@@ -131,18 +203,23 @@ model UserPackage {
 }
 
 model ClientStat {
-  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   expiryTime BigInt
   total      BigInt
   down       BigInt
   up         BigInt
-  email      String
+  email      String // @db.VarChar(255)
   enable     Boolean
-  serverId   String        @db.Uuid      
-  server     Server        @relation(fields: [serverId], references: [id])
-  Package    UserPackage[]
+  serverId   String   @db.Uuid
+  flow       String   @db.VarChar(255)
+  subId      String   @db.VarChar(255)
+  tgId       String   @db.VarChar(255)
+  limitIp    Int
+
+  server  Server        @relation(fields: [serverId], references: [id])
+  Package UserPackage[]
 
   @@index([serverId], name: "ClientStatServerIdIndex")
   @@index([expiryTime], name: "ClientStatExpiryTimeIndex")
@@ -154,16 +231,26 @@ model ClientStat {
 enum PaymentState {
   PENDING
   APPLIED
+  REJECTED
+}
+
+enum PaymentType {
+  PACKAGE_PURCHASE
+  WALLET_RECHARGE
+  SERVER_COST
 }
 
 model Payment {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  amount         Int
-  status         PaymentState @default(PENDING)
-  payerId        String       @db.Uuid
-  discountAmount Int?
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  amount       Float
+  type         PaymentType
+  status       PaymentState @default(PENDING)
+  receiptImage String?      @db.VarChar(255)
+  payerId      String       @db.Uuid
+  profitAmount Float        @default(0)
+  parentProfit Float        @default(0)
 
   payer       User          @relation(fields: [payerId], references: [id])
   UserPackage UserPackage[]
