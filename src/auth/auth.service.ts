@@ -57,7 +57,7 @@ export class AuthService {
         },
       });
 
-      const reportCaption = `#ثبتـنام\n👤 ${newUser.firstname} ${newUser.lastname}\n📞 موبایل: +98${user?.phone}\n\n👨 مارکتر: ${user?.firstname} ${user?.lastname}`;
+      const reportCaption = `#ثبتـنام\n👤 ${newUser.firstname} ${newUser.lastname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${user?.firstname} ${user?.lastname}`;
       void this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
 
       return this.generateTokens({
