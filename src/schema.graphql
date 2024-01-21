@@ -176,7 +176,6 @@ type Mutation {
   refreshToken(token: JWT!): Token!
   renewPackage(input: RenewPackageInput!): String!
   signup(data: SignupInput!): Auth!
-  signupA(data: SignupInput!): Auth!
   updateArvanSslStates: Boolean!
   updateChild(input: UpdateChildInput!): User!
   updateIp(data: UpdateDnsIpInput!): [Dns!]!

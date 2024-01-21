@@ -29,17 +29,6 @@ export class AuthResolver {
     };
   }
 
-  @Mutation(() => Auth)
-  async signupA(@Args('data') data: SignupInput) {
-    data.phone = data.phone.toLowerCase();
-    const { accessToken, refreshToken } = await this.auth.createUser(null, data);
-
-    return {
-      accessToken,
-      refreshToken,
-    };
-  }
-
   @Mutation(() => Login)
   async login(@Args('data') { phone, password }: LoginInput, @Context() context: { req: RequestType }): Promise<Login> {
     return this.auth.login(phone.toLowerCase(), password, context.req);

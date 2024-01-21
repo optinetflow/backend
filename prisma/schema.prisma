@@ -56,8 +56,8 @@ model TelegramUser {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   phone       String?  @unique
-  firstname   String   @db.VarChar(255)
-  lastname    String   @db.VarChar(255)
+  firstname   String?  @db.VarChar(255)
+  lastname    String?  @db.VarChar(255)
   username    String?  @db.VarChar(64)
   bigAvatar   String?  @db.VarChar(255)
   smallAvatar String?  @db.VarChar(255)
