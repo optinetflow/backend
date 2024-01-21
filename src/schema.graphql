@@ -277,9 +277,9 @@ input SignupInput {
 
 type TelegramUser {
   bigAvatar: String
-  firstname: String!
+  firstname: String
   id: BigNumber!
-  lastname: String!
+  lastname: String
   phone: String
   smallAvatar: String
   username: String

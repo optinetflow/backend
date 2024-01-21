@@ -9,11 +9,11 @@ export class TelegramUser {
   @Field(() => BigNumberScalar)
   id: bigint;
 
-  @Field()
-  firstname: string;
+  @Field(() => String, { nullable: true })
+  firstname?: string | null;
 
-  @Field()
-  lastname: string;
+  @Field(() => String, { nullable: true })
+  lastname?: string | null;
 
   @Field(() => String, { nullable: true })
   phone?: string | null;
