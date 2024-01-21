@@ -53,17 +53,24 @@ export class PaymentService {
     });
     const paymentId = uuid();
 
-    const chargeAmount = rechargePack.amount / ((100 - rechargePack.discountPercent) / 100);
+    let chargeAmount = rechargePack.amount / ((100 - rechargePack.discountPercent) / 100);
+    const isFullProfit = !Number.isFinite(chargeAmount);
+
+    if (isFullProfit) {
+      chargeAmount = rechargePack.amount;
+    }
+
     const profitAmount = chargeAmount - rechargePack.amount;
     const { receiptBuffer, parentProfit } = await this.paymentRequest(user, {
       amount: chargeAmount,
-      profitAmount,
+      profitAmount: isFullProfit ? chargeAmount : profitAmount,
       type: 'WALLET_RECHARGE',
       id: paymentId,
       receipt: input.receipt,
     });
 
-    const approximateProfit = parentProfit ? parentProfit - profitAmount : profitAmount;
+    const approximateFullProfit = isFullProfit ? chargeAmount : profitAmount;
+    const approximateProfit = parentProfit ? parentProfit - profitAmount : approximateFullProfit;
     const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${user.firstname} ${
       user.lastname
     }\n⚡مقدار شارژ: ${convertPersianCurrency(roundTo(chargeAmount, 0))}\n📞 موبایل: +98${
