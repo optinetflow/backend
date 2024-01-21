@@ -29,7 +29,7 @@ export class UsersService {
   async getUser(user: User): Promise<User> {
     const fullUser = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      include: { telegram: true, parent: { include: { telegram: true, bankCard: true } } },
+      include: { telegram: true, bankCard: true, parent: { include: { telegram: true, bankCard: true } } },
     });
 
     prefixAvatar(fullUser?.telegram);
@@ -49,9 +49,32 @@ export class UsersService {
     return children;
   }
 
-  updateUser(userId: string, data: UpdateUserInput) {
+  async updateUser(userId: string, data: UpdateUserInput) {
+    const { cardBandNumber, cardBandName, ...updatedData } = data;
+
+    if (cardBandNumber && cardBandName) {
+      const cardData = {
+        userId,
+        name: cardBandName,
+        number: cardBandNumber,
+      };
+
+      const hasBankCard = await this.prisma.bankCard.findFirst({ where: { userId } });
+
+      await (hasBankCard
+        ? this.prisma.bankCard.update({
+            where: {
+              id: hasBankCard.id,
+            },
+            data: cardData,
+          })
+        : this.prisma.bankCard.create({
+            data: cardData,
+          }));
+    }
+
     return this.prisma.user.update({
-      data,
+      data: updatedData,
       where: {
         id: userId,
       },

@@ -18,9 +18,12 @@ export class ParentTelegram {
 }
 
 @ObjectType()
-export class ParentBankCard {
-  @Field(() => String, { nullable: true })
-  number?: string | null;
+export class BankCard {
+  @Field()
+  name: string;
+
+  @Field()
+  number: string;
 }
 
 @ObjectType()
@@ -31,8 +34,8 @@ export class Parent {
   @Field(() => ParentTelegram, { nullable: true })
   telegram?: ParentTelegram | null;
 
-  @Field(() => [ParentBankCard], { nullable: true })
-  bankCard?: ParentBankCard[] | null;
+  @Field(() => [BankCard], { nullable: true })
+  bankCard?: BankCard[] | null;
 }
 
 @ObjectType()
@@ -82,4 +85,7 @@ export class User extends BaseModel {
 
   @Field(() => Float, { nullable: true })
   maxRechargeDiscountPercent?: number | null;
+
+  @Field(() => [BankCard], { nullable: true })
+  bankCard?: BankCard[] | null;
 }

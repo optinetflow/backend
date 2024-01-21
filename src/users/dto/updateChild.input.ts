@@ -1,4 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
+import { Role } from '@prisma/client';
 import { IsOptional, Matches } from 'class-validator';
 
 @InputType()
@@ -22,4 +23,7 @@ export class UpdateChildInput {
 
   @Field(() => Boolean, { nullable: true })
   isDisabled?: boolean;
+
+  @Field(() => Role, { nullable: true })
+  role?: Role;
 }

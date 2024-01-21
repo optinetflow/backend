@@ -1,6 +1,7 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, Logger, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { User as UserPrisma } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { InjectBot } from 'nestjs-telegraf';
 import { Telegraf } from 'telegraf';
@@ -62,6 +63,13 @@ export class PaymentService {
       receipt: input.receipt,
     });
 
+    const approximateProfit = parentProfit ? parentProfit - profitAmount : profitAmount;
+    const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${user.firstname} ${
+      user.lastname
+    }\n⚡مقدار شارژ: ${convertPersianCurrency(roundTo(chargeAmount, 0))}\n📞 موبایل: +98${
+      user.phone
+    }\n💵 سود تقریبی: ${convertPersianCurrency(roundTo(approximateProfit, 0))}`;
+
     if (user.parentId) {
       const acceptData = { A_CHARGE: paymentId } as CallbackData;
       const rejectData = { R_CHARGE: paymentId } as CallbackData;
@@ -69,12 +77,6 @@ export class PaymentService {
       const telegramUser = await this.prisma.telegramUser.findUnique({ where: { userId: user.parentId } });
 
       if (receiptBuffer) {
-        const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${user.firstname} ${
-          user.lastname
-        }\n⚡مقدار شارژ: ${convertPersianCurrency(roundTo(chargeAmount, 0))}\n📞 موبایل: +98${
-          user.phone
-        }\n💵 سود تقریبی: ${convertPersianCurrency(roundTo(parentProfit! - profitAmount, 0))}`;
-
         if (telegramUser) {
           await this.bot.telegram.sendPhoto(
             Number(telegramUser.id),
@@ -107,6 +109,8 @@ export class PaymentService {
           )}`;
         await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption: reportCaption });
       }
+    } else if (receiptBuffer) {
+      await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption });
     }
 
     return this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
