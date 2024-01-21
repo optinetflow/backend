@@ -18,7 +18,7 @@ async function bootstrap() {
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
-  app.use('/graphql', graphqlUploadExpress({ maxFileSize: 1_000_000, maxFiles: 10 }));
+  app.use('/graphql', graphqlUploadExpress({ maxFileSize: 10_000_000, maxFiles: 10 }));
   app.use(cookieParser());
 
   // enable shutdown hook

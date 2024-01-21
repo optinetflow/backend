@@ -16,4 +16,10 @@ export class UpdateUserInput {
 
   @Field(() => String, { nullable: true })
   password?: string;
+
+  @Field(() => String, { nullable: true })
+  cardBandNumber?: string;
+
+  @Field(() => String, { nullable: true })
+  cardBandName?: string;
 }

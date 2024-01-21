@@ -25,6 +25,11 @@ type Auth {
   user: User!
 }
 
+type BankCard {
+  name: String!
+  number: String!
+}
+
 """A custom scalar type for big numbers"""
 scalar BigNumber
 
@@ -178,7 +183,7 @@ type Mutation {
   updateLetsEncryptSslStates: Boolean!
   updateNsStates: Boolean!
   updatePort(data: UpdateDnsPortInput!): Dns!
-  updateUser(data: UpdateUserInput!): User!
+  updateUser(input: UpdateUserInput!): User!
   uploadImage(input: UploadInput!): String!
 }
 
@@ -196,13 +201,9 @@ type Package {
 }
 
 type Parent {
-  bankCard: [ParentBankCard!]
+  bankCard: [BankCard!]
   id: String!
   telegram: ParentTelegram
-}
-
-type ParentBankCard {
-  number: String
 }
 
 type ParentTelegram {
@@ -300,6 +301,7 @@ input UpdateChildInput {
   lastname: String
   password: String
   phone: String
+  role: Role
 }
 
 input UpdateDnsIpInput {
@@ -313,6 +315,8 @@ input UpdateDnsPortInput {
 }
 
 input UpdateUserInput {
+  cardBandName: String
+  cardBandNumber: String
   firstname: String
   lastname: String
   password: String
@@ -336,6 +340,7 @@ enum UpstreamHttps {
 
 type User {
   balance: Float!
+  bankCard: [BankCard!]
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
