@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Package, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, Prisma, Role, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
@@ -950,8 +950,11 @@ export class XuiService {
     }
   }
 
-  async getPackages() {
-    return this.prisma.package.findMany({ where: { deletedAt: null } });
+  async getPackages(user: User) {
+    return this.prisma.package.findMany({
+      where: { deletedAt: null, forRole: { has: user.role } },
+      orderBy: { order: 'asc' },
+    });
   }
 
   async acceptPurchasePack(userPackId: string): Promise<void> {

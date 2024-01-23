@@ -116,6 +116,8 @@ Table Package {
   expirationDays Float [not null]
   price Float [not null]
   userCount Int [not null]
+  order Int
+  forRole Role[] [not null]
   userPackage UserPackage [not null]
 }
 

@@ -56,19 +56,43 @@ export class TelegramService {
 
   async handleStartPayload(ctx: Context, payload: StartPayload, telegramUser: TelegramUser | null): Promise<void> {
     if (payload?.uid && !telegramUser) {
-      const user = await this.prisma.user.findUnique({ where: { id: payload?.uid } });
+      const user = await this.prisma.user.findUnique({ where: { id: payload?.uid }, include: { telegram: true } });
 
       if (!user) {
         return;
       }
 
-      await this.upsertUser(user, ctx.from!.id);
+      // already registered by another account!
+      if (user?.telegram) {
+        return;
+      }
 
+      const [updatedTelegramUser, bigPhoto] = await this.upsertUser(user, ctx.from!.id);
       await ctx.scene.enter(REGISTER_SCENE_ID);
+
+      let parent: User | null = null;
+
+      if (user.parentId) {
+        parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
+      }
+
+      const caption = `#ثبـنامـتلگرام\n👤 ${user.firstname} ${user.lastname} (@${updatedTelegramUser?.username})\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}`;
+
+      if (bigPhoto) {
+        void this.bot.telegram.sendPhoto(this.reportGroupId, { source: bigPhoto }, { caption });
+
+        return;
+      }
+
+      void this.bot.telegram.sendMessage(this.reportGroupId, caption);
     }
   }
 
-  async upsertUser(user: User, telegramId: number, telegramUser?: TelegramUser) {
+  async upsertUser(
+    user: User,
+    telegramId: number,
+    telegramUser?: TelegramUser,
+  ): Promise<[TelegramUser, Buffer | undefined]> {
     const chat = await this.bot.telegram.getChat(telegramId);
 
     let bigAvatar: string | undefined;
@@ -77,9 +101,10 @@ export class TelegramService {
     let bigPhoto: Buffer | undefined;
     let smallPhoto: Buffer | undefined;
 
-    const isPhotoAlreadySaved = chat.photo?.small_file_id === extractFileName(telegramUser?.smallAvatar);
+    const isPhotoAlreadySaved =
+      chat.photo?.small_file_id && chat.photo.small_file_id === extractFileName(telegramUser?.smallAvatar);
 
-    if (chat.photo && !isPhotoAlreadySaved) {
+    if (chat.photo && chat.photo?.small_file_id && !isPhotoAlreadySaved) {
       const bigPhotoLink = await this.bot.telegram.getFileLink(chat.photo.big_file_id);
       const smallPhotoLink = await this.bot.telegram.getFileLink(chat.photo.small_file_id);
       bigPhoto = await getFileFromURL(bigPhotoLink.href);
@@ -120,7 +145,7 @@ export class TelegramService {
       smallAvatar,
     };
 
-    await this.prisma.telegramUser.upsert({
+    const updatedTelegramUser = await this.prisma.telegramUser.upsert({
       where: {
         id: telegramId,
       },
@@ -128,23 +153,7 @@ export class TelegramService {
       update: updatedData,
     });
 
-    if (!isPhotoAlreadySaved) {
-      let parent: User | null = null;
-
-      if (user.parentId) {
-        parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
-      }
-
-      const caption = `#ثبـنامـتلگرام\n👤 ${user.firstname} ${user.lastname} (@${extendedChat?.username})\n👨 نام تلگرام: ${extendedChat.first_name} ${extendedChat.last_name}\n\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}`;
-
-      if (bigPhoto) {
-        void this.bot.telegram.sendPhoto(this.reportGroupId, { source: bigPhoto }, { caption });
-
-        return;
-      }
-
-      void this.bot.telegram.sendMessage(this.reportGroupId, caption);
-    }
+    return [updatedTelegramUser, bigPhoto];
   }
 
   async addPhone(ctx: Context, phone: string): Promise<void> {

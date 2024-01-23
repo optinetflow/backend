@@ -26,8 +26,8 @@ export class XuiResolver {
 
   @UseGuards(GqlAuthGuard)
   @Query(() => [Package])
-  packages(): Promise<Package[]> {
-    return this.xuiService.getPackages();
+  packages(@UserEntity() user: User): Promise<Package[]> {
+    return this.xuiService.getPackages(user);
   }
 
   @UseGuards(GqlAuthGuard)
