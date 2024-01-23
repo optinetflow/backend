@@ -611,11 +611,15 @@ export class XuiService {
     try {
       if (!userPack.finishedAt) {
         const remainingDays = (Number(userPack.stat.expiryTime) - Date.now()) / (1000 * 60 * 60 * 24);
-        modifiedPack.expirationDays += remainingDays;
-
-        const maxTransformableTraffic = (remainingDays / userPack.package.expirationDays) * userPack.package.traffic;
         const remainingTraffic = bytesToGB(Number(userPack.stat.total - (userPack.stat.down + userPack.stat.up)));
+
+        const maxTransformableExpirationDays =
+          (remainingTraffic / userPack.package.traffic) * userPack.package.expirationDays;
+        const maxTransformableTraffic = (remainingDays / userPack.package.expirationDays) * userPack.package.traffic;
+
         modifiedPack.traffic += remainingTraffic > maxTransformableTraffic ? maxTransformableTraffic : remainingTraffic;
+        modifiedPack.expirationDays +=
+          remainingDays > maxTransformableExpirationDays ? maxTransformableExpirationDays : remainingDays;
 
         await this.resetClientTraffic(userPack.statId);
 
@@ -730,12 +734,17 @@ export class XuiService {
 
   async getUserPackages(user: User): Promise<UserPackage[]> {
     const userPackages: UserPackage[] = [];
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
         stat: true,
         server: true,
       },
-      where: { userId: user.id, deletedAt: null },
+      where: {
+        userId: user.id,
+        deletedAt: null,
+        OR: [{ finishedAt: null }, { finishedAt: { gte: tenDaysAgo } }],
+      },
       orderBy: {
         order: 'asc',
       },
@@ -1082,6 +1091,7 @@ export class XuiService {
     });
   }
 
+  // @Interval('syncClientStats', 0.25 * 60 * 1000)
   @Interval('syncClientStats', 1 * 60 * 1000)
   async syncClientStats() {
     this.logger.debug('SyncClientStats called every 1 min');
