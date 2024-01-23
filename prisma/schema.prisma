@@ -163,6 +163,8 @@ model Package {
   expirationDays Float
   price          Float
   userCount      Int
+  order          Int?
+  forRole        Role[]         @default([ADMIN, USER])
   userPackage    UserPackage[]
 }
 
