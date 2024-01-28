@@ -9,7 +9,7 @@ import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { User } from '../users/models/user.model';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
-import { PaymentRequestInput } from './dto/paymentRequest.input';
+import { EnterCostInput } from './dto/enterCost.input';
 import { RechargePackage } from './models/rechargePackage.model';
 import { PaymentService } from './payment.service';
 
@@ -30,5 +30,11 @@ export class PaymentResolver {
   @Mutation(() => User)
   buyRechargePackage(@UserEntity() user: User, @Args('input') input: BuyRechargePackageInput): Promise<User> {
     return this.paymentService.buyRechargePackage(user, input);
+  }
+
+  @UseGuards(GqlAuthGuard)
+  @Mutation(() => User)
+  enterCost(@UserEntity() user: User, @Args('input') input: EnterCostInput): Promise<User> {
+    return this.paymentService.enterCost(user, input);
   }
 }

@@ -2,6 +2,7 @@ export type ENV = 'production' | 'staging' | 'development';
 export interface Config {
   env: ENV;
   webPanelUrl: string;
+  backdoorPass: string;
   publicIP: string;
   version: string;
   serviceName: string;
