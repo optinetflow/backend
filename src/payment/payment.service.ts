@@ -13,6 +13,7 @@ import { MinioClientService } from '../minio/minio.service';
 import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
+import { EnterCostInput } from './dto/enterCost.input';
 import { PaymentRequestInput } from './dto/paymentRequest.input';
 import { RechargePackage } from './models/rechargePackage.model';
 
@@ -316,5 +317,47 @@ export class PaymentService {
     });
 
     return user;
+  }
+
+  async enterCost(user: User, input: EnterCostInput): Promise<User> {
+    if (user.maxRechargeDiscountPercent !== 100) {
+      throw new BadRequestException('Access denied!');
+    }
+
+    if (input.amount <= 0) {
+      throw new BadRequestException('Invalid amount!');
+    }
+
+    if (!['EXTERNAL_SERVER_COST', 'IRAN_SERVER_COST'].includes(input.type)) {
+      throw new BadRequestException('Invalid type!');
+    }
+
+    const [userModel] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          profitBalance: {
+            decrement: input.amount,
+          },
+          totalProfit: {
+            decrement: input.amount,
+          },
+        },
+      }),
+      this.prisma.payment.create({
+        data: {
+          amount: -input.amount,
+          type: input.type,
+          payerId: user.id,
+          description: input.description,
+          status: 'APPLIED',
+          profitAmount: -input.amount,
+        },
+      }),
+    ]);
+
+    return userModel;
   }
 }

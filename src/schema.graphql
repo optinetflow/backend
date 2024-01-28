@@ -139,6 +139,12 @@ input DomainsFiltersInput {
   nsState: DomainState
 }
 
+input EnterCostInput {
+  amount: Int!
+  description: String
+  type: PaymentType!
+}
+
 input GetClientStatsFiltersInput {
   email: String
   id: String
@@ -170,6 +176,7 @@ type Mutation {
   buyPackage(data: BuyPackageInput!): String!
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
+  enterCost(input: EnterCostInput!): User!
   issueCert(data: IssueCertInput!): Domain!
   login(data: LoginInput!): Login!
   logout: Boolean!
@@ -207,6 +214,14 @@ type Parent {
 
 type ParentTelegram {
   username: String
+}
+
+"""Payment Type"""
+enum PaymentType {
+  EXTERNAL_SERVER_COST
+  IRAN_SERVER_COST
+  PACKAGE_PURCHASE
+  WALLET_RECHARGE
 }
 
 type Query {

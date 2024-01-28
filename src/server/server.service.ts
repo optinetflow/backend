@@ -192,43 +192,43 @@ export class ServerService {
     }
   }
 
-  @Interval('updateLetsEncryptSslStates', 60 * 60 * 1000)
-  async updateLetsEncryptSslStates() {
-    this.logger.debug('UpdateLetsEncryptSslStates called every 1 hours');
-    const appliedDomains: string[] = [];
-    const pendingDomains = await this.prisma.domain.findMany({
-      where: {
-        nsState: 'APPLIED',
-        letsEncryptSsl: 'PENDING',
-      },
-      include: {
-        server: true,
-      },
-    });
+  // @Interval('updateLetsEncryptSslStates', 60 * 60 * 1000)
+  // async updateLetsEncryptSslStates() {
+  //   this.logger.debug('UpdateLetsEncryptSslStates called every 1 hours');
+  //   const appliedDomains: string[] = [];
+  //   const pendingDomains = await this.prisma.domain.findMany({
+  //     where: {
+  //       nsState: 'APPLIED',
+  //       letsEncryptSsl: 'PENDING',
+  //     },
+  //     include: {
+  //       server: true,
+  //     },
+  //   });
 
-    for (const pendingDomain of pendingDomains) {
-      try {
-        await this.getLetEncryptSsl(pendingDomain.domain, pendingDomain.server.ip);
-        console.info('Let CERT created.', pendingDomain.domain);
-        appliedDomains.push(pendingDomain.id);
-      } catch {
-        console.error(`We couldn't get LetEncryptSsl for ${pendingDomain.domain}`);
-      }
-    }
+  //   for (const pendingDomain of pendingDomains) {
+  //     try {
+  //       await this.getLetEncryptSsl(pendingDomain.domain, pendingDomain.server.ip);
+  //       console.info('Let CERT created.', pendingDomain.domain);
+  //       appliedDomains.push(pendingDomain.id);
+  //     } catch {
+  //       console.error(`We couldn't get LetEncryptSsl for ${pendingDomain.domain}`);
+  //     }
+  //   }
 
-    if (appliedDomains.length > 0) {
-      await this.prisma.domain.updateMany({
-        where: {
-          id: {
-            in: appliedDomains,
-          },
-        },
-        data: {
-          letsEncryptSsl: 'APPLIED',
-        },
-      });
-    }
+  //   if (appliedDomains.length > 0) {
+  //     await this.prisma.domain.updateMany({
+  //       where: {
+  //         id: {
+  //           in: appliedDomains,
+  //         },
+  //       },
+  //       data: {
+  //         letsEncryptSsl: 'APPLIED',
+  //       },
+  //     });
+  //   }
 
-    await this.syncCertFiles();
-  }
+  //   await this.syncCertFiles();
+  // }
 }

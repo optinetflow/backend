@@ -239,7 +239,8 @@ enum PaymentState {
 enum PaymentType {
   PACKAGE_PURCHASE
   WALLET_RECHARGE
-  SERVER_COST
+  IRAN_SERVER_COST
+  EXTERNAL_SERVER_COST
 }
 
 model Payment {
@@ -253,6 +254,7 @@ model Payment {
   payerId      String       @db.Uuid
   profitAmount Float        @default(0)
   parentProfit Float        @default(0)
+  description  String?
 
   payer       User          @relation(fields: [payerId], references: [id])
   UserPackage UserPackage[]

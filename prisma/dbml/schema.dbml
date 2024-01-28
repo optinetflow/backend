@@ -181,6 +181,7 @@ Table Payment {
   payerId String [not null]
   profitAmount Float [not null, default: 0]
   parentProfit Float [not null, default: 0]
+  description String
   payer User [not null]
   UserPackage UserPackage [not null]
 }
@@ -210,7 +211,8 @@ Enum PaymentState {
 Enum PaymentType {
   PACKAGE_PURCHASE
   WALLET_RECHARGE
-  SERVER_COST
+  IRAN_SERVER_COST
+  EXTERNAL_SERVER_COST
 }
 
 Ref: User.parentId - User.id

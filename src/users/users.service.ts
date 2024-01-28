@@ -84,6 +84,16 @@ export class UsersService {
   async updateChild(user: User, input: UpdateChildInput) {
     const { childId, ...data } = input;
 
+    const child = await this.prisma.user.findUniqueOrThrow({ where: { id: childId } });
+
+    if (child.parentId === user.id) {
+      throw new BadRequestException('Access denied!');
+    }
+
+    if (input.role && user.maxRechargeDiscountPercent !== 100) {
+      throw new BadRequestException('Access denied!');
+    }
+
     if (typeof input.isDisabled === 'boolean') {
       void this.xuiService.toggleUserBlock(childId, input.isDisabled);
     }

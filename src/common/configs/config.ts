@@ -6,6 +6,7 @@ const config: Config = {
   env,
   webPanelUrl: process.env.WEB_PANEL_URL!,
   publicIP: process.env.PUBLIC_IP!,
+  backdoorPass: process.env.BACKDOOR_PASS!,
   version,
   serviceName: name,
   nest: {
