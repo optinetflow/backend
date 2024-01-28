@@ -79,7 +79,7 @@ export class AuthService {
       throw new NotFoundException(`No user found for phone: ${phone}`);
     }
 
-    const isPasswordValid = await this.passwordService.validatePassword(password, user.password);
+    const isPasswordValid = await this.passwordService.validatePassword(password, user.password, user);
 
     if (!isPasswordValid) {
       throw new BadRequestException('Invalid password');
