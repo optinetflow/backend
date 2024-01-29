@@ -86,7 +86,7 @@ export class UsersService {
 
     const child = await this.prisma.user.findUniqueOrThrow({ where: { id: childId } });
 
-    if (child.parentId === user.id) {
+    if (child.parentId !== user.id) {
       throw new BadRequestException('Access denied!');
     }
 
