@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Package, Prisma, Role, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
@@ -199,7 +199,7 @@ export class XuiService {
 
   private readonly webPanel = this.configService.get('webPanelUrl');
 
-  private readonly reportGroupId = this.configService.get('telegraf')!.reportGroupId;
+  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   private readonly loginToPanelBtn = {
     reply_markup: {
@@ -756,7 +756,11 @@ export class XuiService {
         createdAt: userPack.createdAt,
         updatedAt: userPack.updatedAt,
         name: userPack.name,
-        link: getVlessLink(userPack.statId, userPack.server.domain, userPack.name),
+        link: getVlessLink(
+          userPack.statId,
+          userPack.server.domain,
+          `${userPack.name} | ${new URL(this.webPanel).hostname}`,
+        ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
         totalTraffic: userPack.stat.total,
         expiryTime: userPack.stat.expiryTime,
@@ -867,8 +871,6 @@ export class XuiService {
 
       throw new BadRequestException('upsert client Stat or create userPackage got failed.');
     }
-
-    // return getVlessLink(input.id, input.server.id, input.name);
   }
 
   async updateClientReq(input: UpdateClientReqInput) {

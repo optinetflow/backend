@@ -87,7 +87,7 @@ export class UsersService {
     const child = await this.prisma.user.findUniqueOrThrow({ where: { id: childId } });
 
     if (child.parentId !== user.id) {
-      throw new BadRequestException('Access denied!');
+      throw new BadRequestException('Access denied! You should be parent of this child.');
     }
 
     if (input.role && user.maxRechargeDiscountPercent !== 100) {

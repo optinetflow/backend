@@ -1,14 +1,17 @@
 /* eslint-disable max-len */
-import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
+import fs from 'fs';
 import { PrismaService } from 'nestjs-prisma';
-import { firstValueFrom } from 'rxjs';
+import { InjectBot } from 'nestjs-telegraf';
+import { Telegraf } from 'telegraf';
 
 import { Domain } from '../arvan/models/domain.model';
+import { PostgresConfig, TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import { asyncShellExec } from '../common/helpers';
+import { Context } from '../common/interfaces/context.interface';
 import { MinioClientService } from '../minio/minio.service';
 import { XuiService } from '../xui/xui.service';
 import { CreateServerInput } from './dto/createServer.input';
@@ -18,14 +21,17 @@ import { Server } from './models/server.model';
 @Injectable()
 export class ServerService {
   constructor(
+    @InjectBot()
+    private readonly bot: Telegraf<Context>,
     private prisma: PrismaService,
-    private httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
     private readonly xuiService: XuiService,
   ) {}
 
   private readonly logger = new Logger(ServerService.name);
+
+  private readonly serverGroup = this.configService.get<TelGroup>('telGroup')!.server;
 
   async issueCert(data: IssueCertInput): Promise<Domain> {
     const domain = data.domain;
@@ -230,5 +236,55 @@ export class ServerService {
     }
 
     await this.syncCertFiles();
+  }
+
+  @Interval('getPGBackup', 1 * 60 * 1000)
+  async getPGBackup() {
+    this.logger.debug('getPGBackup called every 1 min');
+    const postgresConfig = this.configService.get<PostgresConfig>('postgres');
+
+    if (!postgresConfig) {
+      return;
+    }
+
+    let postgresLogs = '';
+    const outputFile = (
+      await asyncShellExec(
+        `
+          FILE=\`date +"%Y-%m-%d-%H_%M"\`-pg-backup.sql \
+          && OUTPUT_FILE=/app/\${FILE} \
+          && echo $OUTPUT_FILE
+        `,
+      )
+    ).replaceAll('\n', '');
+
+    try {
+      postgresLogs = await asyncShellExec(
+        `
+          cd /app \
+          && echo "Getting Backup Postgres..." \
+          && PGPASSWORD=${postgresConfig.password} pg_dump -c -h ${postgresConfig.dataBaseHost} --port ${postgresConfig.dataBasePort} -U ${postgresConfig.user} ${postgresConfig.databaseName} -F p -f ${outputFile} \
+          && gzip ${outputFile} \
+          && echo "Postgres backup has been done successfully."
+        `,
+        (output) => (postgresLogs += output),
+      );
+
+      const buffer = fs.readFileSync(`${outputFile}.gz`);
+
+      void this.bot.telegram.sendDocument(this.serverGroup, { source: buffer, filename: `${outputFile}.gz` });
+
+      await asyncShellExec(`rm -rf ${outputFile}.gz`);
+    } catch (error_) {
+      const error = error_ as { message?: string };
+
+      if (error?.message) {
+        postgresLogs += `\n${error?.message}`;
+      }
+
+      postgresLogs += '\nPostgres backup finished with some errors.';
+    }
+
+    return postgresLogs;
   }
 }
