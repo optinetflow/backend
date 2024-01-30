@@ -15,6 +15,14 @@ const config: Config = {
   cors: {
     enabled: true,
   },
+  postgres: {
+    dataBaseHost: process.env.DB_HOST!,
+    dataBasePort: process.env.DB_PORT!,
+    databaseName: process.env.POSTGRES_DB!,
+    databaseUrl: process.env.DATABASE_URL!,
+    user: process.env.POSTGRES_USER!,
+    password: process.env.POSTGRES_PASSWORD!,
+  },
   swagger: {
     enabled: true,
     title: name,
@@ -46,10 +54,14 @@ const config: Config = {
   },
   telegraf: {
     token: process.env.TELEGRAM_BOT_TOKEN!,
-    reportGroupId: process.env.REPORT_GROUP_ID!,
   },
   xui: {
     password: process.env.XUI_PASSWORD!,
+  },
+  telGroup: {
+    report: process.env.REPORT_GROUP_ID!,
+    backup: process.env.BACKUP_GROUP_ID!,
+    server: process.env.SERVER_GROUP_ID!,
   },
 };
 

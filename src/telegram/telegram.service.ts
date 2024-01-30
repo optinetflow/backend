@@ -29,7 +29,7 @@ export class TelegramService {
 
   private readonly logger = new Logger(TelegramService.name);
 
-  private readonly reportGroupId = this.configService.get('telegraf')!.reportGroupId;
+  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   echo(text: string): string {
     return `Echo: ${text}`;

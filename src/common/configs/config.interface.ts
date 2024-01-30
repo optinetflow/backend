@@ -8,12 +8,14 @@ export interface Config {
   serviceName: string;
   nest: NestConfig;
   cors: CorsConfig;
+  postgres: PostgresConfig;
   swagger: SwaggerConfig;
   graphql: GraphqlConfig;
   security: SecurityConfig;
   minio: MinioConfig;
   telegraf: Telegraf;
   xui: XUI;
+  telGroup: TelGroup;
 }
 
 export interface NestConfig {
@@ -22,6 +24,15 @@ export interface NestConfig {
 
 export interface CorsConfig {
   enabled: boolean;
+}
+
+export interface PostgresConfig {
+  dataBaseHost: string;
+  dataBasePort: string;
+  databaseUrl: string;
+  databaseName: string;
+  user: string;
+  password: string;
 }
 
 export interface SwaggerConfig {
@@ -59,9 +70,14 @@ export interface MinioConfig {
 
 export interface Telegraf {
   token: string;
-  reportGroupId: string;
 }
 
 export interface XUI {
   password: string;
+}
+
+export interface TelGroup {
+  report: string;
+  backup: string;
+  server: string;
 }

@@ -1,5 +1,6 @@
-import { NotAcceptableException, UseGuards } from '@nestjs/common';
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaService } from 'nestjs-prisma';
 
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
@@ -16,7 +17,9 @@ import { XuiService } from './xui.service';
 
 @Resolver()
 export class XuiResolver {
-  constructor(private xuiService: XuiService, private prisma: PrismaService) {}
+  constructor(private xuiService: XuiService, private readonly configService: ConfigService) {}
+
+  private readonly webPanel = this.configService.get('webPanelUrl');
 
   // @UseGuards(GqlAuthGuard)
   @Query(() => [ClientStat])
@@ -41,7 +44,7 @@ export class XuiResolver {
   async buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): Promise<string> {
     const userPack = await this.xuiService.buyPackage(user, data);
 
-    return getVlessLink(userPack.statId, userPack.serverId, userPack.name);
+    return getVlessLink(userPack.statId, userPack.serverId, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
   }
 
   @UseGuards(GqlAuthGuard)
@@ -49,6 +52,6 @@ export class XuiResolver {
   async renewPackage(@UserEntity() user: User, @Args('input') input: RenewPackageInput): Promise<string> {
     const userPack = await this.xuiService.renewPackage(user, input);
 
-    return getVlessLink(userPack.statId, userPack.serverId, userPack.name);
+    return getVlessLink(userPack.statId, userPack.serverId, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
   }
 }

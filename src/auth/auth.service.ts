@@ -35,7 +35,7 @@ export class AuthService {
     private readonly userService: UsersService,
   ) {}
 
-  private readonly reportGroupId = this.configService.get('telegraf')!.reportGroupId;
+  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async createUser(user: User | null, payload: SignupInput): Promise<Token> {
     let referId: string | undefined;

@@ -35,7 +35,7 @@ export class PaymentService {
 
   private readonly logger = new Logger(PaymentService.name);
 
-  private readonly reportGroupId = this.configService.get('telegraf')!.reportGroupId;
+  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async getRechargePackages(user: User): Promise<RechargePackage[]> {
     return this.prisma.rechargePackage.findMany({
