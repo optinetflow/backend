@@ -31,7 +31,7 @@ export class ServerService {
 
   private readonly logger = new Logger(ServerService.name);
 
-  private readonly serverGroup = this.configService.get<TelGroup>('telGroup')!.server;
+  private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
 
   async issueCert(data: IssueCertInput): Promise<Domain> {
     const domain = data.domain;
@@ -242,6 +242,7 @@ export class ServerService {
   async getPGBackup() {
     this.logger.debug('getPGBackup called every 1 min');
     const postgresConfig = this.configService.get<PostgresConfig>('postgres');
+    console.log(postgresConfig);
 
     if (!postgresConfig) {
       return;
@@ -259,6 +260,7 @@ export class ServerService {
     ).replaceAll('\n', '');
 
     try {
+      console.log('getting backup...');
       postgresLogs = await asyncShellExec(
         `
           cd /app \
@@ -272,7 +274,9 @@ export class ServerService {
 
       const buffer = fs.readFileSync(`${outputFile}.gz`);
 
-      void this.bot.telegram.sendDocument(this.serverGroup, { source: buffer, filename: `${outputFile}.gz` });
+      console.log('Backup... DONE.');
+
+      void this.bot.telegram.sendDocument(this.backupGroup, { source: buffer, filename: `${outputFile}.gz` });
 
       await asyncShellExec(`rm -rf ${outputFile}.gz`);
     } catch (error_) {
@@ -283,6 +287,7 @@ export class ServerService {
       }
 
       postgresLogs += '\nPostgres backup finished with some errors.';
+      console.log('Backup failed...', postgresLogs);
     }
 
     return postgresLogs;
