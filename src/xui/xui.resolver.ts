@@ -17,7 +17,11 @@ import { XuiService } from './xui.service';
 
 @Resolver()
 export class XuiResolver {
-  constructor(private xuiService: XuiService, private readonly configService: ConfigService) {}
+  constructor(
+    private xuiService: XuiService,
+    private readonly configService: ConfigService,
+    private prisma: PrismaService,
+  ) {}
 
   private readonly webPanel = this.configService.get('webPanelUrl');
 
@@ -43,15 +47,25 @@ export class XuiResolver {
   @Mutation(() => String)
   async buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): Promise<string> {
     const userPack = await this.xuiService.buyPackage(user, data);
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
 
-    return getVlessLink(userPack.statId, userPack.serverId, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
+    return getVlessLink(
+      userPack.statId,
+      server.tunnelDomain || server.domain,
+      `${userPack.name} | ${new URL(this.webPanel).hostname}`,
+    );
   }
 
   @UseGuards(GqlAuthGuard)
   @Mutation(() => String)
   async renewPackage(@UserEntity() user: User, @Args('input') input: RenewPackageInput): Promise<string> {
     const userPack = await this.xuiService.renewPackage(user, input);
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
 
-    return getVlessLink(userPack.statId, userPack.serverId, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
+    return getVlessLink(
+      userPack.statId,
+      server.tunnelDomain || server.domain,
+      `${userPack.name} | ${new URL(this.webPanel).hostname}`,
+    );
   }
 }

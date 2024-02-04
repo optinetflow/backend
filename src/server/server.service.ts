@@ -238,11 +238,10 @@ export class ServerService {
     await this.syncCertFiles();
   }
 
-  @Interval('getPGBackup', 1 * 60 * 1000)
+  @Interval('getPGBackup', 15 * 60 * 1000)
   async getPGBackup() {
     this.logger.debug('getPGBackup called every 1 min');
     const postgresConfig = this.configService.get<PostgresConfig>('postgres');
-    console.log(postgresConfig);
 
     if (!postgresConfig) {
       return;
@@ -260,7 +259,6 @@ export class ServerService {
     ).replaceAll('\n', '');
 
     try {
-      console.log('getting backup...');
       postgresLogs = await asyncShellExec(
         `
           cd /app \
@@ -274,8 +272,6 @@ export class ServerService {
 
       const buffer = fs.readFileSync(`${outputFile}.gz`);
 
-      console.log('Backup... DONE.');
-
       void this.bot.telegram.sendDocument(this.backupGroup, { source: buffer, filename: `${outputFile}.gz` });
 
       await asyncShellExec(`rm -rf ${outputFile}.gz`);
@@ -287,9 +283,13 @@ export class ServerService {
       }
 
       postgresLogs += '\nPostgres backup finished with some errors.';
-      console.log('Backup failed...', postgresLogs);
     }
 
     return postgresLogs;
   }
+
+  // @Interval('getPGBackup', 0.1 * 60 * 1000)
+  // async updateServerStat() {
+
+  // }
 }

@@ -758,7 +758,7 @@ export class XuiService {
         name: userPack.name,
         link: getVlessLink(
           userPack.statId,
-          userPack.server.domain,
+          userPack.server.tunnelDomain || userPack.server.domain,
           `${userPack.name} | ${new URL(this.webPanel).hostname}`,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),

@@ -102,6 +102,7 @@ Table Server {
   domain String [unique, not null]
   inboundId Int [not null, default: 1]
   token String [not null]
+  tunnelDomain String
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]

@@ -140,18 +140,19 @@ enum ServerCountry {
 }
 
 model Server {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-  type        ServerCountry
-  ip          String        @unique // @db.VarChar(255)
-  domain      String        @unique // @db.VarChar(255)
-  inboundId   Int           @default(1)
-  token       String // @db.VarChar(255)
-  userPackage UserPackage[]
-  Domain      Domain[]
-  clientStat  ClientStat[]
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  type         ServerCountry
+  ip           String        @unique // @db.VarChar(255)
+  domain       String        @unique // @db.VarChar(255)
+  inboundId    Int           @default(1)
+  token        String // @db.VarChar(255)
+  tunnelDomain String?       @db.VarChar(255)
+  userPackage  UserPackage[]
+  Domain       Domain[]
+  clientStat   ClientStat[]
 }
 
 model Package {
@@ -164,7 +165,7 @@ model Package {
   price          Float
   userCount      Int
   order          Int?
-  forRole        Role[]         @default([ADMIN, USER])
+  forRole        Role[]        @default([ADMIN, USER])
   userPackage    UserPackage[]
 }
 
