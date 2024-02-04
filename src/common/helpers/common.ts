@@ -265,9 +265,9 @@ export function convertPersianCurrency(number: number): string {
   return number.toString();
 }
 
-export const getVlessLink = (id: string, domain: string, name: string) =>
+export const getVlessLink = (id: string, tunnelDomain: string, name: string) =>
   `vless://${id}@${removePort(
-    domain,
+    tunnelDomain,
   )}:443?type=ws&path=%2Fws&security=tls&fp=&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent(name)}`;
 
 export function floorTo(number: number, decimalPlaces: number) {
