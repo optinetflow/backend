@@ -16,6 +16,7 @@ export interface Config {
   telegraf: Telegraf;
   xui: XUI;
   telGroup: TelGroup;
+  gcp: GCP;
 }
 
 export interface NestConfig {
@@ -80,4 +81,8 @@ export interface TelGroup {
   report: string;
   backup: string;
   server: string;
+}
+
+export interface GCP {
+  credential: string;
 }
