@@ -63,6 +63,9 @@ const config: Config = {
     backup: process.env.BACKUP_GROUP_ID!,
     server: process.env.SERVER_GROUP_ID!,
   },
+  gcp: {
+    credential: process.env.AI_GCP_CREDENTIAL!,
+  },
 };
 
 // eslint-disable-next-line import/no-default-export

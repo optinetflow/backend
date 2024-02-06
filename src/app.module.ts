@@ -6,6 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { loggingMiddleware, PrismaModule } from 'nestjs-prisma';
 import { TelegrafModule } from 'nestjs-telegraf';
 
+import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 import { AppResolver } from './app.resolver';
 import { AppService } from './app.service';
@@ -58,6 +59,7 @@ import { XuiModule } from './xui/xui.module';
     }),
     TelegramModule,
     PaymentModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],
