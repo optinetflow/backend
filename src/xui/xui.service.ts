@@ -400,12 +400,12 @@ export class XuiService {
 
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
-      void queue.add(() => this.deleteClient(userPack.statId));
-
       if (telegramId) {
         const text = `${userPack.user.firstname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق پنل می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
+
+      void queue.add(() => this.deleteClient(userPack.statId));
     }
 
     for (const finishedTimePack of finishedTimePacks) {
@@ -417,12 +417,12 @@ export class XuiService {
 
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
-      void queue.add(() => this.deleteClient(userPack.statId));
-
       if (telegramId) {
         const text = `${userPack.user.firstname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق پنل می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
+
+      void queue.add(() => this.deleteClient(userPack.statId));
     }
   }
 
