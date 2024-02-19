@@ -18,6 +18,7 @@ import { errors } from '../common/errors';
 import {
   arrayToDic,
   bytesToGB,
+  bytesToMB,
   convertPersianCurrency,
   getRemainingDays,
   getVlessLink,
@@ -168,6 +169,17 @@ interface SendBuyPackMessageInput {
   inRenew: boolean;
 }
 
+interface ServerStat {
+  cpu: number;
+  mem: {
+    current: number;
+    total: number;
+  };
+  tcpCount: number;
+  udpCount: number;
+  netIO: { up: number; down: number };
+}
+
 const ENDPOINTS = (domain: string) => {
   const url = `https://${domain}/v`;
 
@@ -180,6 +192,7 @@ const ENDPOINTS = (domain: string) => {
     resetClientTraffic: (email: string, inboundId: number) =>
       `${url}/panel/inbound/${inboundId}/resetClientTraffic/${email}`,
     delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
+    serverStatus: `${url}/server/status`,
   };
 };
 
@@ -213,6 +226,8 @@ export class XuiService {
       ],
     },
   };
+
+  private ServerStatDic: Record<string, ServerStat[]> = {};
 
   async login(domain: string): Promise<string> {
     try {
@@ -758,7 +773,7 @@ export class XuiService {
         name: userPack.name,
         link: getVlessLink(
           userPack.statId,
-          userPack.server.tunnelDomain || userPack.server.domain,
+          userPack.server.domain,
           `${userPack.name} | ${new URL(this.webPanel).hostname}`,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
@@ -1091,6 +1106,25 @@ export class XuiService {
         isParentDisabled: isBlocked,
       },
     });
+  }
+
+  // @Interval('getServerStatus', 0.25 * 60 * 1000)
+  async getServerStatus(): Promise<void> {
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+
+    for (const server of servers) {
+      try {
+        const status = await this.authenticatedReq({
+          serverId: server.id,
+          url: (domain) => ENDPOINTS(domain).serverStatus,
+          method: 'post',
+        });
+
+        console.log('server ==>', status.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
   }
 
   // @Interval('syncClientStats', 0.25 * 60 * 1000)

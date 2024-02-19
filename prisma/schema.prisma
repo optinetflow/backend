@@ -134,6 +134,7 @@ model Arvan {
 }
 
 enum ServerCountry {
+  IR
   NL
   DE
   TR
@@ -150,6 +151,7 @@ model Server {
   inboundId    Int           @default(1)
   token        String // @db.VarChar(255)
   tunnelDomain String?       @db.VarChar(255)
+  stats        Json?
   userPackage  UserPackage[]
   Domain       Domain[]
   clientStat   ClientStat[]

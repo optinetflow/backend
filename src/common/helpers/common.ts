@@ -250,6 +250,12 @@ export function bytesToGB(bytes: number): number {
   return bytes / gigabyte;
 }
 
+export function bytesToMB(bytes: number): number {
+  const megabyte = 1024 * 1024; // 1 gigabyte = 1024 megabytes * 1024 kilobytes * 1024 bytes
+
+  return bytes / megabyte;
+}
+
 /* eslint-disable sonarjs/no-nested-template-literals */
 export function convertPersianCurrency(number: number): string {
   const numberAbs = Math.abs(number);
@@ -268,7 +274,7 @@ export function convertPersianCurrency(number: number): string {
 export const getVlessLink = (id: string, tunnelDomain: string, name: string) =>
   `vless://${id}@${removePort(
     tunnelDomain,
-  )}:443?type=ws&path=%2Fws&security=tls&fp=&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent(name)}`;
+  )}:443?type=ws&path=%2Fws&security=tls&fp=chrome&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent(name)}`;
 
 export function floorTo(number: number, decimalPlaces: number) {
   const factor = Math.pow(10, decimalPlaces);

@@ -49,11 +49,7 @@ export class XuiResolver {
     const userPack = await this.xuiService.buyPackage(user, data);
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
 
-    return getVlessLink(
-      userPack.statId,
-      server.tunnelDomain || server.domain,
-      `${userPack.name} | ${new URL(this.webPanel).hostname}`,
-    );
+    return getVlessLink(userPack.statId, server.domain, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
   }
 
   @UseGuards(GqlAuthGuard)
@@ -62,10 +58,6 @@ export class XuiResolver {
     const userPack = await this.xuiService.renewPackage(user, input);
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
 
-    return getVlessLink(
-      userPack.statId,
-      server.tunnelDomain || server.domain,
-      `${userPack.name} | ${new URL(this.webPanel).hostname}`,
-    );
+    return getVlessLink(userPack.statId, server.domain, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
   }
 }
