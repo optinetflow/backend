@@ -206,7 +206,11 @@ export class XuiService {
     private readonly payment: PaymentService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
-  ) {}
+  ) {
+    setTimeout(() => {
+      void this.fixOrder();
+    }, 5000);
+  }
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -827,7 +831,7 @@ export class XuiService {
     let lastUserPack;
 
     if (!input?.order) {
-      lastUserPack = await this.prisma.userPackage.findFirst({ orderBy: { order: 'asc' } });
+      lastUserPack = await this.prisma.userPackage.findFirst({ where: { userId: user.id }, orderBy: { order: 'asc' } });
     }
 
     return this.createPackage(user, {
@@ -1123,6 +1127,30 @@ export class XuiService {
         console.log('server ==>', status.data);
       } catch (error) {
         console.error(error);
+      }
+    }
+  }
+
+  async fixOrder() {
+    this.logger.debug('fixOrder');
+    const users = await this.prisma.user.findMany();
+
+    for (const user of users) {
+      try {
+        const userPacks = await this.prisma.userPackage.findMany({
+          where: { userId: user.id },
+          orderBy: { order: 'desc' },
+        });
+
+        let lastOrder = 'n';
+
+        for (const userPack of userPacks) {
+          await this.prisma.userPackage.update({ where: { id: userPack.id }, data: { order: lastOrder } });
+          lastOrder = midOrder('', lastOrder);
+        }
+        // Upsert ClientStat records in bulk
+      } catch (error) {
+        console.error('Error fixOrder', error);
       }
     }
   }
