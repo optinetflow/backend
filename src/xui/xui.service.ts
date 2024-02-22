@@ -122,8 +122,9 @@ interface Stat {
 }
 interface AddClientInput {
   id?: string;
+  subId?: string;
+  email?: string;
   serverId: string;
-  paymentId: string;
   name: string;
   package: Package;
   order?: string;
@@ -155,7 +156,6 @@ interface UpdateClientInput {
   name: string;
   server: Server;
   package: Package;
-  paymentId: string;
   enable?: boolean;
   order: string;
 }
@@ -561,6 +561,7 @@ export class XuiService {
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
+    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
     const isBlocked = Boolean(user.isDisabled || user.isParentDisabled);
 
     if (isBlocked) {
@@ -570,12 +571,17 @@ export class XuiService {
     const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
+    const email = nanoid();
+    const id = uuid();
+    const subId = nanoid();
 
-    const userPack = await this.addClient(user, {
+    await this.addClient(user, {
+      id,
+      subId,
+      email,
       serverId: server.id,
       package: pack,
       name: input.name || 'No Name',
-      paymentId,
     });
 
     const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
@@ -583,6 +589,22 @@ export class XuiService {
       type: 'PACKAGE_PURCHASE',
       id: paymentId,
       receipt: input.receipt,
+    });
+
+    const lastUserPack = await this.prisma.userPackage.findFirst({
+      where: { userId: user.id },
+      orderBy: { order: 'asc' },
+    });
+
+    const userPack = await this.createPackage(user, {
+      id,
+      subId,
+      email,
+      server,
+      name: input.name || 'No Name',
+      package: pack,
+      paymentId,
+      order: midOrder('', lastUserPack?.order || ''),
     });
 
     await this.sendBuyPackMessage(user, {
@@ -635,14 +657,13 @@ export class XuiService {
 
         await this.resetClientTraffic(userPack.statId);
 
-        const userNewPack = await this.updateClient(user, {
+        await this.updateClient(user, {
           id: userPack.statId,
           email: userPack.stat.email,
           subId: userPack.stat.subId,
           name: userPack.name,
           order: userPack.order,
           package: modifiedPack,
-          paymentId,
           server: userPack.server,
           enable: userPack.stat.enable,
         });
@@ -652,6 +673,17 @@ export class XuiService {
           type: 'PACKAGE_PURCHASE',
           id: paymentId,
           receipt: input.receipt,
+        });
+
+        const userNewPack = await this.createPackage(user, {
+          id: userPack.statId,
+          subId: userPack.stat.subId,
+          email: userPack.stat.email,
+          server: userPack.server,
+          name: userPack.name,
+          package: modifiedPack,
+          paymentId,
+          order: userPack.order,
         });
 
         await this.sendBuyPackMessage(user, {
@@ -669,12 +701,13 @@ export class XuiService {
       // nothing
     }
 
-    const userNewPack = await this.addClient(user, {
+    await this.addClient(user, {
       id: userPack.statId,
+      subId: userPack.stat.subId,
+      email: userPack.stat.email,
       serverId: userPack.server.id,
       package: modifiedPack,
       name: userPack.name,
-      paymentId,
       order: userPack.order,
     });
 
@@ -683,6 +716,17 @@ export class XuiService {
       type: 'PACKAGE_PURCHASE',
       id: paymentId,
       receipt: input.receipt,
+    });
+
+    const userNewPack = await this.createPackage(user, {
+      id: userPack.statId,
+      subId: userPack.stat.subId,
+      email: userPack.stat.email,
+      server: userPack.server,
+      name: userPack.name,
+      package: modifiedPack,
+      paymentId,
+      order: userPack.order,
     });
 
     await this.sendBuyPackMessage(user, {
@@ -796,13 +840,13 @@ export class XuiService {
     return userPackages;
   }
 
-  async addClient(user: User, input: AddClientInput): Promise<UserPackagePrisma> {
+  async addClient(_user: User, input: AddClientInput): Promise<void> {
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input.serverId } });
 
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-    const email = nanoid();
-    const id = input.id || uuid();
-    const subId = nanoid();
+    const email = input?.email || nanoid();
+    const id = input?.id || uuid();
+    const subId = input?.subId || nanoid();
     const jsonData = {
       id: server.inboundId,
       settings: {
@@ -816,7 +860,7 @@ export class XuiService {
             expiryTime: Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays,
             enable: true,
             tgId: '',
-            subId: nanoid(),
+            subId,
           },
         ],
       },
@@ -834,23 +878,6 @@ export class XuiService {
     if (!res.data.success) {
       throw new BadRequestException(errors.xui.addClientError);
     }
-
-    let lastUserPack;
-
-    if (!input?.order) {
-      lastUserPack = await this.prisma.userPackage.findFirst({ where: { userId: user.id }, orderBy: { order: 'asc' } });
-    }
-
-    return this.createPackage(user, {
-      id,
-      subId,
-      email,
-      server,
-      name: input.name,
-      package: input.package,
-      paymentId: input.paymentId,
-      order: input?.order || midOrder('', lastUserPack?.order || ''),
-    });
   }
 
   async createPackage(user: User, input: CreatePackageInput): Promise<UserPackagePrisma> {
@@ -945,24 +972,13 @@ export class XuiService {
     });
   }
 
-  async updateClient(user: User, input: UpdateClientInput): Promise<UserPackagePrisma> {
+  async updateClient(_user: User, input: UpdateClientInput): Promise<void> {
     await this.updateClientReq({
       id: input.id,
       expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
       limitIp: input.package.userCount,
       totalGB: roundTo(1024 * 1024 * 1024 * input.package.traffic, 0),
       enable: input.enable,
-    });
-
-    return this.createPackage(user, {
-      id: input.id,
-      subId: input.subId,
-      email: input.email,
-      server: input.server,
-      name: input.name,
-      package: input.package,
-      paymentId: input.paymentId,
-      order: input.order,
     });
   }
 
