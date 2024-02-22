@@ -207,9 +207,9 @@ export class XuiService {
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
   ) {
-    setTimeout(() => {
-      void this.fixOrder();
-    }, 5000);
+    // setTimeout(() => {
+    //   void this.fixOrder();
+    // }, 5000);
   }
 
   private readonly logger = new Logger(XuiService.name);
@@ -567,7 +567,7 @@ export class XuiService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir1.arvanvpn.online:40005' } });
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
 
