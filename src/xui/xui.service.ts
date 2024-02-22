@@ -571,18 +571,18 @@ export class XuiService {
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
 
-    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
-      amount: pack.price,
-      type: 'PACKAGE_PURCHASE',
-      id: paymentId,
-      receipt: input.receipt,
-    });
-
     const userPack = await this.addClient(user, {
       serverId: server.id,
       package: pack,
       name: input.name || 'No Name',
       paymentId,
+    });
+
+    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
+      amount: pack.price,
+      type: 'PACKAGE_PURCHASE',
+      id: paymentId,
+      receipt: input.receipt,
     });
 
     await this.sendBuyPackMessage(user, {
@@ -608,13 +608,6 @@ export class XuiService {
     });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
-
-    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
-      amount: pack.price,
-      type: 'PACKAGE_PURCHASE',
-      id: paymentId,
-      receipt: input.receipt,
-    });
 
     await this.prisma.userPackage.update({
       where: {
@@ -654,6 +647,13 @@ export class XuiService {
           enable: userPack.stat.enable,
         });
 
+        const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
+          amount: pack.price,
+          type: 'PACKAGE_PURCHASE',
+          id: paymentId,
+          receipt: input.receipt,
+        });
+
         await this.sendBuyPackMessage(user, {
           inRenew: true,
           pack,
@@ -676,6 +676,13 @@ export class XuiService {
       name: userPack.name,
       paymentId,
       order: userPack.order,
+    });
+
+    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
+      amount: pack.price,
+      type: 'PACKAGE_PURCHASE',
+      id: paymentId,
+      receipt: input.receipt,
     });
 
     await this.sendBuyPackMessage(user, {
