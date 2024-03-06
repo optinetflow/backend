@@ -28,6 +28,7 @@ Table User {
   telegram TelegramUser
   bankCard BankCard [not null]
   file File [not null]
+  Promotion Promotion [not null]
 }
 
 Table TelegramUser {
@@ -121,6 +122,7 @@ Table Package {
   order Int
   forRole Role[] [not null]
   userPackage UserPackage [not null]
+  Promotion Promotion [not null]
 }
 
 Table RechargePackage {
@@ -188,6 +190,18 @@ Table Payment {
   UserPackage UserPackage [not null]
 }
 
+Table Promotion {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  code String [unique, not null]
+  userId String [not null]
+  giftPackageId String
+  user User [not null]
+  giftPackage Package
+}
+
 Enum Role {
   ADMIN
   USER
@@ -245,3 +259,7 @@ Ref: UserPackage.statId > ClientStat.id
 Ref: ClientStat.serverId > Server.id
 
 Ref: Payment.payerId > User.id
+
+Ref: Promotion.userId > User.id
+
+Ref: Promotion.giftPackageId > Package.id
