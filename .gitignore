@@ -36,3 +36,5 @@ lerna-debug.log*
 
 .env
 id_rsa
+
+backup.sql

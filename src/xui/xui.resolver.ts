@@ -27,7 +27,7 @@ export class XuiResolver {
 
   // @UseGuards(GqlAuthGuard)
   @Query(() => [ClientStat])
-  clientStats(@Args('filters', { nullable: true }) filter?: GetClientStatsFiltersInput): Promise<ClientStat[]> {
+  clientStats(@Args('filters') filter: GetClientStatsFiltersInput): Promise<ClientStat[]> {
     return this.xuiService.getClientStats(filter);
   }
 

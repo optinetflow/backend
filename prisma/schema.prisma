@@ -210,20 +210,21 @@ model UserPackage {
 }
 
 model ClientStat {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  expiryTime BigInt
-  total      BigInt
-  down       BigInt
-  up         BigInt
-  email      String // @db.VarChar(255)
-  enable     Boolean
-  serverId   String   @db.Uuid
-  flow       String   @db.VarChar(255)
-  subId      String   @db.VarChar(255)
-  tgId       String   @db.VarChar(255)
-  limitIp    Int
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  expiryTime      BigInt
+  total           BigInt
+  down            BigInt
+  up              BigInt
+  email           String // @db.VarChar(255)
+  enable          Boolean
+  serverId        String    @db.Uuid
+  flow            String    @db.VarChar(255)
+  subId           String    @db.VarChar(255)
+  tgId            String    @db.VarChar(255)
+  limitIp         Int
+  lastConnectedAt DateTime?
 
   server  Server        @relation(fields: [serverId], references: [id])
   Package UserPackage[]
