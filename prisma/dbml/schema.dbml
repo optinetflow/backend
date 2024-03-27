@@ -170,6 +170,7 @@ Table ClientStat {
   subId String [not null]
   tgId String [not null]
   limitIp Int [not null]
+  lastConnectedAt DateTime
   server Server [not null]
   Package UserPackage [not null]
 }

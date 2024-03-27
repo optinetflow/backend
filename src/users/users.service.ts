@@ -9,7 +9,7 @@ import { XuiService } from '../xui/xui.service';
 import { ChangePasswordInput } from './dto/change-password.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UpdateChildInput } from './dto/updateChild.input';
-import { User } from './models/user.model';
+import { Child, User } from './models/user.model';
 
 const prefixAvatar = (telegram?: TelegramUser | null): void => {
   if (telegram?.smallAvatar && telegram?.bigAvatar) {
@@ -37,16 +37,37 @@ export class UsersService {
     return fullUser;
   }
 
-  async getChildren(user: User): Promise<User[]> {
+  async getChildren(user: User): Promise<Child[]> {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     const children = await this.prisma.user.findMany({
       where: { parentId: user.id },
-      include: { telegram: true },
+      include: {
+        telegram: true,
+        userPackage: {
+          where: { deletedAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: tenDaysAgo } }] },
+          include: { stat: true },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
+    const resolvedChildren: Child[] = children.map((child) => ({
+      ...child,
+      lastConnectedAt:
+        child.userPackage?.sort((a, b) => {
+          // Handle null values by placing them at the end
+          const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
+          const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
+
+          // Sort in descending order (newest first)
+          return dateA - dateB;
+        })?.[0]?.stat?.lastConnectedAt || undefined,
+      activePackages: child?.userPackage?.length || 0,
+    }));
+
     children.forEach((child) => prefixAvatar(child?.telegram));
 
-    return children;
+    return resolvedChildren;
   }
 
   async updateUser(userId: string, data: UpdateUserInput) {

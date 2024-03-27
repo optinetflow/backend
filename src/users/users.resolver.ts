@@ -7,7 +7,7 @@ import { UserEntity } from '../common/decorators/user.decorator';
 import { ChangePasswordInput } from './dto/change-password.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UpdateChildInput } from './dto/updateChild.input';
-import { User } from './models/user.model';
+import { Child, User } from './models/user.model';
 import { UsersService } from './users.service';
 
 @Resolver(() => User)
@@ -22,8 +22,8 @@ export class UsersResolver {
   }
 
   @UseGuards(GqlAuthGuard)
-  @Query(() => [User])
-  children(@UserEntity() user: User) {
+  @Query(() => [Child])
+  children(@UserEntity() user: Child) {
     return this.usersService.getChildren(user);
   }
 

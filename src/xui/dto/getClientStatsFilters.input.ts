@@ -3,11 +3,10 @@ import { IsOptional, IsUUID } from 'class-validator';
 
 @InputType()
 export class GetClientStatsFiltersInput {
-  @Field(() => String, { nullable: true })
+  @Field()
   @IsUUID()
-  @IsOptional()
-  id?: string;
+  id: string;
 
-  @Field(() => String, { nullable: true })
-  email?: string;
+  // @Field(() => String, { nullable: true })
+  // email?: string;
 }

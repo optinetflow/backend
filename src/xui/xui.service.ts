@@ -39,146 +39,19 @@ import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { ClientStat } from './models/clientStat.model';
 import { UserPackage } from './models/userPackage.model';
-
-interface AuthenticatedReq {
-  serverId: string;
-  url: (domain: string) => string;
-  method: 'post' | 'get' | 'patch' | 'put';
-  headers?: Record<string, string>;
-  body?: Record<string, unknown> | string;
-}
-
-interface InboundSetting {
-  clients: Array<{
-    id: string;
-    email: string;
-    limitIp: number;
-    totalGB: number;
-    expiryTime: number;
-    enable: boolean;
-    flow: string;
-    subId: string;
-    tgId: string;
-  }>;
-}
-
-interface InboundStreamSettings {
-  network: string;
-  security: string;
-  tlsSettings: {
-    serverName: string;
-    minVersion: string;
-    maxVersion: string;
-    certificates: Array<{
-      certificateFile: string;
-      keyFile: string;
-    }>;
-  };
-}
-
-interface InboundClientStat {
-  id: number;
-  inboundId: number;
-  enable: boolean;
-  email: string;
-  up: number;
-  down: number;
-  total: number;
-  expiryTime: number;
-}
-
-interface InboundListRes {
-  obj: Array<{
-    id: number;
-    up: number;
-    down: number;
-    total: number;
-    remark: string;
-    enable: boolean;
-    expiryTime: number;
-    port: number;
-    protocol: string;
-    settings: string;
-    streamSettings: string;
-    tag: string;
-    sniffing: string;
-    clientStats: InboundClientStat[];
-  }>;
-}
-interface Stat {
-  id: string;
-  port: number;
-  inboundId: number;
-  enable: boolean;
-  email: string;
-  up: number;
-  down: number;
-  total: number;
-  expiryTime: number;
-  flow: string;
-  subId: string;
-  tgId: string;
-  limitIp: number;
-}
-interface AddClientInput {
-  id?: string;
-  subId?: string;
-  email?: string;
-  serverId: string;
-  name: string;
-  package: Package;
-  order?: string;
-}
-
-interface CreatePackageInput {
-  id: string;
-  subId: string;
-  email: string;
-  server: Server;
-  paymentId: string;
-  name: string;
-  package: Package;
-  order: string;
-}
-
-interface UpdateClientReqInput {
-  id: string;
-  limitIp?: number;
-  totalGB?: number;
-  expiryTime?: number;
-  enable?: boolean;
-}
-
-interface UpdateClientInput {
-  id: string;
-  subId: string;
-  email: string;
-  name: string;
-  server: Server;
-  package: Package;
-  enable?: boolean;
-  order: string;
-}
-
-interface SendBuyPackMessageInput {
-  receiptBuffer?: Buffer;
-  userPack: UserPackagePrisma;
-  pack: Package;
-  parentProfit?: number;
-  profitAmount?: number;
-  inRenew: boolean;
-}
-
-interface ServerStat {
-  cpu: number;
-  mem: {
-    current: number;
-    total: number;
-  };
-  tcpCount: number;
-  udpCount: number;
-  netIO: { up: number; down: number };
-}
+import {
+  AddClientInput,
+  AuthenticatedReq,
+  CreatePackageInput,
+  InboundListRes,
+  InboundSetting,
+  OnlineInboundRes,
+  SendBuyPackMessageInput,
+  ServerStat,
+  Stat,
+  UpdateClientInput,
+  UpdateClientReqInput,
+} from './xui.types';
 
 const ENDPOINTS = (domain: string) => {
   const url = `https://${domain}/v`;
@@ -186,6 +59,7 @@ const ENDPOINTS = (domain: string) => {
   return {
     login: `${url}/login`,
     inbounds: `${url}/panel/inbound/list`,
+    onlines: `${url}/panel/inbound/onlines`,
     addInbound: `${url}/panel/inbound/add`,
     addClient: `${url}/panel/inbound/addClient`,
     updateClient: (id: string) => `${url}/panel/inbound/updateClient/${id}`,
@@ -208,8 +82,8 @@ export class XuiService {
     private readonly minioService: MinioClientService,
   ) {
     // setTimeout(() => {
-    //   void this.fixOrder();
-    // }, 5000);
+    //   void this.syncClientStats();
+    // }, 2000);
   }
 
   private readonly logger = new Logger(XuiService.name);
@@ -331,6 +205,20 @@ export class XuiService {
     return clientStats.filter((i) => i.id);
   }
 
+  async getOnlinesInbounds(serverId: string): Promise<string[]> {
+    const inbounds = await this.authenticatedReq<OnlineInboundRes>({
+      serverId,
+      url: (domain) => ENDPOINTS(domain).onlines,
+      method: 'post',
+    });
+
+    if (!inbounds.data.obj) {
+      throw new BadRequestException('Getting online inbounds failed.');
+    }
+
+    return inbounds.data.obj;
+  }
+
   async resetClientTraffic(clientStatId: string) {
     const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
       where: { id: clientStatId },
@@ -365,7 +253,7 @@ export class XuiService {
     }
   }
 
-  /* eslint-disable sonarjs/cognitive-complexity */
+  /* eslint-disable sonarjs/cognitive-complexity, sonarjs/no-nested-template-literals */
   async updateFinishedPackages(stats: Stat[]) {
     const finishedTrafficPacks = stats.filter((stat) => stat.down + stat.up >= stat.total).map((stat) => stat.id);
     const finishedTimePacks = stats
@@ -519,25 +407,38 @@ export class XuiService {
     }
   }
 
-  async upsertClientStats(stats: Stat[], serverId: string) {
+  async upsertClientStats(stats: Stat[], serverId: string, onlinesStat: string[]) {
     if (stats.length === 0) {
       return; // Nothing to upsert
     }
 
+    const onlineStatDic = stats.reduce<Record<number, Date>>(
+      (dic, stat) => (onlinesStat.includes(stat.email) ? { ...dic, [stat.id]: Date.now() } : dic),
+      {},
+    );
+
     await this.sendThresholdWarning(stats);
     await this.updateFinishedPackages(stats);
-    const updatedValues = stats.map(
-      (stat) =>
-        Prisma.sql`(${stat.id}::uuid, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${stat.total}, ${
-          stat.expiryTime
-        }, to_timestamp(${Date.now()} / 1000.0), ${serverId}::uuid, ${stat.flow}, ${stat.subId}, ${stat.tgId}, ${
-          stat.limitIp || 0
-        })`,
-    );
+    const updatedValues: Prisma.Sql[] = [];
+
+    // ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
+
+    for (const stat of stats) {
+      const lastConnectedAtSQL = onlineStatDic[stat.id]
+        ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
+        : Prisma.sql`NULL`;
+
+      const statSql = Prisma.sql`(${stat.id}::uuid, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${
+        stat.total
+      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${serverId}::uuid, ${stat.flow}, ${stat.subId}, ${
+        stat.tgId
+      }, ${stat.limitIp || 0}, ${lastConnectedAtSQL})`;
+      updatedValues.push(statSql);
+    }
 
     try {
       await this.prisma.$queryRaw`
-        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId", "flow", "subId", "tgId", "limitIp")
+        INSERT INTO "ClientStat"  (id, "enable", email, up, down, total, "expiryTime", "updatedAt", "serverId", "flow", "subId", "tgId", "limitIp", "lastConnectedAt")
         VALUES ${Prisma.join(updatedValues)}
         ON CONFLICT (id) DO UPDATE
         SET
@@ -553,7 +454,8 @@ export class XuiService {
           "flow" = EXCLUDED."flow",
           "subId" = EXCLUDED."subId",
           "tgId" = EXCLUDED."tgId",
-          "limitIp" = EXCLUDED."limitIp"
+          "limitIp" = EXCLUDED."limitIp",
+          "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
     } catch (error) {
       console.error('Error upserting ClientStats:', error);
@@ -834,6 +736,7 @@ export class XuiService {
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
         totalTraffic: userPack.stat.total,
         expiryTime: userPack.stat.expiryTime,
+        lastConnectedAt: userPack.stat?.lastConnectedAt,
       });
     }
 
@@ -991,11 +894,11 @@ export class XuiService {
               equals: filters.id,
             },
           }),
-          ...(filters?.email && {
-            email: {
-              contains: filters.email,
-            },
-          }),
+          // ...(filters?.email && {
+          //   email: {
+          //     contains: filters.email,
+          //   },
+          // }),
         },
       });
     } catch {
@@ -1187,8 +1090,9 @@ export class XuiService {
     for (const server of servers) {
       try {
         const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+        const onlinesStat = await this.getOnlinesInbounds(server.id);
         // Upsert ClientStat records in bulk
-        await this.upsertClientStats(updatedClientStats, server.id);
+        await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
       } catch (error) {
         console.error(`Error syncing ClientStats for server: ${server.id}`, error);
       }

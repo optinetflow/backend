@@ -49,6 +49,33 @@ input ChangePasswordInput {
   oldPassword: String!
 }
 
+type Child {
+  activePackages: Int!
+  balance: Float!
+  bankCard: [BankCard!]
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  firstname: String!
+  id: ID!
+  isDisabled: Boolean
+  isParentDisabled: Boolean
+  lastConnectedAt: DateTime
+  lastname: String!
+  maxRechargeDiscountPercent: Float
+  parent: Parent
+  parentId: String
+  phone: String!
+  profitBalance: Float!
+  referId: String
+  role: Role!
+  telegram: TelegramUser
+  totalProfit: Float!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
 type ClientStat {
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -146,8 +173,7 @@ input EnterCostInput {
 }
 
 input GetClientStatsFiltersInput {
-  email: String
-  id: String
+  id: String!
 }
 
 input IssueCertInput {
@@ -225,8 +251,8 @@ enum PaymentType {
 }
 
 type Query {
-  children: [User!]!
-  clientStats(filters: GetClientStatsFiltersInput): [ClientStat!]!
+  children: [Child!]!
+  clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   domains(filters: DomainsFiltersInput): [Domain!]!
   hello(name: String!): String!
   helloWorld: String!
@@ -383,6 +409,7 @@ type UserPackage {
   createdAt: DateTime!
   expiryTime: BigNumber!
   id: ID!
+  lastConnectedAt: DateTime
   link: String!
   name: String!
   remainingTraffic: BigNumber!

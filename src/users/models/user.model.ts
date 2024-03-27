@@ -89,3 +89,12 @@ export class User extends BaseModel {
   @Field(() => [BankCard], { nullable: true })
   bankCard?: BankCard[] | null;
 }
+
+@ObjectType()
+export class Child extends User {
+  @Field(() => Int)
+  activePackages: number;
+
+  @Field(() => Date, { nullable: true })
+  lastConnectedAt?: Date | null;
+}
