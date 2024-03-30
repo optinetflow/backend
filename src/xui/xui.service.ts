@@ -470,7 +470,7 @@ export class XuiService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir1.arvanvpn.online:40005' } });
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
     const email = nanoid();
@@ -1049,8 +1049,6 @@ export class XuiService {
           url: (domain) => ENDPOINTS(domain).serverStatus,
           method: 'post',
         });
-
-        console.log('server ==>', status.data);
       } catch (error) {
         console.error(error);
       }
