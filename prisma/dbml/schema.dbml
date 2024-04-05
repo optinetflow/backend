@@ -150,7 +150,6 @@ Table UserPackage {
   statId String [not null]
   paymentId String
   thresholdWarningSentAt DateTime
-  order String [not null, default: 'n']
   orderN Int [not null, default: 1]
   payment Payment
   package Package [not null]
