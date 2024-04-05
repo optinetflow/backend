@@ -198,7 +198,6 @@ model UserPackage {
   statId                 String    @db.Uuid
   paymentId              String?   @db.Uuid
   thresholdWarningSentAt DateTime?
-  order                  String    @default("n") @db.VarChar(255)
   orderN                 Int       @default(1)
 
   payment Payment?   @relation(fields: [paymentId], references: [id])

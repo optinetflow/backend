@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Package, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Prisma, Server } from '@prisma/client';
 import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
@@ -14,9 +14,11 @@ import { firstValueFrom } from 'rxjs';
 import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
+import { TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
+  getDateTimeString,
   getRemainingDays,
   isSessionExpired,
   isUUID,
@@ -24,9 +26,6 @@ import {
   roundTo,
 } from '../common/helpers';
 import { Context } from '../common/interfaces/context.interface';
-import { MinioClientService } from '../minio/minio.service';
-import { PaymentService } from '../payment/payment.service';
-import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
@@ -56,6 +55,7 @@ const ENDPOINTS = (domain: string) => {
       `${url}/panel/inbound/${inboundId}/resetClientTraffic/${email}`,
     delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
     serverStatus: `${url}/server/status`,
+    getDb: `${url}/server/getDb`,
   };
 };
 
@@ -66,18 +66,18 @@ export class XuiService {
     private readonly bot: Telegraf<Context>,
     private prisma: PrismaService,
     private httpService: HttpService,
-    private readonly payment: PaymentService,
     private readonly configService: ConfigService,
-    private readonly minioService: MinioClientService,
   ) {
     setTimeout(() => {
-      void this.fixOrder();
+      void this.backupDB();
     }, 2000);
   }
 
   private readonly logger = new Logger(XuiService.name);
 
   private readonly webPanel = this.configService.get('webPanelUrl');
+
+  private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
 
   private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
@@ -665,6 +665,25 @@ export class XuiService {
       } catch (error) {
         console.error('Error fixOrder', error);
       }
+    }
+  }
+
+  @Interval('backupDB', 1 * 60 * 1000)
+  async backupDB() {
+    this.logger.debug('BackupDB call every 1 min');
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+
+    for (const server of servers) {
+      const res = await this.authenticatedReq<string>({
+        serverId: server.id,
+        url: (domain) => ENDPOINTS(domain).getDb,
+        method: 'get',
+      });
+
+      void this.bot.telegram.sendDocument(this.backupGroup, {
+        source: Buffer.from(res.data),
+        filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
+      });
     }
   }
 

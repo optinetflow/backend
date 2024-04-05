@@ -294,3 +294,18 @@ export function getRemainingDays(expiryTime: number): number {
 
   return roundTo(remainingTime / millisecondsInDay, 0);
 }
+
+export function getDateTimeString() {
+  // Get the current date and time
+  const now = new Date();
+
+  // Format the year, month, day, hour, and minute with zero-padding
+  const year = now.getFullYear().toString().padStart(4, '0');
+  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Months are 0-indexed
+  const day = now.getDate().toString().padStart(2, '0');
+  const hour = now.getHours().toString().padStart(2, '0');
+  const minute = now.getMinutes().toString().padStart(2, '0');
+
+  // Combine them into a string with separators
+  return `${year}-${month}-${day}_${hour}-${minute}`;
+}
