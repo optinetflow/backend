@@ -33,7 +33,16 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly configService: ConfigService,
     private readonly userService: UsersService,
-  ) {}
+  ) {
+    // setTimeout(() => {
+    //   void (async () => {
+    //     const user = await this.prisma.user.findUniqueOrThrow({
+    //       where: { id: 'c240976d-659b-487e-90be-8202b3ea9caa' },
+    //     });
+    //     void this.createPromotion(user, 'vvip', '');
+    //   })();
+    // }, 2000);
+  }
 
   private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
@@ -69,6 +78,20 @@ export class AuthService {
       }
 
       throw new Error(error as string);
+    }
+  }
+
+  async createPromotion(user: User, code: string, giftPackageId?: string) {
+    try {
+      await this.prisma.promotion.create({
+        data: {
+          userId: user.id,
+          code,
+          giftPackageId,
+        },
+      });
+    } catch {
+      throw new BadRequestException('Code is already exist!');
     }
   }
 
