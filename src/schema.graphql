@@ -51,6 +51,7 @@ input ChangePasswordInput {
 
 type Child {
   activePackages: Int!
+  appliedDiscountPercent: Float
   balance: Float!
   bankCard: [BankCard!]
 
@@ -58,6 +59,7 @@ type Child {
   createdAt: DateTime!
   firstname: String!
   id: ID!
+  initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
   lastConnectedAt: DateTime
@@ -67,6 +69,7 @@ type Child {
   parentId: String
   phone: String!
   profitBalance: Float!
+  profitPercent: Float!
   referId: String
   role: Role!
   telegram: TelegramUser
@@ -380,6 +383,7 @@ enum UpstreamHttps {
 }
 
 type User {
+  appliedDiscountPercent: Float
   balance: Float!
   bankCard: [BankCard!]
 
@@ -387,6 +391,7 @@ type User {
   createdAt: DateTime!
   firstname: String!
   id: ID!
+  initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
   lastname: String!
@@ -395,6 +400,7 @@ type User {
   parentId: String
   phone: String!
   profitBalance: Float!
+  profitPercent: Float!
   referId: String
   role: Role!
   telegram: TelegramUser

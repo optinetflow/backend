@@ -34,6 +34,9 @@ model User {
   isDisabled                 Boolean  @default(false)
   isParentDisabled           Boolean  @default(false)
   maxRechargeDiscountPercent Float?
+  profitPercent              Float    @default(0)
+  initialDiscountPercent     Float?
+  appliedDiscountPercent     Float?
 
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children    User[]        @relation("UserParentRelation")
@@ -196,6 +199,7 @@ model UserPackage {
   paymentId              String?   @db.Uuid
   thresholdWarningSentAt DateTime?
   order                  String    @default("n") @db.VarChar(255)
+  orderN                 Int       @default(1)
 
   payment Payment?   @relation(fields: [paymentId], references: [id])
   package Package    @relation(fields: [packageId], references: [id])
@@ -204,6 +208,7 @@ model UserPackage {
   stat    ClientStat @relation(fields: [statId], references: [id])
 
   @@index([userId], name: "UserPackageUserIdIndex")
+  @@index([orderN], name: "UserPackageOrderNIndex")
   @@index([serverId], name: "UserPackageServerIdIndex")
   @@index([statId], name: "UserPackageStatIdIndex")
   @@index([packageId], name: "UserPackagePackageIdIndex")

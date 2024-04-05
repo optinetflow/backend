@@ -7,6 +7,7 @@ import { AdminGuard } from '../common/guards/admin.guard';
 import { b64UrlToJson } from '../common/helpers';
 import { ResponseTimeInterceptor } from '../common/interceptors/response-time.interceptor';
 import { Context } from '../common/interfaces/context.interface';
+import { PackageService } from '../package/package.service';
 import { PaymentService } from '../payment/payment.service';
 import { XuiService } from '../xui/xui.service';
 import { CallbackData } from './telegram.constants';
@@ -19,6 +20,7 @@ export class TelegramUpdate {
   constructor(
     private readonly telegramService: TelegramService,
     private readonly xuiService: XuiService,
+    private readonly packageService: PackageService,
     private readonly payment: PaymentService,
   ) {}
 
@@ -37,13 +39,13 @@ export class TelegramUpdate {
     if (parsed?.A_PACK) {
       const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n✅ تایید شد';
       void ctx.editMessageCaption(caption);
-      await this.xuiService.acceptPurchasePack(parsed.A_PACK);
+      await this.packageService.acceptPurchasePack(parsed.A_PACK);
     }
 
     if (parsed?.R_PACK) {
       const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n❌ رد شد';
       void ctx.editMessageCaption(caption);
-      await this.xuiService.rejectPurchasePack(parsed.R_PACK);
+      await this.packageService.rejectPurchasePack(parsed.R_PACK);
     }
 
     if (parsed?.A_CHARGE) {

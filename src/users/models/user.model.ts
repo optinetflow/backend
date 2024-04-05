@@ -88,6 +88,15 @@ export class User extends BaseModel {
 
   @Field(() => [BankCard], { nullable: true })
   bankCard?: BankCard[] | null;
+
+  @Field(() => Float)
+  profitPercent: number;
+
+  @Field(() => Float, { nullable: true })
+  initialDiscountPercent?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  appliedDiscountPercent?: number | null;
 }
 
 @ObjectType()

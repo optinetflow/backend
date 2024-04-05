@@ -8,7 +8,7 @@ registerEnumType(PaymentType, {
 });
 
 @InputType()
-export class PaymentRequestInput {
+export class RechargePaymentRequestInput {
   @Field()
   id?: string;
 
@@ -17,9 +17,6 @@ export class PaymentRequestInput {
 
   @Field(() => Int, { nullable: true })
   profitAmount?: number;
-
-  @Field(() => PaymentType)
-  type: PaymentType;
 
   @Field()
   @IsUUID()
