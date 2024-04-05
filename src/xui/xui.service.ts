@@ -644,29 +644,29 @@ export class XuiService {
     }
   }
 
-  async fixOrder() {
-    this.logger.debug('fixOrder');
-    const users = await this.prisma.user.findMany();
+  // async fixOrder() {
+  //   this.logger.debug('fixOrder');
+  //   const users = await this.prisma.user.findMany();
 
-    for (const user of users) {
-      try {
-        const userPacks = await this.prisma.userPackage.findMany({
-          where: { userId: user.id },
-          orderBy: { order: 'desc' },
-        });
+  //   for (const user of users) {
+  //     try {
+  //       const userPacks = await this.prisma.userPackage.findMany({
+  //         where: { userId: user.id },
+  //         orderBy: { order: 'desc' },
+  //       });
 
-        let lastOrder = 1;
+  //       let lastOrder = 1;
 
-        for (const userPack of userPacks) {
-          await this.prisma.userPackage.update({ where: { id: userPack.id }, data: { orderN: lastOrder } });
-          lastOrder += 1;
-        }
-        // Upsert ClientStat records in bulk
-      } catch (error) {
-        console.error('Error fixOrder', error);
-      }
-    }
-  }
+  //       for (const userPack of userPacks) {
+  //         await this.prisma.userPackage.update({ where: { id: userPack.id }, data: { orderN: lastOrder } });
+  //         lastOrder += 1;
+  //       }
+  //       // Upsert ClientStat records in bulk
+  //     } catch (error) {
+  //       console.error('Error fixOrder', error);
+  //     }
+  //   }
+  // }
 
   @Interval('backupDB', 1 * 60 * 1000)
   async backupDB() {
