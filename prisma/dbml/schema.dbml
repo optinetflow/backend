@@ -19,6 +19,9 @@ Table User {
   isDisabled Boolean [not null, default: false]
   isParentDisabled Boolean [not null, default: false]
   maxRechargeDiscountPercent Float
+  profitPercent Float [not null, default: 0]
+  initialDiscountPercent Float
+  appliedDiscountPercent Float
   parent User
   children User [not null]
   refer User
@@ -148,6 +151,7 @@ Table UserPackage {
   paymentId String
   thresholdWarningSentAt DateTime
   order String [not null, default: 'n']
+  orderN Int [not null, default: 1]
   payment Payment
   package Package [not null]
   user User [not null]

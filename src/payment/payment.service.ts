@@ -14,7 +14,8 @@ import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
 import { EnterCostInput } from './dto/enterCost.input';
-import { PaymentRequestInput } from './dto/paymentRequest.input';
+import { PurchasePaymentRequestInput } from './dto/purchasePaymentRequest.input';
+import { RechargePaymentRequestInput } from './dto/rechargePaymentRequest.input';
 import { RechargePackage } from './models/rechargePackage.model';
 
 interface PaymentReq {
@@ -62,10 +63,9 @@ export class PaymentService {
     }
 
     const profitAmount = chargeAmount - rechargePack.amount;
-    const { receiptBuffer, parentProfit } = await this.paymentRequest(user, {
+    const { receiptBuffer, parentProfit } = await this.rechargePaymentRequest(user, {
       amount: chargeAmount,
       profitAmount: isFullProfit ? chargeAmount : profitAmount,
-      type: 'WALLET_RECHARGE',
       id: paymentId,
       receipt: input.receipt,
     });
@@ -124,63 +124,104 @@ export class PaymentService {
     return this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   }
 
-  async paymentRequest(user: User, input: PaymentRequestInput): Promise<PaymentReq> {
+  async uploadReceiptPermanently(paymentId: string, receiptId: string): Promise<[Buffer, string]> {
+    const receiptData = await this.prisma.file.findUniqueOrThrow({ where: { id: receiptId } });
+    const receiptBuffer = await this.minioService.getObject(receiptData.name);
+    const uploadPath = `receipt/${paymentId}.jpg`;
+
+    try {
+      await this.minioService.upload([{ filename: uploadPath, buffer: receiptBuffer }]);
+      await this.minioService.delete([receiptData.name]);
+      await this.prisma.file.delete({ where: { id: receiptId } });
+    } catch {
+      throw new BadRequestException('Uploading image to minio got failed!');
+    }
+
+    return [receiptBuffer, uploadPath];
+  }
+
+  async purchasePaymentRequest(user: User, input: PurchasePaymentRequestInput): Promise<PaymentReq> {
     const id = input?.id || uuid();
     let receiptBuffer: Buffer | undefined;
     let receiptImage: string | undefined;
-
-    if (input?.receipt) {
-      const receiptData = await this.prisma.file.findUniqueOrThrow({ where: { id: input.receipt } });
-      receiptBuffer = await this.minioService.getObject(receiptData.name);
-      const uploadPath = `receipt/${id}.jpg`;
-
-      try {
-        await this.minioService.upload([{ filename: uploadPath, buffer: receiptBuffer }]);
-        await this.minioService.delete([receiptData.name]);
-        await this.prisma.file.delete({ where: { id: input.receipt } });
-      } catch {
-        throw new BadRequestException('Uploading image to minio got failed!');
-      }
-
-      receiptImage = uploadPath;
-    }
-
     let parentProfit: number | undefined;
     let profitAmount: number | undefined;
 
-    if (input.receipt && user.parentId) {
-      [profitAmount, parentProfit] = await this.updateParentBalanceByReceipt(user, input, receiptImage);
+    if (input?.receipt) {
+      [receiptBuffer, receiptImage] = await this.uploadReceiptPermanently(id, input.receipt);
     }
 
-    if (input.type === 'PACKAGE_PURCHASE' && !input.receipt) {
-      profitAmount = await this.purchasePackByBalance(user, input);
+    if (!input.receipt) {
+      profitAmount = await (user.appliedDiscountPercent
+        ? this.purchasePackByBalance(user, input)
+        : this.purchasePackByBalanceOld(user, input));
     }
 
-    if (input.type === 'WALLET_RECHARGE' && input.receipt) {
-      if (!receiptImage) {
-        throw new BadRequestException('Error in uploading receipt image.');
-      }
+    if (receiptImage && user.parentId) {
+      const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parentId } })!;
 
-      await this.prisma.user.update({
-        where: {
-          id: user.id,
-        },
-        data: {
-          balance: {
-            increment: input.amount,
-          },
-          profitBalance: {
-            increment: input.profitAmount,
-          },
-        },
-      });
+      parentProfit = await (parent?.appliedDiscountPercent
+        ? this.updateParentBalanceByReceipt(user, parent, input)
+        : this.updateParentBalanceByReceiptOld(user, parent, input));
     }
 
     await this.prisma.payment.create({
       data: {
         id,
         amount: input.amount,
-        type: input.type,
+        type: 'PACKAGE_PURCHASE',
+        payerId: user.id,
+        receiptImage,
+        profitAmount,
+        parentProfit,
+      },
+    });
+
+    return { receiptBuffer, profitAmount, parentProfit };
+  }
+
+  async rechargePaymentRequest(user: User, input: RechargePaymentRequestInput): Promise<PaymentReq> {
+    const id = input?.id || uuid();
+    let receiptBuffer: Buffer | undefined;
+    let receiptImage: string | undefined;
+    let parentProfit: number | undefined;
+    let profitAmount: number | undefined;
+
+    if (input?.receipt) {
+      [receiptBuffer, receiptImage] = await this.uploadReceiptPermanently(id, input.receipt);
+    }
+
+    if (receiptImage && user.parentId) {
+      const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parentId } })!;
+
+      parentProfit = await (user.appliedDiscountPercent
+        ? this.updateParentBalanceByReceipt(user, parent, input)
+        : this.updateParentBalanceByReceiptOld(user, parent, input));
+    }
+
+    if (!receiptImage) {
+      throw new BadRequestException('Error in uploading receipt image.');
+    }
+
+    await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        balance: {
+          increment: input.amount,
+        },
+        profitBalance: {
+          increment: input.profitAmount,
+        },
+      },
+    });
+
+    await this.prisma.payment.create({
+      data: {
+        id,
+        amount: input.amount,
+        type: 'WALLET_RECHARGE',
         payerId: user.id,
         receiptImage,
         profitAmount: profitAmount || input.profitAmount,
@@ -191,21 +232,14 @@ export class PaymentService {
     return { receiptBuffer, profitAmount, parentProfit };
   }
 
-  async updateParentBalanceByReceipt(user: User, input: PaymentRequestInput, receiptImage: string | undefined) {
-    let profitAmount: number | undefined;
-    let parentProfit: number | undefined;
-
-    if (!receiptImage) {
-      throw new BadRequestException('Error in uploading receipt image, receiptImage is undefined!');
-    }
+  async updateParentBalanceByReceiptOld(user: User, parent: User, input: RechargePaymentRequestInput): Promise<number> {
+    let parentProfit: number;
 
     if (!user.parentId) {
       throw new BadRequestException("User doesn't have parent!");
     }
 
-    const parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
-
-    parentProfit = input.amount * (parent!.profitBalance / parent!.balance);
+    parentProfit = input.amount * (parent.profitBalance / parent.balance);
     const realProfit = parentProfit - (input?.profitAmount || 0);
 
     if (Number.isNaN(parentProfit)) {
@@ -229,10 +263,43 @@ export class PaymentService {
       },
     });
 
-    return [profitAmount, parentProfit];
+    return parentProfit;
   }
 
-  async purchasePackByBalance(user: User, input: PaymentRequestInput) {
+  async updateParentBalanceByReceipt(user: User, parent: User, input: PurchasePaymentRequestInput): Promise<number> {
+    let parentProfit: number;
+
+    if (!parent?.appliedDiscountPercent) {
+      throw new BadRequestException("Parent doesn't have appliedDiscountPercent!");
+    }
+
+    parentProfit = input.amount * (parent.appliedDiscountPercent - (user?.appliedDiscountPercent || 0));
+
+    if (Number.isNaN(parentProfit)) {
+      parentProfit = 0;
+    }
+
+    await this.prisma.user.update({
+      where: {
+        id: user.parentId!,
+      },
+      data: {
+        balance: {
+          decrement: input.amount,
+        },
+        profitBalance: {
+          decrement: parentProfit,
+        },
+        totalProfit: {
+          increment: parentProfit,
+        },
+      },
+    });
+
+    return parentProfit;
+  }
+
+  async purchasePackByBalanceOld(user: User, input: PurchasePaymentRequestInput) {
     let profitAmount: number | undefined;
 
     // pay with wallet balance
@@ -241,6 +308,30 @@ export class PaymentService {
     if (Number.isNaN(profitAmount)) {
       profitAmount = 0;
     }
+
+    await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        balance: {
+          decrement: input.amount,
+        },
+        profitBalance: {
+          decrement: profitAmount,
+        },
+        totalProfit: {
+          increment: profitAmount,
+        },
+      },
+    });
+
+    return profitAmount;
+  }
+
+  async purchasePackByBalance(user: User, input: PurchasePaymentRequestInput) {
+    // pay with wallet balance
+    const profitAmount = input.amount * user.appliedDiscountPercent!;
 
     await this.prisma.user.update({
       where: {

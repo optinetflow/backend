@@ -17,16 +17,10 @@ import { v4 as uuid } from 'uuid';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
-  bytesToGB,
-  bytesToMB,
-  convertPersianCurrency,
   getRemainingDays,
-  getVlessLink,
   isSessionExpired,
   isUUID,
   jsonObjectToQueryString,
-  jsonToB64Url,
-  midOrder,
   roundTo,
 } from '../common/helpers';
 import { Context } from '../common/interfaces/context.interface';
@@ -34,19 +28,14 @@ import { MinioClientService } from '../minio/minio.service';
 import { PaymentService } from '../payment/payment.service';
 import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
-import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
-import { RenewPackageInput } from './dto/renewPackage.input';
 import { ClientStat } from './models/clientStat.model';
-import { UserPackage } from './models/userPackage.model';
 import {
   AddClientInput,
   AuthenticatedReq,
-  CreatePackageInput,
   InboundListRes,
   InboundSetting,
   OnlineInboundRes,
-  SendBuyPackMessageInput,
   ServerStat,
   Stat,
   UpdateClientInput,
@@ -81,9 +70,9 @@ export class XuiService {
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
   ) {
-    // setTimeout(() => {
-    //   void this.syncClientStats();
-    // }, 2000);
+    setTimeout(() => {
+      void this.fixOrder();
+    }, 2000);
   }
 
   private readonly logger = new Logger(XuiService.name);
@@ -462,287 +451,6 @@ export class XuiService {
     }
   }
 
-  async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
-    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-    const isBlocked = Boolean(user.isDisabled || user.isParentDisabled);
-
-    if (isBlocked) {
-      throw new BadRequestException('Your account is blocked!');
-    }
-
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
-    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
-    const paymentId = uuid();
-    const email = nanoid();
-    const id = uuid();
-    const subId = nanoid();
-
-    await this.addClient(user, {
-      id,
-      subId,
-      email,
-      serverId: server.id,
-      package: pack,
-      name: input.name || 'No Name',
-    });
-
-    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
-      amount: pack.price,
-      type: 'PACKAGE_PURCHASE',
-      id: paymentId,
-      receipt: input.receipt,
-    });
-
-    const lastUserPack = await this.prisma.userPackage.findFirst({
-      where: { userId: user.id },
-      orderBy: { order: 'asc' },
-    });
-
-    const userPack = await this.createPackage(user, {
-      id,
-      subId,
-      email,
-      server,
-      name: input.name || 'No Name',
-      package: pack,
-      paymentId,
-      order: midOrder('', lastUserPack?.order || ''),
-    });
-
-    await this.sendBuyPackMessage(user, {
-      inRenew: false,
-      pack,
-      parentProfit,
-      profitAmount,
-      receiptBuffer,
-      userPack,
-    });
-
-    return userPack;
-  }
-
-  async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({
-      where: { id: input.userPackageId },
-      include: {
-        server: true,
-        stat: true,
-        package: true,
-      },
-    });
-    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
-    const paymentId = uuid();
-
-    await this.prisma.userPackage.update({
-      where: {
-        id: userPack.id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    const modifiedPack = { ...pack };
-
-    try {
-      if (!userPack.finishedAt) {
-        const remainingDays = (Number(userPack.stat.expiryTime) - Date.now()) / (1000 * 60 * 60 * 24);
-        const remainingTraffic = bytesToGB(Number(userPack.stat.total - (userPack.stat.down + userPack.stat.up)));
-
-        const maxTransformableExpirationDays =
-          (remainingTraffic / userPack.package.traffic) * userPack.package.expirationDays;
-        const maxTransformableTraffic = (remainingDays / userPack.package.expirationDays) * userPack.package.traffic;
-
-        modifiedPack.traffic += remainingTraffic > maxTransformableTraffic ? maxTransformableTraffic : remainingTraffic;
-        modifiedPack.expirationDays +=
-          remainingDays > maxTransformableExpirationDays ? maxTransformableExpirationDays : remainingDays;
-
-        await this.resetClientTraffic(userPack.statId);
-
-        await this.updateClient(user, {
-          id: userPack.statId,
-          email: userPack.stat.email,
-          subId: userPack.stat.subId,
-          name: userPack.name,
-          order: userPack.order,
-          package: modifiedPack,
-          server: userPack.server,
-          enable: userPack.stat.enable,
-        });
-
-        const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
-          amount: pack.price,
-          type: 'PACKAGE_PURCHASE',
-          id: paymentId,
-          receipt: input.receipt,
-        });
-
-        const userNewPack = await this.createPackage(user, {
-          id: userPack.statId,
-          subId: userPack.stat.subId,
-          email: userPack.stat.email,
-          server: userPack.server,
-          name: userPack.name,
-          package: modifiedPack,
-          paymentId,
-          order: userPack.order,
-        });
-
-        await this.sendBuyPackMessage(user, {
-          inRenew: true,
-          pack,
-          userPack: userNewPack,
-          parentProfit,
-          profitAmount,
-          receiptBuffer,
-        });
-
-        return userNewPack;
-      }
-    } catch {
-      // nothing
-    }
-
-    await this.addClient(user, {
-      id: userPack.statId,
-      subId: userPack.stat.subId,
-      email: userPack.stat.email,
-      serverId: userPack.server.id,
-      package: modifiedPack,
-      name: userPack.name,
-      order: userPack.order,
-    });
-
-    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.paymentRequest(user, {
-      amount: pack.price,
-      type: 'PACKAGE_PURCHASE',
-      id: paymentId,
-      receipt: input.receipt,
-    });
-
-    const userNewPack = await this.createPackage(user, {
-      id: userPack.statId,
-      subId: userPack.stat.subId,
-      email: userPack.stat.email,
-      server: userPack.server,
-      name: userPack.name,
-      package: modifiedPack,
-      paymentId,
-      order: userPack.order,
-    });
-
-    await this.sendBuyPackMessage(user, {
-      inRenew: true,
-      pack,
-      userPack: userNewPack,
-      parentProfit,
-      profitAmount,
-      receiptBuffer,
-    });
-
-    return userNewPack;
-  }
-
-  async sendBuyPackMessage(user: User, input: SendBuyPackMessageInput) {
-    const caption = `${input.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${
-      input.pack.traffic
-    } گیگ - ${convertPersianCurrency(input.pack.price)} - ${input.pack.expirationDays} روزه\n🔤 نام بسته: ${
-      input.userPack.name
-    }\n👤 ${user.firstname} ${user.lastname}\n📞 موبایل: +98${user.phone}\n💵 سود تقریبی: ${convertPersianCurrency(
-      roundTo(input.parentProfit || input.profitAmount || 0, 0),
-    )}\n`;
-
-    if (user.parentId) {
-      const telegramUser = await this.prisma.telegramUser.findUnique({ where: { userId: user.parentId } });
-
-      if (input.receiptBuffer) {
-        const rejectData = { R_PACK: input.userPack.id } as CallbackData;
-        const acceptData = { A_PACK: input.userPack.id } as CallbackData;
-
-        if (telegramUser) {
-          await this.bot.telegram.sendPhoto(
-            Number(telegramUser.id),
-            { source: input.receiptBuffer },
-            {
-              caption,
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      callback_data: jsonToB64Url(rejectData as Record<string, string>),
-                      text: '❌ رد',
-                    },
-                    {
-                      callback_data: jsonToB64Url(acceptData as Record<string, string>),
-                      text: '✅ تایید',
-                    },
-                  ],
-                ],
-              },
-            },
-          );
-        }
-
-        const parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
-        const reportCaption =
-          caption +
-          `\n\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}\n💵 شارژ حساب: ${convertPersianCurrency(
-            roundTo(parent?.balance || 0, 0),
-          )}`;
-        void this.bot.telegram.sendPhoto(
-          this.reportGroupId,
-          { source: input.receiptBuffer },
-          { caption: reportCaption },
-        );
-
-        return;
-      }
-    }
-
-    const updatedUser = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    const reportCaption = caption + `\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(updatedUser?.balance || 0, 0))}`;
-    await this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
-  }
-
-  async getUserPackages(user: User): Promise<UserPackage[]> {
-    const userPackages: UserPackage[] = [];
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    const userPacks = await this.prisma.userPackage.findMany({
-      include: {
-        stat: true,
-        server: true,
-      },
-      where: {
-        userId: user.id,
-        deletedAt: null,
-        OR: [{ finishedAt: null }, { finishedAt: { gte: tenDaysAgo } }],
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
-
-    for (const userPack of userPacks) {
-      userPackages.push({
-        id: userPack.id,
-        createdAt: userPack.createdAt,
-        updatedAt: userPack.updatedAt,
-        name: userPack.name,
-        link: getVlessLink(
-          userPack.statId,
-          userPack.server.domain,
-          `${userPack.name} | ${new URL(this.webPanel).hostname}`,
-        ),
-        remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
-        totalTraffic: userPack.stat.total,
-        expiryTime: userPack.stat.expiryTime,
-        lastConnectedAt: userPack.stat?.lastConnectedAt,
-      });
-    }
-
-    return userPackages;
-  }
-
   async addClient(_user: User, input: AddClientInput): Promise<void> {
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input.serverId } });
 
@@ -780,52 +488,6 @@ export class XuiService {
 
     if (!res.data.success) {
       throw new BadRequestException(errors.xui.addClientError);
-    }
-  }
-
-  async createPackage(user: User, input: CreatePackageInput): Promise<UserPackagePrisma> {
-    try {
-      const clientStat = {
-        id: input.id,
-        down: 0,
-        up: 0,
-        flow: '',
-        tgId: '',
-        subId: input.subId,
-        limitIp: input.package.userCount,
-        total: roundTo(1024 * 1024 * 1024 * input.package.traffic, 0),
-        serverId: input.server.id,
-        expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
-        enable: true,
-        email: input.email,
-      };
-
-      const [_, userPackage] = await this.prisma.$transaction([
-        this.prisma.clientStat.upsert({
-          where: {
-            id: input.id,
-          },
-          create: clientStat,
-          update: clientStat,
-        }),
-        this.prisma.userPackage.create({
-          data: {
-            packageId: input.package.id,
-            serverId: input.server.id,
-            userId: user.id,
-            statId: input.id,
-            paymentId: input.paymentId,
-            name: input.name,
-            order: input.order,
-          },
-        }),
-      ]);
-
-      return userPackage;
-    } catch (error) {
-      console.error(error);
-
-      throw new BadRequestException('upsert client Stat or create userPackage got failed.');
     }
   }
 
@@ -904,79 +566,6 @@ export class XuiService {
     } catch {
       throw new BadRequestException('Get ClientStats failed.');
     }
-  }
-
-  async getPackages(user: User) {
-    return this.prisma.package.findMany({
-      where: { deletedAt: null, forRole: { has: user.role } },
-      orderBy: { order: 'asc' },
-    });
-  }
-
-  async acceptPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({ where: { id: userPackId } });
-    await this.prisma.payment.update({
-      where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'APPLIED',
-      },
-    });
-  }
-
-  async rejectPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({
-      where: { id: userPackId },
-      include: {
-        user: true,
-        package: true,
-      },
-    });
-    // const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.userId } });
-    const payment = await this.prisma.payment.update({
-      where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'REJECTED',
-      },
-    });
-
-    await this.prisma.user.update({
-      where: {
-        id: userPack.user.parentId!,
-      },
-      data: {
-        balance: {
-          increment: payment.amount,
-        },
-        profitBalance: {
-          increment: payment.parentProfit,
-        },
-        totalProfit: {
-          decrement: payment.parentProfit,
-        },
-      },
-    });
-
-    await this.prisma.userPackage.update({
-      where: { id: userPackId },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    await this.deleteClient(userPack.statId);
-    await this.toggleUserBlock(userPack.userId, true);
-
-    const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.user.parentId! } });
-    const text = `#ریجکتـبسته\n📦 ${userPack.package.traffic} گیگ - ${convertPersianCurrency(
-      userPack.package.price,
-    )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
-      userPack.user.firstname
-    } ${userPack.user.firstname}\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}`;
-    void this.bot.telegram.sendMessage(this.reportGroupId, text, this.loginToPanelBtn);
   }
 
   async toggleUserBlock(userId: string, isBlocked: boolean) {
@@ -1066,11 +655,11 @@ export class XuiService {
           orderBy: { order: 'desc' },
         });
 
-        let lastOrder = 'n';
+        let lastOrder = 1;
 
         for (const userPack of userPacks) {
-          await this.prisma.userPackage.update({ where: { id: userPack.id }, data: { order: lastOrder } });
-          lastOrder = midOrder('', lastOrder);
+          await this.prisma.userPackage.update({ where: { id: userPack.id }, data: { orderN: lastOrder } });
+          lastOrder += 1;
         }
         // Upsert ClientStat records in bulk
       } catch (error) {

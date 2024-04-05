@@ -92,20 +92,8 @@ export interface AddClientInput {
   serverId: string;
   name: string;
   package: Package;
-  order?: string;
+  orderN?: number;
 }
-
-export interface CreatePackageInput {
-  id: string;
-  subId: string;
-  email: string;
-  server: Server;
-  paymentId: string;
-  name: string;
-  package: Package;
-  order: string;
-}
-
 export interface UpdateClientReqInput {
   id: string;
   limitIp?: number;
@@ -122,18 +110,8 @@ export interface UpdateClientInput {
   server: Server;
   package: Package;
   enable?: boolean;
-  order: string;
+  orderN: number;
 }
-
-export interface SendBuyPackMessageInput {
-  receiptBuffer?: Buffer;
-  userPack: UserPackagePrisma;
-  pack: Package;
-  parentProfit?: number;
-  profitAmount?: number;
-  inRenew: boolean;
-}
-
 export interface ServerStat {
   cpu: number;
   mem: {
