@@ -268,7 +268,7 @@ export class PackageService {
       receipt: input.receipt,
     });
 
-    const lastUserPack = await this.prisma.userPackage.findFirstOrThrow({
+    const lastUserPack = await this.prisma.userPackage.findFirst({
       where: { userId: user.id },
       orderBy: { orderN: 'desc' },
     });
@@ -281,7 +281,7 @@ export class PackageService {
       name: input.name || 'No Name',
       package: pack,
       paymentId,
-      orderN: lastUserPack.orderN + 1,
+      orderN: (lastUserPack?.orderN || 0) + 1,
     });
 
     await this.sendBuyPackMessage(user, {

@@ -670,6 +670,10 @@ export class XuiService {
 
   @Interval('backupDB', 1 * 60 * 1000)
   async backupDB() {
+    if (this.configService.get('env') === 'development') {
+      return;
+    }
+
     this.logger.debug('BackupDB call every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
