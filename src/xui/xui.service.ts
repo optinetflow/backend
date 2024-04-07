@@ -4,6 +4,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { Prisma, Server } from '@prisma/client';
+import { AxiosRequestConfig } from 'axios';
 import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
@@ -150,15 +151,16 @@ export class XuiService {
     return [`session=${Cookie.parse(token).session}`, server];
   }
 
-  async authenticatedReq<T>({ serverId, url, method, body, headers }: AuthenticatedReq) {
+  async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer }: AuthenticatedReq) {
     const [auth, server] = await this.getAuthorization(serverId);
 
-    const config = {
+    const config: AxiosRequestConfig = {
       headers: { ...(headers || {}), cookie: auth },
       httpsAgent: new https.Agent({
         rejectUnauthorized: false,
       }),
       maxContentLength: 10_485_760,
+      ...(isBuffer && { responseType: 'arraybuffer' }),
     };
 
     return firstValueFrom(
@@ -682,10 +684,11 @@ export class XuiService {
         serverId: server.id,
         url: (domain) => ENDPOINTS(domain).getDb,
         method: 'get',
+        isBuffer: true,
       });
 
       void this.bot.telegram.sendDocument(this.backupGroup, {
-        source: Buffer.from(res.data),
+        source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });
     }

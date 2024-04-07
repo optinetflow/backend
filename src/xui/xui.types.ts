@@ -6,6 +6,7 @@ export interface AuthenticatedReq {
   method: 'post' | 'get' | 'patch' | 'put';
   headers?: Record<string, string>;
   body?: Record<string, unknown> | string;
+  isBuffer?: boolean;
 }
 
 export interface InboundSetting {
