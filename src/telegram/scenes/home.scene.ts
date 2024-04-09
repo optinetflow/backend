@@ -12,12 +12,12 @@ export class HomeScene {
   @SceneEnter()
   async onSceneEnter(@Ctx() ctx: Context): Promise<void> {
     const webPanel = this.configService.get('webPanelUrl');
-    await ctx.reply('به ربات خوش آمدید.', {
+    await ctx.reply('وصل کن دات کام (vaslkon.com)', {
       reply_markup: {
         inline_keyboard: [
           [
             {
-              text: 'ورود به پنل',
+              text: 'ورود به سایت',
               url: webPanel,
             },
           ],

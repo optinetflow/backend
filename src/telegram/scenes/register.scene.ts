@@ -17,16 +17,17 @@ export class RegisterScene {
 
   @SceneEnter()
   async onSceneEnter(@Ctx() ctx: Context): Promise<void> {
-    await ctx.reply('برای ثبت نام لطفا از طریق دکمه‌ی زیر شماره تماس خود را بفرستید.', {
+    await ctx.reply('برای ثبت‌نام دکمه «می‌خواهم عضو بشوم» را در پایین صفحه بزنید.\n👇👇👇👇👇👇', {
       reply_markup: {
         keyboard: [
           [
             {
-              text: 'ارسال شماره موبایل',
+              text: 'می‌خواهم عضو بشوم',
               request_contact: true,
             },
           ],
         ],
+        resize_keyboard: true,
       },
     });
   }
@@ -42,6 +43,9 @@ export class RegisterScene {
           remove_keyboard: true,
         },
       });
+
+      await this.telegramService.enableGift(ctx);
+
       await ctx.scene.enter(HOME_SCENE_ID);
     } else {
       await ctx.reply('فقط باید از طریق دکمه‌ی زیر اقدام به ارسال شماره موبایل کنید.');

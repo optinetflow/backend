@@ -19,13 +19,16 @@ export class SignupInput {
   @MinLength(4)
   password: string;
 
-  @Field(() => Role, { nullable: true })
-  @IsUUID()
-  @IsOptional()
-  role?: Role;
-
   @Field(() => String, { nullable: true })
-  @IsUUID()
-  @IsOptional()
-  referId?: string;
+  promoCode?: string;
+
+  // @Field(() => Role, { nullable: true })
+  // @IsUUID()
+  // @IsOptional()
+  // role?: Role;
+
+  // @Field(() => String, { nullable: true })
+  // @IsUUID()
+  // @IsOptional()
+  // referId?: string;
 }

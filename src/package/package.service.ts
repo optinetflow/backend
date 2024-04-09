@@ -2,7 +2,7 @@
 import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import { InjectBot } from 'nestjs-telegraf';
@@ -238,6 +238,10 @@ export class PackageService {
     }
   }
 
+  async getFreeServer(): Promise<Server> {
+    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
+  }
+
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
     const isBlocked = Boolean(user.isDisabled || user.isParentDisabled);
@@ -246,7 +250,7 @@ export class PackageService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
+    const server = await this.getFreeServer();
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
     const email = nanoid();
@@ -294,6 +298,51 @@ export class PackageService {
     });
 
     return userPack;
+  }
+
+  async enableGift(user: User, userGiftId: string): Promise<void> {
+    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+
+    const server = await this.getFreeServer();
+    const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
+    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
+    const email = nanoid();
+    const id = uuid();
+    const subId = nanoid();
+
+    await this.xuiService.addClient(user, {
+      id,
+      subId,
+      email,
+      serverId: server.id,
+      package: pack,
+      name: 'وصل کن دات کام',
+    });
+
+    const lastUserPack = await this.prisma.userPackage.findFirst({
+      where: { userId: user.id },
+      orderBy: { orderN: 'desc' },
+    });
+
+    const userPack = await this.createPackage(user, {
+      id,
+      subId,
+      email,
+      server,
+      name: 'وصل کن دات کام',
+      package: pack,
+      orderN: (lastUserPack?.orderN || 0) + 1,
+    });
+
+    await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
+
+    const caption = `#فعالسازیـهدیه\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
+      pack.expirationDays
+    } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.firstname} ${user.lastname}\n📞 موبایل: +98${
+      user.phone
+    }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
+
+    await this.bot.telegram.sendMessage(this.reportGroupId, caption);
   }
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {

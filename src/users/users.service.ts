@@ -29,7 +29,12 @@ export class UsersService {
   async getUser(user: User): Promise<User> {
     const fullUser = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      include: { telegram: true, bankCard: true, parent: { include: { telegram: true, bankCard: true } } },
+      include: {
+        telegram: true,
+        bankCard: true,
+        userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } },
+        parent: { include: { telegram: true, bankCard: true } },
+      },
     });
 
     prefixAvatar(fullUser?.telegram);

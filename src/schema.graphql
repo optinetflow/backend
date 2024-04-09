@@ -77,6 +77,7 @@ type Child {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  userGift: [UserGift!]
 }
 
 type ClientStat {
@@ -189,6 +190,11 @@ A field whose value is a JSON Web Token (JWT): https://jwt.io/introduction.
 scalar JWT
 
 type Login {
+  isPromoCodeValid: Boolean
+  loggedIn: LoginData
+}
+
+type LoginData {
   tokens: Token!
   user: User!
 }
@@ -316,8 +322,7 @@ input SignupInput {
   lastname: String!
   password: String!
   phone: String!
-  referId: String
-  role: Role
+  promoCode: String
 }
 
 type TelegramUser {
@@ -408,6 +413,12 @@ type User {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  userGift: [UserGift!]
+}
+
+type UserGift {
+  giftPackage: Package
+  isGiftUsed: Boolean!
 }
 
 type UserPackage {
