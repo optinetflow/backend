@@ -18,6 +18,7 @@ Table User {
   role Role [not null, default: 'USER']
   isDisabled Boolean [not null, default: false]
   isParentDisabled Boolean [not null, default: false]
+  isVerified Boolean [not null, default: true]
   maxRechargeDiscountPercent Float
   profitPercent Float [not null, default: 0]
   initialDiscountPercent Float
@@ -31,7 +32,8 @@ Table User {
   telegram TelegramUser
   bankCard BankCard [not null]
   file File [not null]
-  Promotion Promotion [not null]
+  promotion Promotion [not null]
+  userGift UserGift [not null]
 }
 
 Table TelegramUser {
@@ -126,6 +128,7 @@ Table Package {
   forRole Role[] [not null]
   userPackage UserPackage [not null]
   Promotion Promotion [not null]
+  UserGift UserGift [not null]
 }
 
 Table RechargePackage {
@@ -191,7 +194,7 @@ Table Payment {
   parentProfit Float [not null, default: 0]
   description String
   payer User [not null]
-  UserPackage UserPackage [not null]
+  userPackage UserPackage [not null]
 }
 
 Table Promotion {
@@ -200,8 +203,21 @@ Table Promotion {
   updatedAt DateTime [not null]
   deletedAt DateTime
   code String [unique, not null]
+  parentUserId String [not null]
+  giftPackageId String
+  parentUser User [not null]
+  giftPackage Package
+}
+
+Table UserGift {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
   userId String [not null]
   giftPackageId String
+  isGiftUsed Boolean [not null, default: false]
+  promotionId String
   user User [not null]
   giftPackage Package
 }
@@ -264,6 +280,10 @@ Ref: ClientStat.serverId > Server.id
 
 Ref: Payment.payerId > User.id
 
-Ref: Promotion.userId > User.id
+Ref: Promotion.parentUserId > User.id
 
 Ref: Promotion.giftPackageId > Package.id
+
+Ref: UserGift.userId > User.id
+
+Ref: UserGift.giftPackageId > Package.id

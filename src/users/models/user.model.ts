@@ -1,10 +1,11 @@
 import 'reflect-metadata';
 
-import { Field, Float, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { Field, Float, HideField, ID, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { Role } from '@prisma/client';
 import { IsMobilePhone } from 'class-validator';
 
 import { BaseModel } from '../../common/models/base.model';
+import { Package } from '../../package/models/package.model';
 import { TelegramUser } from '../../telegram/models/telegramUser.model';
 
 registerEnumType(Role, {
@@ -24,6 +25,15 @@ export class BankCard {
 
   @Field()
   number: string;
+}
+
+@ObjectType()
+export class UserGift {
+  @Field(() => Package, { nullable: true })
+  giftPackage?: Package | null;
+
+  @Field(() => Boolean)
+  isGiftUsed: boolean;
 }
 
 @ObjectType()
@@ -97,6 +107,9 @@ export class User extends BaseModel {
 
   @Field(() => Float, { nullable: true })
   appliedDiscountPercent?: number | null;
+
+  @Field(() => [UserGift], { nullable: true })
+  userGift?: UserGift[] | null;
 }
 
 @ObjectType()

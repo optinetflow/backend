@@ -9,6 +9,7 @@ import { Telegraf } from 'telegraf';
 import { b64UrlToJson, extractFileName, getFileFromURL } from '../common/helpers';
 import { Context } from '../common/interfaces/context.interface';
 import { MinioClientService } from '../minio/minio.service';
+import { PackageService } from '../package/package.service';
 import { HOME_SCENE_ID, REGISTER_SCENE_ID } from './telegram.constants';
 
 interface StartPayload {
@@ -23,6 +24,7 @@ export class TelegramService {
     private readonly bot: Telegraf<Context>,
     private readonly minioService: MinioClientService,
     private readonly configService: ConfigService,
+    private readonly packageService: PackageService,
   ) {
     void this.updateUsersInfo();
   }
@@ -67,7 +69,7 @@ export class TelegramService {
         return;
       }
 
-      const [updatedTelegramUser, bigPhoto] = await this.upsertUser(user, ctx.from!.id);
+      const [updatedTelegramUser, bigPhoto] = await this.upsertTelegramUser(user, ctx.from!.id);
       await ctx.scene.enter(REGISTER_SCENE_ID);
 
       let parent: User | null = null;
@@ -88,7 +90,7 @@ export class TelegramService {
     }
   }
 
-  async upsertUser(
+  async upsertTelegramUser(
     user: User,
     telegramId: number,
     telegramUser?: TelegramUser,
@@ -173,8 +175,25 @@ export class TelegramService {
       },
     });
 
+    await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
     const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.firstname} ${telegramUser.user.lastname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.firstname} ${telegramUser.user?.parent?.lastname}`;
     void this.bot.telegram.sendMessage(this.reportGroupId, caption);
+  }
+
+  async enableGift(ctx: Context) {
+    const telegramUser = await this.prisma.telegramUser.findUniqueOrThrow({ where: { id: ctx.from!.id } });
+    const user = await this.prisma.user.findFirstOrThrow({
+      where: { id: telegramUser?.userId },
+      include: { userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } } },
+    });
+
+    const userGift = user?.userGift?.[0];
+
+    if (userGift) {
+      const traffic = userGift.giftPackage!.traffic;
+      await this.packageService.enableGift(user, userGift.id);
+      await ctx.reply(`${traffic} گیگ هدیه برای شما در سایت فعال شد.`);
+    }
   }
 
   @Interval('syncTelegramUsersInfo', 24 * 60 * 60 * 1000)
@@ -200,7 +219,7 @@ export class TelegramService {
 
       for (const telegramUser of telegramUsers) {
         try {
-          await this.upsertUser(telegramUser.user, Number(telegramUser.id), telegramUser);
+          await this.upsertTelegramUser(telegramUser.user, Number(telegramUser.id), telegramUser);
         } catch (error) {
           console.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.id}`, error);
         }

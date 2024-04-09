@@ -1,8 +1,8 @@
-import { UseGuards } from '@nestjs/common';
+import { Optional, UseGuards } from '@nestjs/common';
 import { Args, Context, Mutation, Parent, ResolveField, Resolver } from '@nestjs/graphql';
 import type { Request as RequestType } from 'express';
 
-import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { GqlAuthGuard, OptionalGqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { User } from '../users/models/user.model';
 import { AuthService } from './auth.service';
@@ -17,11 +17,10 @@ import { Token } from './models/token.model';
 export class AuthResolver {
   constructor(private readonly auth: AuthService) {}
 
-  @UseGuards(GqlAuthGuard)
+  @UseGuards(OptionalGqlAuthGuard)
   @Mutation(() => Auth)
-  async signup(@UserEntity() user: User, @Args('data') data: SignupInput) {
-    data.phone = data.phone.toLowerCase();
-    const { accessToken, refreshToken } = await this.auth.createUser(user, data);
+  async signup(@UserEntity() user: User, @Args('data') data: SignupInput, @Context() context: { req: RequestType }) {
+    const { accessToken, refreshToken } = await this.auth.createUser(user, data, context.req);
 
     return {
       accessToken,

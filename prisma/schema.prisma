@@ -33,6 +33,7 @@ model User {
   role                       Role     @default(USER)
   isDisabled                 Boolean  @default(false)
   isParentDisabled           Boolean  @default(false)
+  isVerified                 Boolean  @default(true)
   maxRechargeDiscountPercent Float?
   profitPercent              Float    @default(0)
   initialDiscountPercent     Float?
@@ -47,7 +48,8 @@ model User {
   telegram    TelegramUser?
   bankCard    BankCard[]
   file        File[]
-  Promotion   Promotion[]
+  promotion   Promotion[]
+  userGift    UserGift[]
 
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
@@ -90,7 +92,7 @@ model File {
   updatedAt DateTime @updatedAt
   userId    String   @db.Uuid
   name      String   @db.VarChar(255)
-
+ 
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId], name: "FileUserIdIndex")
@@ -174,6 +176,7 @@ model Package {
   forRole        Role[]        @default([ADMIN, USER])
   userPackage    UserPackage[]
   Promotion      Promotion[]
+  UserGift       UserGift[]
 }
 
 model RechargePackage {
@@ -267,7 +270,7 @@ model Payment {
   description  String?
 
   payer       User          @relation(fields: [payerId], references: [id])
-  UserPackage UserPackage[]
+  userPackage UserPackage[]
 }
 
 // model Transation {
@@ -298,9 +301,30 @@ model Promotion {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
   code          String    @unique @db.VarChar(255)
+  parentUserId  String    @db.Uuid
+  giftPackageId String?   @db.Uuid
+
+  parentUser  User     @relation(fields: [parentUserId], references: [id])
+  giftPackage Package? @relation(fields: [giftPackageId], references: [id])
+
+  @@index([code], name: "PromotionCodeIndex")
+}
+
+
+
+model UserGift {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
   userId        String    @db.Uuid
   giftPackageId String?   @db.Uuid
+  isGiftUsed    Boolean   @default(false)
+  promotionId   String?   @db.Uuid
 
   user        User     @relation(fields: [userId], references: [id])
   giftPackage Package? @relation(fields: [giftPackageId], references: [id])
+
+  @@index([userId], name: "UserGiftUserIdIndex")
+  @@index([isGiftUsed], name: "UserGiftIsGiftUsedIndex")
 }
