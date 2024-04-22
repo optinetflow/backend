@@ -23,6 +23,7 @@ Table User {
   profitPercent Float [not null, default: 0]
   initialDiscountPercent Float
   appliedDiscountPercent Float
+  description String
   parent User
   children User [not null]
   refer User
