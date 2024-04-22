@@ -26,4 +26,7 @@ export class UpdateChildInput {
 
   @Field(() => Role, { nullable: true })
   role?: Role;
+
+  @Field(() => String, { nullable: true })
+  description?: string;
 }
