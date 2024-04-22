@@ -38,6 +38,7 @@ model User {
   profitPercent              Float    @default(0)
   initialDiscountPercent     Float?
   appliedDiscountPercent     Float?
+  description                String?
 
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children    User[]        @relation("UserParentRelation")

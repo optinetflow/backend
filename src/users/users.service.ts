@@ -65,7 +65,7 @@ export class UsersService {
           const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
 
           // Sort in descending order (newest first)
-          return dateA - dateB;
+          return dateB - dateA;
         })?.[0]?.stat?.lastConnectedAt || undefined,
       activePackages: child?.userPackage?.length || 0,
     }));
