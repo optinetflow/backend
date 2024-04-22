@@ -22,7 +22,4 @@ export class UpdateUserInput {
 
   @Field(() => String, { nullable: true })
   cardBandName?: string;
-
-  @Field(() => String, { nullable: true })
-  description?: string;
 }
