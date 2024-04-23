@@ -59,14 +59,16 @@ export class UsersService {
     const resolvedChildren: Child[] = children.map((child) => ({
       ...child,
       lastConnectedAt:
-        child.userPackage?.sort((a, b) => {
-          // Handle null values by placing them at the end
-          const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
-          const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
+        child.userPackage
+          .filter((pack) => pack.stat.lastConnectedAt)
+          ?.sort((a, b) => {
+            // Handle null values by placing them at the end
+            const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
+            const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
 
-          // Sort in descending order (newest first)
-          return dateB - dateA;
-        })?.[0]?.stat?.lastConnectedAt || undefined,
+            // Sort in descending order (newest first)
+            return dateA - dateB;
+          })?.[0]?.stat?.lastConnectedAt || undefined,
       activePackages: child?.userPackage?.length || 0,
     }));
 
