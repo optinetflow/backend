@@ -76,7 +76,7 @@ export class PackageService {
       inline_keyboard: [
         [
           {
-            text: 'ورود به پنل',
+            text: 'ورود به سایت',
             url: this.webPanel,
           },
         ],
@@ -139,7 +139,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق پنل می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.firstname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
@@ -156,7 +156,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق پنل می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.firstname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
@@ -217,7 +217,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق پنل می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.firstname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
         void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
@@ -232,7 +232,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق پنل می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.firstname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
         void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
@@ -528,7 +528,7 @@ export class PackageService {
 
   async getUserPackages(user: User): Promise<UserPackage[]> {
     const userPackages: UserPackage[] = [];
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
         stat: true,
@@ -537,7 +537,7 @@ export class PackageService {
       where: {
         userId: user.id,
         deletedAt: null,
-        OR: [{ finishedAt: null }, { finishedAt: { gte: tenDaysAgo } }],
+        OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }],
       },
       orderBy: {
         orderN: 'desc',

@@ -1,9 +1,10 @@
 /* eslint-disable no-return-await */
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ClientStat, UserPackage } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 
 import { PasswordService } from '../auth/password.service';
-import { prefixFile } from '../common/helpers';
+import { isRecentlyConnected, prefixFile } from '../common/helpers';
 import { TelegramUser } from '../telegram/models/telegramUser.model';
 import { XuiService } from '../xui/xui.service';
 import { ChangePasswordInput } from './dto/change-password.input';
@@ -43,34 +44,68 @@ export class UsersService {
   }
 
   async getChildren(user: User): Promise<Child[]> {
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const children = await this.prisma.user.findMany({
       where: { parentId: user.id },
       include: {
         telegram: true,
         userPackage: {
-          where: { deletedAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: tenDaysAgo } }] },
+          where: { deletedAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }] },
           include: { stat: true },
+        },
+        children: {
+          include: {
+            userPackage: {
+              where: { deletedAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }] },
+              include: { stat: true },
+            },
+            children: {
+              include: {
+                userPackage: {
+                  where: { deletedAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }] },
+                  include: { stat: true },
+                },
+              },
+            },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    const resolvedChildren: Child[] = children.map((child) => ({
-      ...child,
-      lastConnectedAt:
-        child.userPackage
-          .filter((pack) => pack.stat.lastConnectedAt)
-          ?.sort((a, b) => {
-            // Handle null values by placing them at the end
-            const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
-            const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getDate() : Number.POSITIVE_INFINITY;
+    const resolvedChildren: Child[] = children.map((child) => {
+      const allUserPackage = [
+        ...child.userPackage,
+        ...(child?.children?.reduce<Array<UserPackage & { stat: ClientStat }>>(
+          (all, current) => [
+            ...all,
+            ...current.userPackage,
+            ...(current?.children?.reduce<Array<UserPackage & { stat: ClientStat }>>(
+              (allSub, currentSub) => [...allSub, ...currentSub.userPackage],
+              [],
+            ) || []),
+          ],
+          [],
+        ) || []),
+      ];
 
-            // Sort in descending order (newest first)
-            return dateA - dateB;
+      return {
+        ...child,
+        lastConnectedAt:
+          allUserPackage?.sort((a, b) => {
+            const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getTime() : Number.NEGATIVE_INFINITY;
+            const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getTime() : Number.NEGATIVE_INFINITY;
+
+            return dateB - dateA;
           })?.[0]?.stat?.lastConnectedAt || undefined,
-      activePackages: child?.userPackage?.length || 0,
-    }));
+        activePackages: allUserPackage.length || 0,
+        onlinePackages: allUserPackage.reduce<number>(
+          (onlines, pack) =>
+            pack.stat.lastConnectedAt && isRecentlyConnected(pack.stat.lastConnectedAt) ? onlines + 1 : onlines,
+          0,
+        ),
+      };
+    });
 
     children.forEach((child) => prefixAvatar(child?.telegram));
 

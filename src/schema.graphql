@@ -66,6 +66,7 @@ type Child {
   lastConnectedAt: DateTime
   lastname: String!
   maxRechargeDiscountPercent: Float
+  onlinePackages: Int!
   parent: Parent
   parentId: String
   phone: String!

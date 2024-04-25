@@ -117,6 +117,9 @@ export class Child extends User {
   @Field(() => Int)
   activePackages: number;
 
+  @Field(() => Int)
+  onlinePackages: number;
+
   @Field(() => String, { nullable: true })
   description?: string | null;
 
