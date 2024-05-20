@@ -46,6 +46,9 @@ export class PaymentService {
           lte: user.maxRechargeDiscountPercent || 50,
         },
       },
+      orderBy: {
+        discountPercent: 'asc',
+      },
     });
   }
 
