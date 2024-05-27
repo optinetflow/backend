@@ -132,7 +132,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { phone } });
 
     if (!user) {
-      const promo = await this.prisma.promotion.findUnique({ where: { code: password } });
+      const promo = await this.prisma.promotion.findUnique({ where: { code: password.toLowerCase() } });
 
       if (promo) {
         return { isPromoCodeValid: true };
