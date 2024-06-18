@@ -239,7 +239,7 @@ export class PackageService {
   }
 
   async getFreeServer(): Promise<Server> {
-    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir1.arvanvpn.online:40005' } });
+    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'ir3.arvanvpn.online:40005' } });
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
