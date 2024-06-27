@@ -25,9 +25,7 @@ export class TelegramService {
     private readonly minioService: MinioClientService,
     private readonly configService: ConfigService,
     private readonly packageService: PackageService,
-  ) {
-    void this.updateUsersInfo();
-  }
+  ) {}
 
   private readonly logger = new Logger(TelegramService.name);
 
