@@ -552,7 +552,7 @@ export class PackageService {
         name: userPack.name,
         link: getVlessLink(
           userPack.statId,
-          userPack.server.domain,
+          userPack.server.tunnelDomain!,
           `${userPack.name} | ${new URL(this.webPanel).hostname}`,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
