@@ -243,11 +243,12 @@ export class PaymentService {
     }
 
     parentProfit = input.amount * (parent.profitBalance / parent.balance);
-    const realProfit = parentProfit - (input?.profitAmount || 0);
 
     if (Number.isNaN(parentProfit)) {
       parentProfit = 0;
     }
+
+    const realProfit = parentProfit - (input?.profitAmount || 0);
 
     await this.prisma.user.update({
       where: {
