@@ -133,7 +133,7 @@ export class XuiService {
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId, deletedAt: null } });
 
     if (!isSessionExpired(server.token)) {
-      return [`session=${Cookie.parse(server.token).session}`, server];
+      return [server.token, server];
     }
 
     const token = await this.login(server.domain);
@@ -148,7 +148,7 @@ export class XuiService {
       },
     });
 
-    return [`session=${Cookie.parse(token).session}`, server];
+    return [token, server];
   }
 
   async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer }: AuthenticatedReq) {
