@@ -111,7 +111,7 @@ export class XuiService {
           }),
         }),
       );
-      const cookie = login?.headers['set-cookie']?.[0];
+      const cookie = login?.headers['set-cookie']?.[1];
 
       if (!cookie) {
         throw new NotFoundException(errors.xui.accountNotFound);
