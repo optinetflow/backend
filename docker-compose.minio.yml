@@ -34,7 +34,7 @@ services:
 volumes:
   minio-data:
     driver: local
-    driver_opts:
-      type: none
-      device: ${MINIO_PERSIST_PATH}
-      o: bind
+    # driver_opts:
+    #   type: none
+    #   device: ${MINIO_PERSIST_PATH}
+    #   o: bind

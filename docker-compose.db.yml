@@ -50,7 +50,7 @@ services:
 volumes:
   postgres-data:
     driver: local
-    driver_opts:
-      type: none
-      device: ${POSTGRES_DB_PERSIST_PATH}
-      o: bind
+    # driver_opts:
+    #   type: none
+    #   device: ${POSTGRES_DB_PERSIST_PATH}
+    #   o: bind
