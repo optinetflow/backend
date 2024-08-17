@@ -139,7 +139,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
@@ -156,7 +156,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
@@ -217,7 +217,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
         void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
@@ -232,7 +232,7 @@ export class PackageService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
         void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
@@ -338,7 +338,7 @@ export class PackageService {
 
     const caption = `#فعالسازیـهدیه\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
       pack.expirationDays
-    } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.firstname} ${user.lastname}\n📞 موبایل: +98${
+    } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
       user.phone
     }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
 
@@ -470,7 +470,7 @@ export class PackageService {
       input.pack.traffic
     } گیگ - ${convertPersianCurrency(input.pack.price)} - ${input.pack.expirationDays} روزه\n🔤 نام بسته: ${
       input.userPack.name
-    }\n👤 ${user.firstname} ${user.lastname}\n📞 موبایل: +98${user.phone}\n💵 سود تقریبی: ${convertPersianCurrency(
+    }\n👤 ${user.fullname}\n📞 موبایل: +98${user.phone}\n💵 سود تقریبی: ${convertPersianCurrency(
       roundTo(input.parentProfit || input.profitAmount || 0, 0),
     )}\n`;
 
@@ -508,7 +508,7 @@ export class PackageService {
         const parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
         const reportCaption =
           caption +
-          `\n\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}\n💵 شارژ حساب: ${convertPersianCurrency(
+          `\n\n👨 مارکتر: ${parent?.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(
             roundTo(parent?.balance || 0, 0),
           )}`;
         void this.bot.telegram.sendPhoto(
@@ -679,8 +679,8 @@ export class PackageService {
     const text = `#ریجکتـبسته\n📦 ${userPack.package.traffic} گیگ - ${convertPersianCurrency(
       userPack.package.price,
     )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
-      userPack.user.firstname
-    } ${userPack.user.firstname}\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}`;
+      userPack.user.fullname
+    } ${userPack.user.fullname}\n👨 مارکتر: ${parent?.fullname}`;
     void this.bot.telegram.sendMessage(this.reportGroupId, text, this.loginToPanelBtn);
   }
 }

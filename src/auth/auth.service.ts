@@ -72,8 +72,8 @@ export class AuthService {
     try {
       const newUser = await this.prisma.user.create({
         data: {
-          firstname: payload.firstname,
-          lastname: payload.lastname,
+          firstname: payload.fullname.trim(),
+          fullname: payload.fullname.trim(),
           phone: payload.phone,
           id,
           password: hashedPassword,
@@ -82,7 +82,7 @@ export class AuthService {
         },
       });
 
-      const reportCaption = `#ثبتـنام\n👤 ${newUser.firstname} ${newUser.lastname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${user?.firstname} ${user?.lastname}`;
+      const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${user?.fullname}`;
       void this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
 
       const token = this.generateTokens({

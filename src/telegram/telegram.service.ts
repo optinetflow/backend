@@ -76,7 +76,7 @@ export class TelegramService {
         parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
       }
 
-      const caption = `#ثبـنامـتلگرام\n👤 ${user.firstname} ${user.lastname} (@${updatedTelegramUser?.username})\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}`;
+      const caption = `#ثبـنامـتلگرام\n👤 ${user.fullname} (@${updatedTelegramUser?.username})\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${parent?.fullname}`;
 
       if (bigPhoto) {
         void this.bot.telegram.sendPhoto(this.reportGroupId, { source: bigPhoto }, { caption });
@@ -174,7 +174,7 @@ export class TelegramService {
     });
 
     await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
-    const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.firstname} ${telegramUser.user.lastname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.firstname} ${telegramUser.user?.parent?.lastname}`;
+    const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.fullname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.fullname}`;
     void this.bot.telegram.sendMessage(this.reportGroupId, caption);
   }
 
