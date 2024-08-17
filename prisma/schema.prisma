@@ -24,7 +24,8 @@ model User {
   phone                      String   @unique
   password                   String // @db.VarChar(255)
   firstname                  String // @db.VarChar(255)
-  lastname                   String // @db.VarChar(255)
+  fullname                   String?  @db.VarChar(255)
+  lastname                   String? // @db.VarChar(255)
   balance                    Float    @default(0)
   profitBalance              Float    @default(0)
   totalProfit                Float    @default(0)
