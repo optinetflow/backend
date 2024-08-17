@@ -59,7 +59,7 @@ type Child {
   createdAt: DateTime!
   description: String
   firstname: String!
-  fullname: String
+  fullname: String!
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
@@ -396,7 +396,7 @@ type User {
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
   firstname: String!
-  fullname: String
+  fullname: String!
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
