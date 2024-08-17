@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 
 @Injectable()
@@ -17,21 +18,21 @@ export class AppService {
     // Fetch all users from the database
     const users = await this.prisma.user.findMany();
 
-    // Loop through each user and update the fullname field
-    for (const user of users) {
-      // Combine firstname and lastname to create the fullname
-      const fullname = `${user.firstname} ${user.lastname ?? ''}`.trim();
+    // Create the raw SQL query to update fullname
+    const updateQueries = users
+      .map(
+        (user) => `
+      WHEN id = '${user.id}' THEN CONCAT_WS(' ', '${user.firstname}', '${user.lastname || ''}')
+      `,
+      )
+      .join(' ');
 
-      // Update the user's fullname field in the database
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { fullname },
-      });
-    }
-
-    // eslint-disable-next-line no-console
-    console.log('fullname is populated');
-
-    return true
+    await this.prisma.$executeRawUnsafe(`
+      UPDATE "User"
+      SET "fullname" = CASE
+        ${updateQueries}
+        ELSE "fullname"
+      END
+    `);
   }
 }
