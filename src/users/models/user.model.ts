@@ -57,8 +57,11 @@ export class User extends BaseModel {
   @Field(() => String)
   firstname: string;
 
-  @Field(() => String)
-  lastname: string;
+  @Field(() => String, { nullable: true })
+  lastname?: string | null;
+
+  @Field(() => String, { nullable: true })
+  fullname?: string | null;
 
   @Field(() => Role)
   role: Role;
