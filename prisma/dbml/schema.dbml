@@ -9,6 +9,7 @@ Table User {
   phone String [unique, not null]
   password String [not null]
   firstname String [not null]
+  fullname String
   lastname String
   balance Float [not null, default: 0]
   profitBalance Float [not null, default: 0]
