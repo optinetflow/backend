@@ -321,8 +321,7 @@ enum ServerCountry {
 }
 
 input SignupInput {
-  firstname: String!
-  lastname: String!
+  fullname: String!
   password: String!
   phone: String!
   promoCode: String
@@ -349,9 +348,8 @@ type Token {
 input UpdateChildInput {
   childId: String!
   description: String
-  firstname: String
+  fullname: String
   isDisabled: Boolean
-  lastname: String
   password: String
   phone: String
   role: Role
@@ -370,8 +368,7 @@ input UpdateDnsPortInput {
 input UpdateUserInput {
   cardBandName: String
   cardBandNumber: String
-  firstname: String
-  lastname: String
+  fullname: String
   password: String
   phone: String
 }
