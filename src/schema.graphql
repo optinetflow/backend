@@ -64,7 +64,7 @@ type Child {
   isDisabled: Boolean
   isParentDisabled: Boolean
   lastConnectedAt: DateTime
-  lastname: String
+  lastname: String!
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
   parent: Parent
@@ -402,7 +402,7 @@ type User {
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
-  lastname: String
+  lastname: String!
   maxRechargeDiscountPercent: Float
   parent: Parent
   parentId: String
