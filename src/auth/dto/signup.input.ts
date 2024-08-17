@@ -8,6 +8,9 @@ export class SignupInput {
   firstname: string;
 
   @Field()
+  lastname: string;
+
+  @Field()
   @Matches(/^9\d{9}$/)
   phone: string;
 

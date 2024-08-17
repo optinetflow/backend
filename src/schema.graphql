@@ -321,6 +321,7 @@ enum ServerCountry {
 
 input SignupInput {
   firstname: String!
+  lastname: String!
   password: String!
   phone: String!
   promoCode: String
