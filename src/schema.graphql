@@ -59,12 +59,13 @@ type Child {
   createdAt: DateTime!
   description: String
   firstname: String!
+  fullname: String
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
   lastConnectedAt: DateTime
-  lastname: String!
+  lastname: String
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
   parent: Parent
@@ -398,11 +399,12 @@ type User {
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
   firstname: String!
+  fullname: String
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
-  lastname: String!
+  lastname: String
   maxRechargeDiscountPercent: Float
   parent: Parent
   parentId: String
