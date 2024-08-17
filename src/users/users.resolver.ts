@@ -1,6 +1,5 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
-import { PrismaService } from 'nestjs-prisma';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
@@ -13,7 +12,7 @@ import { UsersService } from './users.service';
 @Resolver(() => User)
 @UseGuards(GqlAuthGuard)
 export class UsersResolver {
-  constructor(private usersService: UsersService, private prisma: PrismaService) {}
+  constructor(private usersService: UsersService) {}
 
   @UseGuards(GqlAuthGuard)
   @Query(() => User)
