@@ -49,6 +49,10 @@ input ChangePasswordInput {
   oldPassword: String!
 }
 
+type CheckAuth {
+  loggedIn: Boolean!
+}
+
 type Child {
   activePackages: Int!
   appliedDiscountPercent: Float
@@ -261,6 +265,7 @@ enum PaymentType {
 }
 
 type Query {
+  checkAuth: CheckAuth!
   children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   domains(filters: DomainsFiltersInput): [Domain!]!
