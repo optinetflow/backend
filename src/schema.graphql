@@ -49,6 +49,10 @@ input ChangePasswordInput {
   oldPassword: String!
 }
 
+type CheckAuth {
+  loggedIn: Boolean!
+}
+
 type Child {
   activePackages: Int!
   appliedDiscountPercent: Float
@@ -58,14 +62,12 @@ type Child {
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
   description: String
-  firstname: String!
-  fullname: String
+  fullname: String!
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
   lastConnectedAt: DateTime
-  lastname: String
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
   parent: Parent
@@ -263,6 +265,7 @@ enum PaymentType {
 }
 
 type Query {
+  checkAuth: CheckAuth!
   children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   domains(filters: DomainsFiltersInput): [Domain!]!
@@ -321,8 +324,7 @@ enum ServerCountry {
 }
 
 input SignupInput {
-  firstname: String!
-  lastname: String!
+  fullname: String!
   password: String!
   phone: String!
   promoCode: String
@@ -349,9 +351,8 @@ type Token {
 input UpdateChildInput {
   childId: String!
   description: String
-  firstname: String
+  fullname: String
   isDisabled: Boolean
-  lastname: String
   password: String
   phone: String
   role: Role
@@ -370,8 +371,7 @@ input UpdateDnsPortInput {
 input UpdateUserInput {
   cardBandName: String
   cardBandNumber: String
-  firstname: String
-  lastname: String
+  fullname: String
   password: String
   phone: String
 }
@@ -398,13 +398,11 @@ type User {
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
-  firstname: String!
-  fullname: String
+  fullname: String!
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
-  lastname: String
   maxRechargeDiscountPercent: Float
   parent: Parent
   parentId: String

@@ -53,6 +53,7 @@ export class AuthService {
   private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async createUser(user: User | null | null, payload: SignupInput, req: RequestType): Promise<Token> {
+    let reseller = user;
     const id = uuid();
     let parentId = user?.id;
     let promo: Promotion | undefined;
@@ -72,8 +73,8 @@ export class AuthService {
     try {
       const newUser = await this.prisma.user.create({
         data: {
-          firstname: payload.firstname,
-          lastname: payload.lastname,
+          firstname: payload.fullname.trim(),
+          fullname: payload.fullname.trim(),
           phone: payload.phone,
           id,
           password: hashedPassword,
@@ -82,7 +83,16 @@ export class AuthService {
         },
       });
 
-      const reportCaption = `#ثبتـنام\n👤 ${newUser.firstname} ${newUser.lastname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${user?.firstname} ${user?.lastname}`;
+      if (!user) {
+        reseller = await this.prisma.user.findUnique({
+          where: {
+            id: parentId,
+          },
+        });
+      }
+
+      const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
+      const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname} ${promoCaption}`;
       void this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
 
       const token = this.generateTokens({
