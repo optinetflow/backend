@@ -75,8 +75,8 @@ export class PaymentService {
 
     const approximateFullProfit = isFullProfit ? chargeAmount : profitAmount;
     const approximateProfit = parentProfit ? parentProfit - profitAmount : approximateFullProfit;
-    const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${user.firstname} ${
-      user.lastname
+    const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${
+      user.fullname
     }\n⚡مقدار شارژ: ${convertPersianCurrency(roundTo(chargeAmount, 0))}\n📞 موبایل: +98${
       user.phone
     }\n💵 سود تقریبی: ${convertPersianCurrency(roundTo(approximateProfit, 0))}`;
@@ -115,7 +115,7 @@ export class PaymentService {
         const parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
         const reportCaption =
           caption +
-          `\n\n👨 مارکتر: ${parent?.firstname} ${parent?.lastname}\n💵 شارژ حساب: ${convertPersianCurrency(
+          `\n\n👨 مارکتر: ${parent?.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(
             roundTo(parent?.balance || 0, 0),
           )}`;
         await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption: reportCaption });

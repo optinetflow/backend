@@ -11,7 +11,7 @@ async function main() {
     data: {
       phone: 'lisa@simpson.com',
       firstname: 'Lisa',
-      lastname: 'Simpson',
+      fullname: 'Lisa Simpson',
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
       role: 'USER',
     },
@@ -20,7 +20,7 @@ async function main() {
     data: {
       phone: 'bart@simpson.com',
       firstname: 'Bart',
-      lastname: 'Simpson',
+      fullname: 'Bart Simpson',
       role: 'ADMIN',
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
     },
