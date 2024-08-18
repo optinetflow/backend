@@ -35,20 +35,7 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly configService: ConfigService,
     private readonly userService: UsersService,
-  ) {
-    setTimeout(() => {
-      void (async () => {
-        // const proCode = await this.prisma.promotion.findFirst({ where: { code: 'vvip' } });
-        // if (proCode) {
-        //   return;
-        // }
-        // const user = await this.prisma.user.findUniqueOrThrow({
-        //   where: { id: 'c240976d-659b-487e-90be-8202b3ea9caa' },
-        // });
-        // void this.createPromotion(user, 'vvip', 'ee0a6324-054f-44c2-9a69-127a91ed5b83');
-      })();
-    }, 2000);
-  }
+  ) {}
 
   private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
@@ -73,7 +60,6 @@ export class AuthService {
     try {
       const newUser = await this.prisma.user.create({
         data: {
-          firstname: payload.fullname.trim(),
           fullname: payload.fullname.trim(),
           phone: payload.phone,
           id,
