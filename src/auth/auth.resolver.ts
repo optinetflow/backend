@@ -1,5 +1,5 @@
-import { Optional, UseGuards } from '@nestjs/common';
-import { Args, Context, Mutation, Parent, ResolveField, Resolver } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { Args, Context, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import type { Request as RequestType } from 'express';
 
 import { GqlAuthGuard, OptionalGqlAuthGuard } from '../auth/gql-auth.guard';
@@ -10,6 +10,7 @@ import { LoginInput } from './dto/login.input';
 import { RefreshTokenInput } from './dto/refresh-token.input';
 import { SignupInput } from './dto/signup.input';
 import { Auth } from './models/auth.model';
+import { CheckAuth } from './models/check-auth.model';
 import { Login } from './models/login.model';
 import { Token } from './models/token.model';
 
@@ -49,5 +50,13 @@ export class AuthResolver {
   @ResolveField('user', () => User)
   async user(@Parent() auth: Auth) {
     return this.auth.getUserFromToken(auth.accessToken);
+  }
+
+  @UseGuards(OptionalGqlAuthGuard)
+  @Query(() => CheckAuth)
+  checkAuth(@UserEntity() user: User): CheckAuth {
+    return {
+      loggedIn: Boolean(user)
+    }
   }
 }
