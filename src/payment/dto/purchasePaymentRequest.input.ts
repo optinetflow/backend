@@ -12,8 +12,14 @@ export class PurchasePaymentRequestInput {
   @Field()
   id?: string;
 
+  @Field(() => Int, { nullable: true })
+  parentPurchaseAmount?: number;
+
   @Field(() => Int)
   amount: number;
+
+  @Field(() => Int, { nullable: true })
+  discountedAmount?: number;
 
   @Field()
   @IsUUID()

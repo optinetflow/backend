@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { TelegramUser, User } from '@prisma/client';
@@ -25,9 +25,7 @@ export class TelegramService {
     private readonly minioService: MinioClientService,
     private readonly configService: ConfigService,
     private readonly packageService: PackageService,
-  ) {
-    void this.updateUsersInfo();
-  }
+  ) {}
 
   private readonly logger = new Logger(TelegramService.name);
 

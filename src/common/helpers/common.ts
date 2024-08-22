@@ -288,6 +288,12 @@ export function roundTo(number: number, decimalPlaces: number) {
   return Math.round(number * factor) / factor;
 }
 
+export function ceilTo(number: number, decimalPlaces: number) {
+  const factor = Math.pow(10, decimalPlaces);
+
+  return Math.ceil(number * factor) / factor;
+}
+
 export function getRemainingDays(expiryTime: number): number {
   const remainingTime = expiryTime - Date.now();
   const millisecondsInDay = 24 * 60 * 60 * 1000;
@@ -309,3 +315,6 @@ export function getDateTimeString() {
   // Combine them into a string with separators
   return `${year}-${month}-${day}_${hour}-${minute}`;
 }
+
+// Percent from 100
+export const pFrom100 = (number?: number | null): number => (typeof number === 'number' ? number / 100 : 0);

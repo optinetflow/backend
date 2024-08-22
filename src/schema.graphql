@@ -233,6 +233,7 @@ type Mutation {
 type Package {
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
+  discountedPrice: Int
   expirationDays: Int!
   id: ID!
   price: Int!
@@ -349,6 +350,7 @@ input UpdateChildInput {
   childId: String!
   description: String
   firstname: String
+  initialDiscountPercent: Int
   isDisabled: Boolean
   lastname: String
   password: String
@@ -373,6 +375,7 @@ input UpdateUserInput {
   lastname: String
   password: String
   phone: String
+  profitPercent: Int
 }
 
 """The `Upload` scalar type represents a file upload."""

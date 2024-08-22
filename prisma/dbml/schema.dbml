@@ -153,9 +153,11 @@ Table UserPackage {
   serverId String [not null]
   statId String [not null]
   paymentId String
+  paymentKey String [unique]
   thresholdWarningSentAt DateTime
   orderN Int [not null, default: 1]
   payment Payment
+  paymentsByKey Payment [not null]
   package Package [not null]
   user User [not null]
   server Server [not null]
@@ -184,6 +186,7 @@ Table ClientStat {
 
 Table Payment {
   id String [pk]
+  key String
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   amount Float [not null]
@@ -196,6 +199,7 @@ Table Payment {
   description String
   payer User [not null]
   userPackage UserPackage [not null]
+  userPackageByKey UserPackage
 }
 
 Table Promotion {
@@ -280,6 +284,8 @@ Ref: UserPackage.statId > ClientStat.id
 Ref: ClientStat.serverId > Server.id
 
 Ref: Payment.payerId > User.id
+
+Ref: Payment.key - UserPackage.paymentKey
 
 Ref: Promotion.parentUserId > User.id
 

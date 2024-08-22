@@ -5,7 +5,7 @@ export interface CreatePackageInput {
   subId: string;
   email: string;
   server: Server;
-  paymentId?: string;
+  paymentKey?: string;
   name: string;
   package: Package;
   orderN: number;

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { XuiModule } from '../xui/xui.module';
+import { UsersModule } from '../users/users.module';
 import { PaymentResolver } from './payment.resolver';
 import { PaymentService } from './payment.service';
 

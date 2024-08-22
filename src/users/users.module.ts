@@ -8,5 +8,6 @@ import { UsersService } from './users.service';
 @Module({
   imports: [XuiModule],
   providers: [UsersResolver, UsersService, PasswordService],
+  exports: [UsersService],
 })
 export class UsersModule {}

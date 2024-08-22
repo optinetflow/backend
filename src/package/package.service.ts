@@ -2,7 +2,7 @@
 import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import { InjectBot } from 'nestjs-telegraf';
@@ -13,11 +13,12 @@ import { v4 as uuid } from 'uuid';
 import {
   arrayToDic,
   bytesToGB,
+  ceilTo,
   convertPersianCurrency,
+  floorTo,
   getRemainingDays,
   getVlessLink,
   jsonToB64Url,
-  midOrder,
   roundTo,
 } from '../common/helpers';
 import { Context } from '../common/interfaces/context.interface';
@@ -48,6 +49,10 @@ const ENDPOINTS = (domain: string) => {
     serverStatus: `${url}/server/status`,
   };
 };
+
+interface DiscountedPackage extends Package {
+  discountedPrice?: number;
+}
 
 @Injectable()
 export class PackageService {
@@ -251,24 +256,41 @@ export class PackageService {
     }
 
     const server = await this.getFreeServer();
-    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
-    const paymentId = uuid();
+    const pack = (await this.getPackages(user, input.packageId))[0];
+    const parent = user.parentId && (await this.prisma.user.findUnique({ where: { id: user.parentId } }));
+    const paymentKey = uuid();
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
 
-    await this.xuiService.addClient(user, {
-      id,
-      subId,
-      email,
-      serverId: server.id,
-      package: pack,
-      name: input.name || 'No Name',
-    });
+    let parentPurchaseAmount: number | undefined;
 
-    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.purchasePaymentRequest(user, {
-      amount: pack.price,
-      id: paymentId,
+    // if (parent) {
+    //   const parentProfit = (parent?.profitPercent || 0) / 100;
+    //   const parentDiscount = (parent?.appliedDiscountPercent || 0) / 100;
+    //   parentPurchaseAmount = pack.price * ((1 - parentProfit) / (1 - parentDiscount));
+    // }
+
+    // await this.xuiService.addClient(user, {
+    //   id,
+    //   subId,
+    //   email,
+    //   serverId: server.id,
+    //   package: pack,
+    //   name: input.name || 'No Name',
+    // });
+
+    // const { receiptBuffer, parentProfit, profitAmount } = await this.payment.purchasePaymentRequest(user, {
+    //   amount: pack.price,
+    //   discountedAmount: pack.discountedPrice,
+    //   parentPurchaseAmount,
+    //   id: paymentId,
+    //   receipt: input.receipt,
+    // });
+
+    await this.payment.purchasePackagePayment(user, {
+      key: paymentKey,
+      package: pack,
       receipt: input.receipt,
     });
 
@@ -284,18 +306,19 @@ export class PackageService {
       server,
       name: input.name || 'No Name',
       package: pack,
-      paymentId,
+      paymentKey,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
 
-    await this.sendBuyPackMessage(user, {
-      inRenew: false,
-      pack,
-      parentProfit,
-      profitAmount,
-      receiptBuffer,
-      userPack,
-    });
+    // await this.sendBuyPackMessage(user, {
+    //   inRenew: false,
+    //   pack,
+    //   parentProfit,
+    //   profitAmount,
+    //   receiptBuffer,
+    //   userPack,
+    // });
+    console.info('test');
 
     return userPack;
   }
@@ -355,7 +378,7 @@ export class PackageService {
       },
     });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
-    const paymentId = uuid();
+    const paymentKey = uuid();
 
     await this.prisma.userPackage.update({
       where: {
@@ -394,33 +417,31 @@ export class PackageService {
           enable: userPack.stat.enable,
         });
 
-        const { receiptBuffer, parentProfit, profitAmount } = await this.payment.purchasePaymentRequest(user, {
-          amount: pack.price,
-          id: paymentId,
+        await this.payment.purchasePackagePayment(user, {
+          key: paymentKey,
+          package: pack,
           receipt: input.receipt,
         });
 
-        const userNewPack = await this.createPackage(user, {
+        // await this.sendBuyPackMessage(user, {
+        //   inRenew: true,
+        //   pack,
+        //   userPack: userNewPack,
+        //   parentProfit,
+        //   profitAmount,
+        //   receiptBuffer,
+        // });
+
+        return await this.createPackage(user, {
           id: userPack.statId,
           subId: userPack.stat.subId,
           email: userPack.stat.email,
           server: userPack.server,
           name: userPack.name,
           package: modifiedPack,
-          paymentId,
+          paymentKey,
           orderN: userPack.orderN,
         });
-
-        await this.sendBuyPackMessage(user, {
-          inRenew: true,
-          pack,
-          userPack: userNewPack,
-          parentProfit,
-          profitAmount,
-          receiptBuffer,
-        });
-
-        return userNewPack;
       }
     } catch {
       // nothing
@@ -436,33 +457,31 @@ export class PackageService {
       orderN: userPack.orderN,
     });
 
-    const { receiptBuffer, parentProfit, profitAmount } = await this.payment.purchasePaymentRequest(user, {
-      amount: pack.price,
-      id: paymentId,
+    await this.payment.purchasePackagePayment(user, {
+      key: paymentKey,
+      package: pack,
       receipt: input.receipt,
     });
 
-    const userNewPack = await this.createPackage(user, {
+    // await this.sendBuyPackMessage(user, {
+    //   inRenew: true,
+    //   pack,
+    //   userPack: userNewPack,
+    //   parentProfit,
+    //   profitAmount,
+    //   receiptBuffer,
+    // });
+
+    return this.createPackage(user, {
       id: userPack.statId,
       subId: userPack.stat.subId,
       email: userPack.stat.email,
       server: userPack.server,
       name: userPack.name,
       package: modifiedPack,
-      paymentId,
+      paymentKey,
       orderN: userPack.orderN,
     });
-
-    await this.sendBuyPackMessage(user, {
-      inRenew: true,
-      pack,
-      userPack: userNewPack,
-      parentProfit,
-      profitAmount,
-      receiptBuffer,
-    });
-
-    return userNewPack;
   }
 
   async sendBuyPackMessage(user: User, input: SendBuyPackMessageInput) {
@@ -596,7 +615,8 @@ export class PackageService {
             serverId: input.server.id,
             userId: user.id,
             statId: input.id,
-            paymentId: input.paymentId,
+            // paymentId: input.paymentId,
+            paymentKey: input.paymentKey,
             name: input.name,
             orderN: input.orderN,
           },
@@ -611,11 +631,40 @@ export class PackageService {
     }
   }
 
-  async getPackages(user: User) {
-    return this.prisma.package.findMany({
-      where: { deletedAt: null, forRole: { has: user.role } },
+  async getPackages(user: User, id?: string): Promise<DiscountedPackage[]> {
+    const packages = await this.prisma.package.findMany({
+      where: { deletedAt: null, forRole: { has: user.role }, id },
       orderBy: { order: 'asc' },
     });
+    const parent = user?.parentId ? await this.prisma.user.findUnique({ where: { id: user?.parentId } }) : null;
+
+    const hasParentDiscount = typeof parent?.appliedDiscountPercent === 'number';
+    const hasParentProfit = typeof parent?.profitPercent === 'number';
+    const appliedPackPrice =
+      hasParentDiscount || hasParentProfit
+        ? packages.map((pack) => {
+            const parentDiscount = (parent?.appliedDiscountPercent || 0) / 100;
+            const parentProfit = (parent?.profitPercent || 0) / 100;
+            const price = ceilTo(pack.price * ((1 - parentDiscount) / (1 - parentProfit)), 0);
+
+            return {
+              ...pack,
+              price,
+            };
+          })
+        : packages;
+
+    return typeof user?.appliedDiscountPercent === 'number'
+      ? appliedPackPrice.map((pack) => {
+          const userDiscount = (100 - user.appliedDiscountPercent!) / 100;
+          const discountedPrice = ceilTo(pack.price * userDiscount, 0);
+
+          return {
+            ...pack,
+            discountedPrice: discountedPrice !== pack.price ? discountedPrice : undefined,
+          };
+        })
+      : appliedPackPrice;
   }
 
   async acceptPurchasePack(userPackId: string): Promise<void> {

@@ -12,6 +12,10 @@ import { UpdateUserInput } from './dto/update-user.input';
 import { UpdateChildInput } from './dto/updateChild.input';
 import { Child, User } from './models/user.model';
 
+interface RecursiveUser extends User {
+  level: number;
+}
+
 const prefixAvatar = (telegram?: TelegramUser | null): void => {
   if (telegram?.smallAvatar && telegram?.bigAvatar) {
     telegram.smallAvatar = prefixFile(telegram.smallAvatar);
@@ -144,8 +148,43 @@ export class UsersService {
     });
   }
 
+  async getAllParents(userId: string): Promise<RecursiveUser[]> {
+    return this.prisma.$queryRaw`
+      WITH RECURSIVE parents AS (
+        SELECT u.*, 0 AS level
+        FROM "public"."User" u
+        WHERE u.id = ${userId}::uuid
+        UNION ALL
+        SELECT u.*, p.level + 1
+        FROM "public"."User" u
+        INNER JOIN parents p ON u.id = p."parentId"
+      )
+      SELECT * FROM parents
+      WHERE parents.id != ${userId}::uuid
+      ORDER BY level;
+    `;
+  }
+
+  async getAllChildren(userId: string): Promise<RecursiveUser> {
+    return this.prisma.$queryRaw`
+      WITH RECURSIVE children AS (
+        SELECT u.*, 0 AS level
+        FROM "public"."User" u
+        WHERE u.id = ${userId}::uuid
+        UNION ALL
+        SELECT u.*, c.level + 1
+        FROM "public"."User" u
+        INNER JOIN children c ON c.id = u."parentId"
+      )
+      SELECT * FROM children
+      WHERE children.id != ${userId}::uuid
+      ORDER BY level;
+    `;
+  }
+
   async updateChild(user: User, input: UpdateChildInput) {
     const { childId, ...data } = input;
+    let appliedDiscountPercent: number | undefined;
 
     const child = await this.prisma.user.findUniqueOrThrow({ where: { id: childId } });
 
@@ -161,10 +200,20 @@ export class UsersService {
       void this.xuiService.toggleUserBlock(childId, input.isDisabled);
     }
 
+    if (input?.initialDiscountPercent) {
+      const parentDiscount = (user.appliedDiscountPercent || 0) / 100;
+      const parentProfit = user.profitPercent / 100;
+      const childDiscount = input?.initialDiscountPercent / 100;
+
+      appliedDiscountPercent =
+        ((childDiscount + parentDiscount - parentDiscount * childDiscount - parentProfit) * 100) / (1 - parentProfit);
+    }
+
     return this.prisma.user.update({
       data: {
         ...data,
         ...(data?.password && { password: await this.passwordService.hashPassword(data.password) }),
+        ...(appliedDiscountPercent && { appliedDiscountPercent }),
       },
       where: {
         parentId: user.id,

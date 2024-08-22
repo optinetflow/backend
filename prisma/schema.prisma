@@ -93,7 +93,7 @@ model File {
   updatedAt DateTime @updatedAt
   userId    String   @db.Uuid
   name      String   @db.VarChar(255)
- 
+
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId], name: "FileUserIdIndex")
@@ -201,14 +201,16 @@ model UserPackage {
   serverId               String    @db.Uuid
   statId                 String    @db.Uuid
   paymentId              String?   @db.Uuid
+  paymentKey             String?   @unique @db.Uuid
   thresholdWarningSentAt DateTime?
   orderN                 Int       @default(1)
 
-  payment Payment?   @relation(fields: [paymentId], references: [id])
-  package Package    @relation(fields: [packageId], references: [id])
-  user    User       @relation(fields: [userId], references: [id])
-  server  Server     @relation(fields: [serverId], references: [id])
-  stat    ClientStat @relation(fields: [statId], references: [id])
+  payment       Payment?   @relation("UserPackagePaymentByIdRelation", fields: [paymentId], references: [id])
+  paymentsByKey Payment[]  @relation("UserPackagePaymentByKeyRelation")
+  package       Package    @relation(fields: [packageId], references: [id])
+  user          User       @relation(fields: [userId], references: [id])
+  server        Server     @relation(fields: [serverId], references: [id])
+  stat          ClientStat @relation(fields: [statId], references: [id])
 
   @@index([userId], name: "UserPackageUserIdIndex")
   @@index([orderN], name: "UserPackageOrderNIndex")
@@ -259,6 +261,7 @@ enum PaymentType {
 
 model Payment {
   id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key          String?      @db.Uuid
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   amount       Float
@@ -267,11 +270,12 @@ model Payment {
   receiptImage String?      @db.VarChar(255)
   payerId      String       @db.Uuid
   profitAmount Float        @default(0)
-  parentProfit Float        @default(0)
+  parentProfit Float        @default(0) // unusable field, should be deleted
   description  String?
 
-  payer       User          @relation(fields: [payerId], references: [id])
-  userPackage UserPackage[]
+  payer            User          @relation(fields: [payerId], references: [id])
+  userPackage      UserPackage[] @relation("UserPackagePaymentByIdRelation")
+  userPackageByKey UserPackage?  @relation("UserPackagePaymentByKeyRelation", fields: [key], references: [paymentKey])
 }
 
 // model Transation {
@@ -310,8 +314,6 @@ model Promotion {
 
   @@index([code], name: "PromotionCodeIndex")
 }
-
-
 
 model UserGift {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
