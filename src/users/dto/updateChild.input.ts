@@ -8,10 +8,7 @@ export class UpdateChildInput {
   childId: string;
 
   @Field(() => String, { nullable: true })
-  firstname?: string;
-
-  @Field(() => String, { nullable: true })
-  lastname?: string;
+  fullname?: string;
 
   @Field(() => String, { nullable: true })
   @Matches(/^9\d{9}$/)

@@ -41,7 +41,7 @@ export class PackageResolver {
     const userPack = await this.packageService.buyPackage(user, data);
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
 
-    return getVlessLink(userPack.statId, server.domain, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
+    return getVlessLink(userPack.statId, server.tunnelDomain!, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
   }
 
   @UseGuards(GqlAuthGuard)
@@ -50,6 +50,6 @@ export class PackageResolver {
     const userPack = await this.packageService.renewPackage(user, input);
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
 
-    return getVlessLink(userPack.statId, server.domain, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
+    return getVlessLink(userPack.statId, server.tunnelDomain!, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
   }
 }

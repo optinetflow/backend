@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Field, Float, HideField, ID, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { Field, Float, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { Role } from '@prisma/client';
 import { IsMobilePhone } from 'class-validator';
 
@@ -55,10 +55,7 @@ export class User extends BaseModel {
   phone: string;
 
   @Field(() => String)
-  firstname: string;
-
-  @Field(() => String)
-  lastname: string;
+  fullname: string;
 
   @Field(() => Role)
   role: Role;

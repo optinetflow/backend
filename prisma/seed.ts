@@ -10,8 +10,7 @@ async function main() {
   const user1 = await prisma.user.create({
     data: {
       phone: 'lisa@simpson.com',
-      firstname: 'Lisa',
-      lastname: 'Simpson',
+      fullname: 'Lisa Simpson',
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
       role: 'USER',
     },
@@ -19,8 +18,7 @@ async function main() {
   const user2 = await prisma.user.create({
     data: {
       phone: 'bart@simpson.com',
-      firstname: 'Bart',
-      lastname: 'Simpson',
+      fullname: 'Bart Simpson',
       role: 'ADMIN',
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
     },

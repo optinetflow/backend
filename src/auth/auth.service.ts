@@ -35,24 +35,12 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly configService: ConfigService,
     private readonly userService: UsersService,
-  ) {
-    setTimeout(() => {
-      void (async () => {
-        // const proCode = await this.prisma.promotion.findFirst({ where: { code: 'vvip' } });
-        // if (proCode) {
-        //   return;
-        // }
-        // const user = await this.prisma.user.findUniqueOrThrow({
-        //   where: { id: 'c240976d-659b-487e-90be-8202b3ea9caa' },
-        // });
-        // void this.createPromotion(user, 'vvip', 'ee0a6324-054f-44c2-9a69-127a91ed5b83');
-      })();
-    }, 2000);
-  }
+  ) {}
 
   private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async createUser(user: User | null | null, payload: SignupInput, req: RequestType): Promise<Token> {
+    let reseller = user;
     const id = uuid();
     let parentId = user?.id;
     let promo: Promotion | undefined;
@@ -72,8 +60,7 @@ export class AuthService {
     try {
       const newUser = await this.prisma.user.create({
         data: {
-          firstname: payload.firstname,
-          lastname: payload.lastname,
+          fullname: payload.fullname.trim(),
           phone: payload.phone,
           id,
           password: hashedPassword,
@@ -82,7 +69,16 @@ export class AuthService {
         },
       });
 
-      const reportCaption = `#ثبتـنام\n👤 ${newUser.firstname} ${newUser.lastname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${user?.firstname} ${user?.lastname}`;
+      if (!user) {
+        reseller = await this.prisma.user.findUnique({
+          where: {
+            id: parentId,
+          },
+        });
+      }
+
+      const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
+      const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname} ${promoCaption}`;
       void this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
 
       const token = this.generateTokens({
@@ -132,7 +128,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { phone } });
 
     if (!user) {
-      const promo = await this.prisma.promotion.findUnique({ where: { code: password } });
+      const promo = await this.prisma.promotion.findUnique({ where: { code: password.toLowerCase() } });
 
       if (promo) {
         return { isPromoCodeValid: true };

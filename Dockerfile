@@ -1,4 +1,4 @@
-FROM node:18-alpine3.17
+FROM --platform=linux/arm64 node:18-alpine3.17
 
 RUN apk update && apk upgrade
 RUN apk add --no-cache \

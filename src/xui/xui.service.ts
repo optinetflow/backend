@@ -111,7 +111,7 @@ export class XuiService {
           }),
         }),
       );
-      const cookie = login?.headers['set-cookie']?.[0];
+      const cookie = login?.headers['set-cookie']?.[1];
 
       if (!cookie) {
         throw new NotFoundException(errors.xui.accountNotFound);
@@ -133,7 +133,7 @@ export class XuiService {
     const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId, deletedAt: null } });
 
     if (!isSessionExpired(server.token)) {
-      return [`session=${Cookie.parse(server.token).session}`, server];
+      return [`3x-ui=${Cookie.parse(server.token)['3x-ui']}`, server];
     }
 
     const token = await this.login(server.domain);
@@ -148,7 +148,7 @@ export class XuiService {
       },
     });
 
-    return [`session=${Cookie.parse(token).session}`, server];
+    return [`3x-ui=${Cookie.parse(token)['3x-ui']}`, server];
   }
 
   async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer }: AuthenticatedReq) {
@@ -299,7 +299,7 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
@@ -316,7 +316,7 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
@@ -377,7 +377,7 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
         void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
@@ -392,7 +392,7 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.firstname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
+        const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
         void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
