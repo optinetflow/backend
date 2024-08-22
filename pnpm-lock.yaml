@@ -140,7 +140,7 @@ devDependencies:
     specifier: 10.1.0
     version: 10.1.0(@nestjs/common@10.1.0)(@nestjs/core@10.1.0)(@nestjs/platform-express@10.1.0)
   '@prisma/client':
-    specifier: ^5.2.0
+    specifier: 5.2.0
     version: 5.2.0(prisma@5.2.0)
   '@swc/cli':
     specifier: ^0.1.62
