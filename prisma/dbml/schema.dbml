@@ -6,7 +6,7 @@ Table User {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  phone String [unique, not null]
+  phone String [not null]
   password String [not null]
   fullname String [not null]
   balance Float [not null, default: 0]
@@ -15,6 +15,7 @@ Table User {
   parentId String
   referId String
   role Role [not null, default: 'USER']
+  domainName DomainName
   isDisabled Boolean [not null, default: false]
   isParentDisabled Boolean [not null, default: false]
   isVerified Boolean [not null, default: true]
@@ -34,6 +35,10 @@ Table User {
   file File [not null]
   promotion Promotion [not null]
   userGift UserGift [not null]
+
+  indexes {
+    (phone, domainName) [unique]
+  }
 }
 
 Table TelegramUser {
@@ -225,6 +230,11 @@ Table UserGift {
 Enum Role {
   ADMIN
   USER
+}
+
+Enum DomainName {
+  VASLKON_COM
+  RADSHIM_COM
 }
 
 Enum DomainState {

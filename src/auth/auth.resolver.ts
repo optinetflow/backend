@@ -30,8 +30,11 @@ export class AuthResolver {
   }
 
   @Mutation(() => Login)
-  async login(@Args('data') { phone, password }: LoginInput, @Context() context: { req: RequestType }): Promise<Login> {
-    return this.auth.login(phone.toLowerCase(), password, context.req);
+  async login(
+    @Args('data') { phone, password, domainName }: LoginInput,
+    @Context() context: { req: RequestType },
+  ): Promise<Login> {
+    return this.auth.login(phone.toLowerCase(), password, domainName, context.req);
   }
 
   @UseGuards(GqlAuthGuard)

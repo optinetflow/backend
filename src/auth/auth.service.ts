@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Promotion } from '@prisma/client';
+import { DomainName, Prisma, Promotion } from '@prisma/client';
 import type { Request as RequestType } from 'express';
 import { PrismaService } from 'nestjs-prisma';
 import { InjectBot } from 'nestjs-telegraf';
@@ -60,6 +60,7 @@ export class AuthService {
     try {
       const newUser = await this.prisma.user.create({
         data: {
+          domainName: payload.domainName,
           fullname: payload.fullname.trim(),
           phone: payload.phone,
           id,
@@ -124,8 +125,15 @@ export class AuthService {
     }
   }
 
-  async login(phone: string, password: string, req: RequestType): Promise<Login> {
-    const user = await this.prisma.user.findUnique({ where: { phone } });
+  async login(phone: string, password: string, domainName: DomainName, req: RequestType): Promise<Login> {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        PhoneDomainNameUnique: {
+          phone,
+          domainName,
+        },
+      },
+    });
 
     if (!user) {
       const promo = await this.prisma.promotion.findUnique({ where: { code: password.toLowerCase() } });
