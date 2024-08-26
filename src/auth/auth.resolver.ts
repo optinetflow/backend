@@ -59,7 +59,7 @@ export class AuthResolver {
   @Query(() => CheckAuth)
   checkAuth(@UserEntity() user: User): CheckAuth {
     return {
-      loggedIn: Boolean(user)
-    }
+      loggedIn: Boolean(user),
+    };
   }
 }

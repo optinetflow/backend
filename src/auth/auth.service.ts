@@ -58,15 +58,11 @@ export class AuthService {
     const hashedPassword = await this.passwordService.hashPassword(payload.password);
 
     try {
-      const brand = await this.prisma.brand.findUnique({
+      const brand = await this.prisma.brand.findUniqueOrThrow({
         where: {
           domainName: payload.domainName,
         },
       });
-
-      if (!brand) {
-        throw new NotFoundException(`Brand with domainName ${payload.domainName} not found`);
-      }
 
       const newUser = await this.prisma.user.create({
         data: {
@@ -136,15 +132,11 @@ export class AuthService {
   }
 
   async login(phone: string, password: string, domainName: string, req: RequestType): Promise<Login> {
-    const brand = await this.prisma.brand.findUnique({
+    const brand = await this.prisma.brand.findUniqueOrThrow({
       where: {
         domainName,
       },
     });
-
-    if (!brand) {
-      throw new NotFoundException(`Brand with domainName ${domainName} not found`);
-    }
 
     const user = await this.prisma.user.findUnique({
       where: {
