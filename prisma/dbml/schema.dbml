@@ -14,8 +14,8 @@ Table User {
   totalProfit Float [not null, default: 0]
   parentId String
   referId String
+  brandId String
   role Role [not null, default: 'USER']
-  domainName DomainName
   isDisabled Boolean [not null, default: false]
   isParentDisabled Boolean [not null, default: false]
   isVerified Boolean [not null, default: true]
@@ -24,6 +24,7 @@ Table User {
   initialDiscountPercent Float
   appliedDiscountPercent Float
   description String
+  brand Brand
   parent User
   children User [not null]
   refer User
@@ -37,7 +38,7 @@ Table User {
   userGift UserGift [not null]
 
   indexes {
-    (phone, domainName) [unique]
+    (phone, brandId) [unique]
   }
 }
 
@@ -115,6 +116,8 @@ Table Server {
   token String [not null]
   tunnelDomain String
   stats Json
+  brandId String
+  brand Brand
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
@@ -227,14 +230,24 @@ Table UserGift {
   giftPackage Package
 }
 
+Table Brand {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  domainName String [unique, not null]
+  title String [not null]
+  description String [not null]
+  botToken String [not null]
+  botUsername String [unique, not null]
+  logo Json
+  Server Server [not null]
+  User User [not null]
+}
+
 Enum Role {
   ADMIN
   USER
-}
-
-Enum DomainName {
-  VASLKON_COM
-  RADSHIM_COM
 }
 
 Enum DomainState {
@@ -262,6 +275,8 @@ Enum PaymentType {
   EXTERNAL_SERVER_COST
 }
 
+Ref: User.brandId > Brand.id
+
 Ref: User.parentId - User.id
 
 Ref: User.referId - User.id
@@ -275,6 +290,8 @@ Ref: File.userId > User.id
 Ref: Domain.arvanId > Arvan.id
 
 Ref: Domain.serverId > Server.id
+
+Ref: Server.brandId > Brand.id
 
 Ref: UserPackage.paymentId > Payment.id
 

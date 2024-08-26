@@ -62,7 +62,6 @@ type Child {
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
   description: String
-  domainName: DomainName
   fullname: String!
   id: ID!
   initialDiscountPercent: Float
@@ -163,12 +162,6 @@ type Domain {
   updatedAt: DateTime!
 }
 
-"""Domain Name"""
-enum DomainName {
-  RADSHIM_COM
-  VASLKON_COM
-}
-
 """Domain state"""
 enum DomainState {
   APPLIED
@@ -212,7 +205,7 @@ type LoginData {
 }
 
 input LoginInput {
-  domainName: DomainName!
+  domainName: String!
   password: String!
   phone: String!
 }
@@ -332,7 +325,7 @@ enum ServerCountry {
 }
 
 input SignupInput {
-  domainName: DomainName!
+  domainName: String!
   fullname: String!
   password: String!
   phone: String!
@@ -407,7 +400,6 @@ type User {
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
-  domainName: DomainName
   fullname: String!
   id: ID!
   initialDiscountPercent: Float

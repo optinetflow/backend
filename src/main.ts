@@ -9,7 +9,6 @@ import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 
 import { AppModule } from './app.module';
 import type { CorsConfig, NestConfig, SwaggerConfig } from './common/configs/config.interface';
-import { AppService } from './app.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -51,9 +50,6 @@ async function bootstrap() {
     app.enableCors();
   }
 
-  const appService = app.get(AppService);
-  // Run the populateFullname method during bootstrapping
-  await appService.populateDomainName();
   await app.listen(process.env.PORT || nestConfig?.port || 3000);
 }
 

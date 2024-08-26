@@ -1,8 +1,18 @@
 import { PrismaClient } from '@prisma/client';
+import { title } from 'process';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const brand = await prisma.brand.create({
+    data: {
+      domainName: 'lisa@simpson.com',
+      title: 'Lisa Simpson',
+      botToken: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
+      botUsername: 'USER',
+      description: "test"
+    },
+  });
   await prisma.user.deleteMany();
 
   console.log('Seeding...');
@@ -13,6 +23,7 @@ async function main() {
       fullname: 'Lisa Simpson',
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
       role: 'USER',
+      brandId: brand.id
     },
   });
   const user2 = await prisma.user.create({
@@ -20,6 +31,7 @@ async function main() {
       phone: 'bart@simpson.com',
       fullname: 'Bart Simpson',
       role: 'ADMIN',
+      brandId: brand.id,
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
     },
   });

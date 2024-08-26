@@ -17,11 +17,6 @@ enum Role {
   USER
 }
 
-enum DomainName {
-  VASLKON_COM @map("vaslkon.com")
-  RADSHIM_COM @map("radshim.com")
-}
-
 model User {
   id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt                  DateTime @default(now())
@@ -34,8 +29,9 @@ model User {
   totalProfit                Float    @default(0)
   parentId                   String?  @db.Uuid
   referId                    String?  @db.Uuid
+  brandId                    String?   @db.Uuid      
+
   role                       Role     @default(USER)
-  domainName                 DomainName?   
   isDisabled                 Boolean  @default(false)
   isParentDisabled           Boolean  @default(false)
   isVerified                 Boolean  @default(true)
@@ -45,6 +41,7 @@ model User {
   appliedDiscountPercent     Float?
   description                String?
 
+  brand       Brand?         @relation(fields: [brandId], references: [id])
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children    User[]        @relation("UserParentRelation")
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
@@ -60,7 +57,7 @@ model User {
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
   @@index([referId], name: "UserReferIdIndex")
-  @@unique([phone, domainName], name: "PhoneDomainNameUnique")
+  @@unique([phone, brandId], name: "PhoneBrandIdUnique")
 }
 
 model TelegramUser {
@@ -165,9 +162,12 @@ model Server {
   token        String // @db.VarChar(255)
   tunnelDomain String?       @db.VarChar(255)
   stats        Json?
+  brandId      String?      @db.Uuid      
+
+  brand        Brand?  @relation(fields: [brandId], references: [id])
   userPackage  UserPackage[]
   Domain       Domain[]
-  clientStat   ClientStat[]
+  clientStat   ClientStat[]      
 }
 
 model Package {
@@ -334,4 +334,20 @@ model UserGift {
 
   @@index([userId], name: "UserGiftUserIdIndex")
   @@index([isGiftUsed], name: "UserGiftIsGiftUsedIndex")
+}
+
+model Brand {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  domainName    String    @unique @db.VarChar(255)
+  title         String    @db.VarChar(255)
+  description   String    @db.VarChar(255)
+  botToken      String    @db.VarChar(255)
+  botUsername   String    @unique @db.VarChar(255)
+  logo          Json?
+  Server Server[]
+
+  User User[]
 }

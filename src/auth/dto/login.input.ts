@@ -1,6 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { DomainName } from '@prisma/client';
-import { IsEnum, IsNotEmpty, Matches, MinLength } from 'class-validator';
+import { IsNotEmpty, Matches, MinLength } from 'class-validator';
 
 @InputType()
 export class LoginInput {
@@ -13,8 +12,7 @@ export class LoginInput {
   @MinLength(4)
   password: string;
 
-  @Field(() => DomainName)
+  @Field()
   @IsNotEmpty()
-  @IsEnum(DomainName)
-  domainName: DomainName;
+  domainName: string;
 }

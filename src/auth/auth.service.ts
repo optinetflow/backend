@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { DomainName, Prisma, Promotion } from '@prisma/client';
+import { Prisma, Promotion } from '@prisma/client';
 import type { Request as RequestType } from 'express';
 import { PrismaService } from 'nestjs-prisma';
 import { InjectBot } from 'nestjs-telegraf';
@@ -58,9 +58,19 @@ export class AuthService {
     const hashedPassword = await this.passwordService.hashPassword(payload.password);
 
     try {
+      const brand = await this.prisma.brand.findUnique({
+        where: {
+          domainName: payload.domainName,
+        },
+      });
+
+      if (!brand) {
+        throw new NotFoundException(`Brand with domainName ${payload.domainName} not found`);
+      }
+
       const newUser = await this.prisma.user.create({
         data: {
-          domainName: payload.domainName,
+          brandId: brand.id,
           fullname: payload.fullname.trim(),
           phone: payload.phone,
           id,
@@ -125,12 +135,22 @@ export class AuthService {
     }
   }
 
-  async login(phone: string, password: string, domainName: DomainName, req: RequestType): Promise<Login> {
+  async login(phone: string, password: string, domainName: string, req: RequestType): Promise<Login> {
+    const brand = await this.prisma.brand.findUnique({
+      where: {
+        domainName,
+      },
+    });
+
+    if (!brand) {
+      throw new NotFoundException(`Brand with domainName ${domainName} not found`);
+    }
+
     const user = await this.prisma.user.findUnique({
       where: {
-        PhoneDomainNameUnique: {
+        PhoneBrandIdUnique: {
           phone,
-          domainName,
+          brandId: brand.id,
         },
       },
     });

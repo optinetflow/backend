@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 import { Field, Float, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
-import { DomainName, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { IsMobilePhone } from 'class-validator';
 
 import { BaseModel } from '../../common/models/base.model';
@@ -11,11 +11,6 @@ import { TelegramUser } from '../../telegram/models/telegramUser.model';
 registerEnumType(Role, {
   name: 'Role',
   description: 'User role',
-});
-
-registerEnumType(DomainName, {
-  name: 'DomainName',
-  description: 'Domain Name',
 });
 @ObjectType()
 export class ParentTelegram {
@@ -64,9 +59,6 @@ export class User extends BaseModel {
 
   @Field(() => Role)
   role: Role;
-
-  @Field(() => DomainName, { nullable: true })
-  domainName?: DomainName | null;
 
   @HideField()
   password: string;
