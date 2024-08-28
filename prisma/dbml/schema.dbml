@@ -240,6 +240,7 @@ Table Brand {
   description String [not null]
   botToken String [not null]
   botUsername String [unique, not null]
+  reportGroupId String
   logo Json
   Server Server [not null]
   User User [not null]

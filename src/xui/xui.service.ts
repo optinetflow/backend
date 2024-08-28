@@ -9,10 +9,8 @@ import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
 import PQueue from 'p-queue';
 import { firstValueFrom } from 'rxjs';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
 import { TelGroup } from '../common/configs/config.interface';
@@ -26,8 +24,9 @@ import {
   jsonObjectToQueryString,
   roundTo,
 } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
 import { User } from '../users/models/user.model';
+import { BrandService } from './../brand/brand.service';
+import { TelegramService } from './../telegram/telegram.service';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
 import {
@@ -36,7 +35,6 @@ import {
   InboundListRes,
   InboundSetting,
   OnlineInboundRes,
-  ServerStat,
   Stat,
   UpdateClientInput,
   UpdateClientReqInput,
@@ -63,8 +61,8 @@ const ENDPOINTS = (domain: string) => {
 @Injectable()
 export class XuiService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
+    private readonly brandService: BrandService,
     private prisma: PrismaService,
     private httpService: HttpService,
     private readonly configService: ConfigService,
@@ -80,7 +78,7 @@ export class XuiService {
 
   private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
 
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
+  // private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   private readonly loginToPanelBtn = {
     reply_markup: {
@@ -94,8 +92,6 @@ export class XuiService {
       ],
     },
   };
-
-  private ServerStatDic: Record<string, ServerStat[]> = {};
 
   async login(domain: string): Promise<string> {
     try {
@@ -300,7 +296,8 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void telegramQueue.add(() => bot?.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
       void queue.add(() => this.deleteClient(userPack.statId));
@@ -317,7 +314,8 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
       void queue.add(() => this.deleteClient(userPack.statId));
@@ -378,7 +376,8 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
 
@@ -393,7 +392,8 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
   }
@@ -687,7 +687,9 @@ export class XuiService {
         isBuffer: true,
       });
 
-      void this.bot.telegram.sendDocument(this.backupGroup, {
+      const firstBrand = await this.brandService.getFirstBrand();
+      const bot = this.telegramService.getBot(firstBrand?.id as string);
+      void bot.telegram.sendDocument(this.backupGroup, {
         source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });

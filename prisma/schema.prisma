@@ -346,6 +346,7 @@ model Brand {
   description   String    @db.VarChar(255)
   botToken      String    @db.VarChar(255)
   botUsername   String    @unique @db.VarChar(255)
+  reportGroupId String?   @db.VarChar(255)
   logo          Json?
   Server Server[]
 

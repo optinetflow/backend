@@ -1,19 +1,18 @@
 /* eslint-disable max-len */
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import fs from 'fs';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 
 import { Domain } from '../arvan/models/domain.model';
 import { PostgresConfig, TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import { asyncShellExec } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
 import { MinioClientService } from '../minio/minio.service';
 import { XuiService } from '../xui/xui.service';
+import { BrandService } from './../brand/brand.service';
+import { TelegramService } from './../telegram/telegram.service';
 import { CreateServerInput } from './dto/createServer.input';
 import { IssueCertInput } from './dto/issueCert.input';
 import { Server } from './models/server.model';
@@ -21,8 +20,8 @@ import { Server } from './models/server.model';
 @Injectable()
 export class ServerService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
+    private readonly brandService: BrandService,
     private prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioClientService,
@@ -271,8 +270,9 @@ export class ServerService {
       );
 
       const buffer = fs.readFileSync(`${outputFile}.gz`);
-
-      void this.bot.telegram.sendDocument(this.backupGroup, { source: buffer, filename: `${outputFile}.gz` });
+      const firstBrand = await this.brandService.getFirstBrand();
+      const bot = this.telegramService.getBot(firstBrand?.id as string);
+      void bot.telegram.sendDocument(this.backupGroup, { source: buffer, filename: `${outputFile}.gz` });
 
       await asyncShellExec(`rm -rf ${outputFile}.gz`);
     } catch (error_) {

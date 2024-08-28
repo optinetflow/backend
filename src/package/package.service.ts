@@ -1,13 +1,10 @@
 /* eslint-disable max-len */
-import { HttpService } from '@nestjs/axios';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
 import PQueue from 'p-queue';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
 import {
@@ -17,59 +14,30 @@ import {
   getRemainingDays,
   getVlessLink,
   jsonToB64Url,
-  midOrder,
   roundTo,
 } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
-import { MinioClientService } from '../minio/minio.service';
 import { PaymentService } from '../payment/payment.service';
 import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
 import { Stat } from '../xui/xui.types';
+import { TelegramService } from './../telegram/telegram.service';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { UserPackage } from './models/userPackage.model';
 import { CreatePackageInput, SendBuyPackMessageInput } from './package.types';
 
-const ENDPOINTS = (domain: string) => {
-  const url = `https://${domain}/v`;
-
-  return {
-    login: `${url}/login`,
-    inbounds: `${url}/panel/inbound/list`,
-    onlines: `${url}/panel/inbound/onlines`,
-    addInbound: `${url}/panel/inbound/add`,
-    addClient: `${url}/panel/inbound/addClient`,
-    updateClient: (id: string) => `${url}/panel/inbound/updateClient/${id}`,
-    resetClientTraffic: (email: string, inboundId: number) =>
-      `${url}/panel/inbound/${inboundId}/resetClientTraffic/${email}`,
-    delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
-    serverStatus: `${url}/server/status`,
-  };
-};
-
 @Injectable()
 export class PackageService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
-    private prisma: PrismaService,
-    private xuiService: XuiService,
+    private readonly prisma: PrismaService,
+    private readonly telegramService: TelegramService,
+    private readonly xuiService: XuiService,
     private readonly payment: PaymentService,
     private readonly configService: ConfigService,
-    private readonly minioService: MinioClientService,
-  ) {
-    // setTimeout(() => {
-    //   void this.syncClientStats();
-    // }, 2000);
-  }
-
-  private readonly logger = new Logger(PackageService.name);
+  ) {}
 
   private readonly webPanel = this.configService.get('webPanelUrl');
-
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   private readonly loginToPanelBtn = {
     reply_markup: {
@@ -131,6 +99,7 @@ export class PackageService {
 
     for (const finishedTrafficPack of finishedTrafficPacks) {
       const userPack = finishedUserPackDic[finishedTrafficPack];
+      const bot = this.telegramService.getBot(userPack.user.brandId);
 
       if (!userPack) {
         continue;
@@ -140,7 +109,7 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
       void queue.add(() => this.xuiService.deleteClient(userPack.statId));
@@ -148,6 +117,7 @@ export class PackageService {
 
     for (const finishedTimePack of finishedTimePacks) {
       const userPack = finishedUserPackDic[finishedTimePack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
@@ -157,7 +127,7 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
       void queue.add(() => this.xuiService.deleteClient(userPack.statId));
@@ -209,6 +179,7 @@ export class PackageService {
 
     for (const thresholdTrafficPack of thresholdTrafficPacks) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
@@ -218,12 +189,13 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
 
     for (const thresholdTimePack of thresholdTimePacks) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
@@ -233,7 +205,7 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
   }
@@ -341,8 +313,9 @@ export class PackageService {
     } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
       user.phone
     }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
+    const bot = this.telegramService.getBot(user.brandId as string);
 
-    await this.bot.telegram.sendMessage(this.reportGroupId, caption);
+    await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
   }
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
@@ -475,14 +448,20 @@ export class PackageService {
     )}\n`;
 
     if (user.parentId) {
-      const telegramUser = await this.prisma.telegramUser.findUnique({ where: { userId: user.parentId } });
+      const telegramUser = await this.prisma.telegramUser.findUnique({
+        where: { userId: user.parentId },
+        include: {
+          user: true,
+        },
+      });
 
       if (input.receiptBuffer) {
         const rejectData = { R_PACK: input.userPack.id } as CallbackData;
         const acceptData = { A_PACK: input.userPack.id } as CallbackData;
 
         if (telegramUser) {
-          await this.bot.telegram.sendPhoto(
+          const bot = this.telegramService.getBot(telegramUser.user.brandId as string);
+          await bot.telegram.sendPhoto(
             Number(telegramUser.id),
             { source: input.receiptBuffer },
             {
@@ -511,8 +490,9 @@ export class PackageService {
           `\n\n👨 مارکتر: ${parent?.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(
             roundTo(parent?.balance || 0, 0),
           )}`;
-        void this.bot.telegram.sendPhoto(
-          this.reportGroupId,
+        const bot = this.telegramService.getBot(user.brandId as string);
+        void bot.telegram.sendPhoto(
+          user.brand?.reportGroupId as string,
           { source: input.receiptBuffer },
           { caption: reportCaption },
         );
@@ -521,9 +501,15 @@ export class PackageService {
       }
     }
 
-    const updatedUser = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const updatedUser = await this.prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: {
+        brand: true,
+      },
+    });
     const reportCaption = caption + `\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(updatedUser?.balance || 0, 0))}`;
-    await this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
+    const bot = this.telegramService.getBot(updatedUser.brandId as string);
+    await bot?.telegram.sendMessage(updatedUser.brand?.reportGroupId as string, reportCaption);
   }
 
   async getUserPackages(user: User): Promise<UserPackage[]> {
@@ -616,71 +602,5 @@ export class PackageService {
       where: { deletedAt: null, forRole: { has: user.role } },
       orderBy: { order: 'asc' },
     });
-  }
-
-  async acceptPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({ where: { id: userPackId } });
-    await this.prisma.payment.update({
-      where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'APPLIED',
-      },
-    });
-  }
-
-  async rejectPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({
-      where: { id: userPackId },
-      include: {
-        user: true,
-        package: true,
-      },
-    });
-    // const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.userId } });
-    const payment = await this.prisma.payment.update({
-      where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'REJECTED',
-      },
-    });
-
-    await this.prisma.user.update({
-      where: {
-        id: userPack.user.parentId!,
-      },
-      data: {
-        balance: {
-          increment: payment.amount,
-        },
-        profitBalance: {
-          increment: payment.parentProfit,
-        },
-        totalProfit: {
-          decrement: payment.parentProfit,
-        },
-      },
-    });
-
-    await this.prisma.userPackage.update({
-      where: { id: userPackId },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    await this.xuiService.deleteClient(userPack.statId);
-    await this.xuiService.toggleUserBlock(userPack.userId, true);
-
-    const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.user.parentId! } });
-    const text = `#ریجکتـبسته\n📦 ${userPack.package.traffic} گیگ - ${convertPersianCurrency(
-      userPack.package.price,
-    )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
-      userPack.user.fullname
-    } ${userPack.user.fullname}\n👨 مارکتر: ${parent?.fullname}`;
-    void this.bot.telegram.sendMessage(this.reportGroupId, text, this.loginToPanelBtn);
   }
 }

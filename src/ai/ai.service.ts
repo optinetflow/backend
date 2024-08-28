@@ -2,24 +2,13 @@
 import { VertexAI } from '@google-cloud/vertexai';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import fs from 'fs';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 
 import { GCP } from '../common/configs/config.interface';
-import { Context } from '../common/interfaces/context.interface';
 
 @Injectable()
 export class AiService {
-  constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
-    private prisma: PrismaService,
-    private readonly configService: ConfigService,
-  ) {
-    // void this.testGemini();
-  }
+  constructor(private prisma: PrismaService, private readonly configService: ConfigService) {}
 
   async testGemini() {
     const gcpCredentialStr = this.configService.get<GCP>('gcp')?.credential;
@@ -46,7 +35,7 @@ export class AiService {
     // });
     // Initialize Vertex with your Cloud project and location
 
-    console.log('GOOGLE_APPLICATION_CREDENTIALS', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    // console.log('GOOGLE_APPLICATION_CREDENTIALS', process.env.GOOGLE_APPLICATION_CREDENTIALS);
     const vertexAi = new VertexAI({
       project: 'prismatic-smoke-413213',
       location: 'us-central1',
@@ -77,11 +66,11 @@ export class AiService {
       const streamingResp = await generativeModel.generateContentStream(req);
 
       for await (const item of streamingResp.stream) {
-        console.log('stream chunk: ===>');
+        // console.log('stream chunk: ===>');
         console.dir(item, { depth: null });
       }
 
-      console.log('aggregated response:');
+      // console.log('aggregated response:');
       console.dir(await streamingResp.response, { depth: null });
     }
 

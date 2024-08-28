@@ -10,15 +10,12 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma, Promotion } from '@prisma/client';
 import type { Request as RequestType } from 'express';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
 import { SecurityConfig } from '../common/configs/config.interface';
-import { omit } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
 import { User } from '../users/models/user.model';
 import { UsersService } from '../users/users.service';
+import { TelegramService } from './../telegram/telegram.service';
 import { TokenCookie } from './dto/jwt.dto';
 import { SignupInput } from './dto/signup.input';
 import { Login } from './models/login.model';
@@ -28,8 +25,7 @@ import { PasswordService } from './password.service';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
@@ -37,7 +33,7 @@ export class AuthService {
     private readonly userService: UsersService,
   ) {}
 
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
+  // private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async createUser(user: User | null | null, payload: SignupInput, req: RequestType): Promise<Token> {
     let reseller = user;
@@ -85,8 +81,10 @@ export class AuthService {
       }
 
       const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
-      const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname} ${promoCaption}`;
-      void this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
+      const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname} ${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
+      const bot = this.telegramService.getBot(brand.id);
+
+      void bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
 
       const token = this.generateTokens({
         userId: newUser.id,

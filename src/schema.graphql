@@ -33,10 +33,20 @@ type BankCard {
 """A custom scalar type for big numbers"""
 scalar BigNumber
 
-input BuyPackageInput {
-  name: String!
-  packageId: String!
-  receipt: String
+type Brand {
+  botToken: String!
+  botUsername: String!
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  description: String!
+  domainName: String!
+  id: ID!
+  reportGroupId: String
+  title: String!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
 }
 
 input BuyRechargePackageInput {
@@ -58,6 +68,8 @@ type Child {
   appliedDiscountPercent: Float
   balance: Float!
   bankCard: [BankCard!]
+  brand: Brand
+  brandId: String
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -214,7 +226,6 @@ type Mutation {
   addArvanAccount(data: CreateArvanAccountInput!): Arvan!
   addDomain(data: CreateDomainInput!): Domain!
   addServer(data: CreateServerInput!): Server!
-  buyPackage(data: BuyPackageInput!): String!
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
   enterCost(input: EnterCostInput!): User!
@@ -222,7 +233,6 @@ type Mutation {
   login(data: LoginInput!): Login!
   logout: Boolean!
   refreshToken(token: JWT!): Token!
-  renewPackage(input: RenewPackageInput!): String!
   signup(data: SignupInput!): Auth!
   updateArvanSslStates: Boolean!
   updateChild(input: UpdateChildInput!): User!
@@ -273,9 +283,7 @@ type Query {
   hello(name: String!): String!
   helloWorld: String!
   me: User!
-  packages: [Package!]!
   rechargePackages: [RechargePackage!]!
-  userPackages: [UserPackage!]!
 }
 
 type RechargePackage {
@@ -288,12 +296,6 @@ type RechargePackage {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
-}
-
-input RenewPackageInput {
-  packageId: String!
-  receipt: String
-  userPackageId: String!
 }
 
 """User role"""
@@ -397,6 +399,8 @@ type User {
   appliedDiscountPercent: Float
   balance: Float!
   bankCard: [BankCard!]
+  brand: Brand
+  brandId: String
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -424,19 +428,4 @@ type User {
 type UserGift {
   giftPackage: Package
   isGiftUsed: Boolean!
-}
-
-type UserPackage {
-  """Identifies the date and time when the object was created."""
-  createdAt: DateTime!
-  expiryTime: BigNumber!
-  id: ID!
-  lastConnectedAt: DateTime
-  link: String!
-  name: String!
-  remainingTraffic: BigNumber!
-  totalTraffic: BigNumber!
-
-  """Identifies the date and time when the object was last updated."""
-  updatedAt: DateTime!
 }
