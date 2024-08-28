@@ -32,7 +32,7 @@ export class ServerResolver {
   @UseGuards(GqlAuthGuard)
   @Mutation(() => Server)
   addServer(@UserEntity() _user: User, @Args('data') data: CreateServerInput): Promise<Server> {
-    return this.serverService.createServer(data);
+    return this.serverService.createServer(_user, data);
   }
 
   @UseGuards(GqlAuthGuard)

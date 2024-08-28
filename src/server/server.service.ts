@@ -10,6 +10,7 @@ import { PostgresConfig, TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import { asyncShellExec } from '../common/helpers';
 import { MinioClientService } from '../minio/minio.service';
+import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
@@ -104,7 +105,7 @@ export class ServerService {
     }
   }
 
-  async createServer(input: CreateServerInput): Promise<Server> {
+  async createServer(user: User, input: CreateServerInput): Promise<Server> {
     try {
       await asyncShellExec(`ssh -o StrictHostKeyChecking=no root@${input.ip} -p 2211 'ls'`);
     } catch {
@@ -121,6 +122,7 @@ export class ServerService {
           type: input.type,
           token,
           inboundId: input.inboundId,
+          brandId: user.brandId
         },
       });
     } catch {
