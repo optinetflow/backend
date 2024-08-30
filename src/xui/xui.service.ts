@@ -204,7 +204,7 @@ export class XuiService {
     });
 
     if (!inbounds.data.obj) {
-      throw new BadRequestException('Getting online inbounds failed.');
+      return [];
     }
 
     return inbounds.data.obj;
