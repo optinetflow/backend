@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { TelegramUser, User } from '@prisma/client';
@@ -36,7 +36,7 @@ export class TelegramService {
   }
 
   async handleStart(ctx: Context, payload: string) {
-    const telegramUser = await this.prisma.telegramUser.findUnique({ where: { id: ctx.from!.id } });
+    const telegramUser = await this.prisma.telegramUser.findFirst({ where: { chatId: ctx.from!.id } });
 
     if (telegramUser?.phone) {
       await ctx.scene.enter(HOME_SCENE_ID);
@@ -90,10 +90,10 @@ export class TelegramService {
 
   async upsertTelegramUser(
     user: User,
-    telegramId: number,
+    chatId: number,
     telegramUser?: TelegramUser,
   ): Promise<[TelegramUser, Buffer | undefined]> {
-    const chat = await this.bot.telegram.getChat(telegramId);
+    const chat = await this.bot.telegram.getChat(chatId);
 
     let bigAvatar: string | undefined;
     let smallAvatar: string | undefined;
@@ -136,7 +136,7 @@ export class TelegramService {
     };
 
     const updatedData = {
-      id: extendedChat.id,
+      chatId: extendedChat.id,
       userId: user.id,
       firstname: extendedChat.first_name,
       lastname: extendedChat.last_name,
@@ -147,7 +147,8 @@ export class TelegramService {
 
     const updatedTelegramUser = await this.prisma.telegramUser.upsert({
       where: {
-        id: telegramId,
+        chatId,
+        userId: user.id,
       },
       create: updatedData,
       update: updatedData,
@@ -156,13 +157,10 @@ export class TelegramService {
     return [updatedTelegramUser, bigPhoto];
   }
 
-  async addPhone(ctx: Context, phone: string): Promise<void> {
-    const telegramUser = await this.prisma.telegramUser.update({
+  async addPhone(ctx: Context, phone: string) {
+    const telegramUsers = await this.prisma.telegramUser.findMany({
       where: {
-        id: ctx.from!.id,
-      },
-      data: {
-        phone,
+        chatId: ctx.from!.id,
       },
       include: {
         user: {
@@ -173,13 +171,35 @@ export class TelegramService {
       },
     });
 
-    await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
-    const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.fullname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.fullname}`;
-    void this.bot.telegram.sendMessage(this.reportGroupId, caption);
+    if (telegramUsers.length === 0) {
+      throw new Error('TelegramUsers not found');
+    }
+
+    await this.prisma.telegramUser.updateMany({
+      where: {
+        chatId: ctx.from!.id,
+      },
+      data: {
+        phone,
+      },
+    });
+    const promises = telegramUsers.map(async (telegramUser) => {
+      await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
+      const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.fullname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.fullname}`;
+
+      return this.bot.telegram.sendMessage(this.reportGroupId, caption);
+    });
+
+    return Promise.all(promises);
   }
 
   async enableGift(ctx: Context) {
-    const telegramUser = await this.prisma.telegramUser.findUniqueOrThrow({ where: { id: ctx.from!.id } });
+    const telegramUser = await this.prisma.telegramUser.findFirst({ where: { chatId: ctx.from!.id } });
+
+    if (!telegramUser) {
+      throw new BadRequestException('Telegram User is not found.');
+    }
+
     const user = await this.prisma.user.findFirstOrThrow({
       where: { id: telegramUser?.userId },
       include: { userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } } },
