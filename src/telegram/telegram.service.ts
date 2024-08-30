@@ -48,7 +48,6 @@ export class TelegramService {
         bot.use(session());
         bot.use(stage.middleware() as never);
         bot.start(async (ctx) => {
-          void ctx.reply(JSON.stringify(brand));
           await this.handleStart(ctx as never, ctx.message.text.slice(6));
         });
 
@@ -126,7 +125,10 @@ export class TelegramService {
   }
 
   async handleStart(ctx: Context, payload: string) {
-    const telegramUser = await this.prisma.telegramUser.findFirst({ where: { chatId: ctx.from!.id } });
+    const params = b64UrlToJson(payload);
+    const telegramUser = await this.prisma.telegramUser.findFirst({
+      where: { chatId: ctx.from!.id, userId: params?.uid as string },
+    });
 
     if (telegramUser?.phone) {
       await ctx.scene.enter(HOME_SCENE_ID);
@@ -135,7 +137,6 @@ export class TelegramService {
     }
 
     if (payload.length > 0) {
-      const params = b64UrlToJson(payload);
       await this.handleStartPayload(ctx, params, telegramUser);
     }
 
@@ -253,7 +254,25 @@ export class TelegramService {
   }
 
   async addPhone(ctx: Context, phone: string) {
-    const telegramUsers = await this.prisma.telegramUser.findMany({
+    const telegramUserCount = await this.prisma.telegramUser.count({
+      where: {
+        chatId: ctx.from!.id,
+      },
+    });
+
+    if (telegramUserCount === 0) {
+      throw new Error('TelegramUsers not found');
+    }
+
+    await this.prisma.telegramUser.updateMany({
+      where: {
+        chatId: ctx.from!.id,
+      },
+      data: {
+        phone,
+      },
+    });
+    const updatedTelegramUsers = await this.prisma.telegramUser.findMany({
       where: {
         chatId: ctx.from!.id,
       },
@@ -266,25 +285,12 @@ export class TelegramService {
         },
       },
     });
+    const promises = updatedTelegramUsers.map(async (updatedTelegramUser) => {
+      await this.prisma.user.update({ where: { id: updatedTelegramUser.userId }, data: { isVerified: true } });
+      const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
+      const bot = this.getBot(updatedTelegramUser.user.brandId as string);
 
-    if (telegramUsers.length === 0) {
-      throw new Error('TelegramUsers not found');
-    }
-
-    await this.prisma.telegramUser.updateMany({
-      where: {
-        chatId: ctx.from!.id,
-      },
-      data: {
-        phone,
-      },
-    });
-    const promises = telegramUsers.map(async (telegramUser) => {
-      await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
-      const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.fullname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.fullname}`;
-      const bot = this.getBot(telegramUser.user.brandId as string);
-
-      return bot.telegram.sendMessage(this.reportGroupId, caption);
+      return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
     });
 
     return Promise.all(promises);
@@ -305,7 +311,6 @@ export class TelegramService {
     const userGift = user?.userGift?.[0];
 
     if (userGift) {
-      const traffic = userGift.giftPackage!.traffic;
       const { package: pack, userPack } = await this.aggregatorService.enableGift(user, userGift.id);
       const caption = `#فعالسازیـهدیه\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
         pack.expirationDays
@@ -315,7 +320,11 @@ export class TelegramService {
       const bot = this.getBot(user.brandId as string);
 
       await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
-      await ctx.reply(`${traffic} گیگ هدیه برای شما در سایت فعال شد.`);
+      const traffic = userGift.giftPackage!.traffic;
+
+      if (traffic) {
+        await ctx.reply(`${traffic} گیگ هدیه برای شما در سایت فعال شد.`);
+      }
     }
   }
 
