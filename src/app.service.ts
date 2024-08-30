@@ -14,18 +14,9 @@ export class AppService {
   }
 
   async populateTelegramUserChatId() {
-    const telegramUsers = await this.prisma.telegramUser.findMany();
-    const promises = telegramUsers.map(async (telegramUser) =>
-      this.prisma.telegramUser.update({
-        where: {
-          id: telegramUser.id,
-        },
-        data: {
-          chatId: telegramUser.id,
-        },
-      }),
-    );
-
-    return Promise.all(promises);
+    await this.prisma.$executeRaw`
+    UPDATE "TelegramUser"
+    SET "chatId" = "id"`;
+    console.log('Update successful.');
   }
 }
