@@ -33,20 +33,30 @@ export class AuthService {
     private readonly userService: UsersService,
   ) {}
 
-  // private readonly reportGroupId = this.configService.get('telGroup')!.report;
-
   async createUser(user: User | null | null, payload: SignupInput, req: RequestType): Promise<Token> {
     let reseller = user;
     const id = uuid();
     let parentId = user?.id;
-    let promo: Promotion | undefined;
+    let promo: (Promotion & { parentUser: User }) | null = null;
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: {
+        domainName: payload.domainName,
+      },
+    });
 
     if (!parentId) {
       if (!payload?.promoCode) {
         throw new BadRequestException('The promoCode is require!');
       }
 
-      promo = await this.prisma.promotion.findFirstOrThrow({ where: { code: payload.promoCode } });
+      promo = await this.prisma.promotion.findFirstOrThrow({
+        where: { code: payload.promoCode },
+        include: { parentUser: true },
+      });
+
+      if (promo?.parentUser.brandId !== brand.id) {
+        throw new BadRequestException('The promoCode is wrong!');
+      }
 
       parentId = promo.parentUserId;
     }
@@ -54,12 +64,6 @@ export class AuthService {
     const hashedPassword = await this.passwordService.hashPassword(payload.password);
 
     try {
-      const brand = await this.prisma.brand.findUniqueOrThrow({
-        where: {
-          domainName: payload.domainName,
-        },
-      });
-
       const newUser = await this.prisma.user.create({
         data: {
           brandId: brand.id,
@@ -180,14 +184,14 @@ export class AuthService {
   }
 
   validateUser(userId: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id: userId } });
+    return this.prisma.user.findUnique({ where: { id: userId }, include: { brand: true } });
   }
 
   getUserFromToken(token: string): Promise<User | null> {
     const decodedToken = this.jwtService.decode(token);
     const id = typeof decodedToken === 'object' && decodedToken !== null ? decodedToken?.userId : null;
 
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.prisma.user.findUnique({ where: { id }, include: { brand: true } });
   }
 
   generateTokens(payload: { userId: string }): Token {

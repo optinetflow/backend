@@ -4,9 +4,17 @@ import { title } from 'process';
 const prisma = new PrismaClient();
 
 async function main() {
+await prisma.user.create({
+    data: {
+      phone: '9333333333',
+      fullname: 'Lisa Simpson',
+      password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
+      role: 'USER',
+    },
+  });
   const brand = await prisma.brand.create({
     data: {
-      domainName: 'lisa@simpson.com',
+      domainName: 'simpson.com',
       title: 'Lisa Simpson',
       botToken: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
       botUsername: 'USER',
@@ -19,7 +27,7 @@ async function main() {
 
   const user1 = await prisma.user.create({
     data: {
-      phone: 'lisa@simpson.com',
+      phone: '9333333333',
       fullname: 'Lisa Simpson',
       password: '$2b$10$EpRnTzVlqHNP0.fUbXUwSOyuiXe/QLSUG6xNekdHgTGmrpHEfIoxm', // secret42
       role: 'USER',
@@ -28,7 +36,7 @@ async function main() {
   });
   const user2 = await prisma.user.create({
     data: {
-      phone: 'bart@simpson.com',
+      phone: '9777777777',
       fullname: 'Bart Simpson',
       role: 'ADMIN',
       brandId: brand.id,

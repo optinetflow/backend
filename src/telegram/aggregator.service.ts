@@ -244,7 +244,7 @@ export class AggregatorService {
   }
 
   private async getFreeServer(): Promise<Server> {
-    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'tr1.arvanvpn.online' } });
+    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'p-temp.iguardvpn.com' } });
   }
 
   private async deleteClient(clientStatId: string) {

@@ -311,8 +311,8 @@ model Promotion {
   parentUserId  String    @db.Uuid
   giftPackageId String?   @db.Uuid
 
-  parentUser  User     @relation(fields: [parentUserId], references: [id])
-  giftPackage Package? @relation(fields: [giftPackageId], references: [id])
+  parentUser    User      @relation(fields: [parentUserId], references: [id])
+  giftPackage   Package?  @relation(fields: [giftPackageId], references: [id])
 
   @@index([code], name: "PromotionCodeIndex")
 }

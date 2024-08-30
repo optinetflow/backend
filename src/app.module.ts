@@ -15,6 +15,7 @@ import { BrandModule } from './brand/brand.module';
 import config from './common/configs/config';
 import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
+import { PackageModule } from './package/package.module';
 import { PaymentModule } from './payment/payment.module';
 import { ServerModule } from './server/server.module';
 import { TelegramModule } from './telegram/telegram.module';
@@ -51,6 +52,7 @@ import { XuiModule } from './xui/xui.module';
     PaymentModule,
     AiModule,
     BrandModule,
+    PackageModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],
