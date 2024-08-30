@@ -200,7 +200,7 @@ export class XuiService {
     });
 
     if (!inbounds.data.obj) {
-      throw new BadRequestException('Getting online inbounds failed.');
+      return [];
     }
 
     return inbounds.data.obj;
@@ -292,7 +292,7 @@ export class XuiService {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
@@ -310,7 +310,7 @@ export class XuiService {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
@@ -372,7 +372,7 @@ export class XuiService {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
@@ -388,7 +388,7 @@ export class XuiService {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
         const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;

@@ -352,11 +352,18 @@ input SignupInput {
 
 type TelegramUser {
   bigAvatar: String
+  chatId: BigNumber
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
   firstname: String
-  id: BigNumber!
+  id: ID!
   lastname: String
   phone: String
   smallAvatar: String
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
   username: String
 }
 

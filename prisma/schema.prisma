@@ -61,11 +61,12 @@ model User {
 }
 
 model TelegramUser {
-  id          BigInt   @id
+  chatId      BigInt?    
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String   @unique @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  phone       String?  @unique
+  phone       String?  
   firstname   String?  @db.VarChar(255)
   lastname    String?  @db.VarChar(255)
   username    String?  @db.VarChar(64)

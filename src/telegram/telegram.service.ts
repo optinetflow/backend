@@ -126,7 +126,7 @@ export class TelegramService {
   }
 
   async handleStart(ctx: Context, payload: string) {
-    const telegramUser = await this.prisma.telegramUser.findUnique({ where: { id: ctx.from!.id } });
+    const telegramUser = await this.prisma.telegramUser.findFirst({ where: { chatId: ctx.from!.id } });
 
     if (telegramUser?.phone) {
       await ctx.scene.enter(HOME_SCENE_ID);
@@ -184,11 +184,11 @@ export class TelegramService {
 
   async upsertTelegramUser(
     user: User,
-    telegramId: number,
+    chatId: number,
     telegramUser?: TelegramUser,
   ): Promise<[TelegramUser, Buffer | undefined]> {
     const bot = this.getBot(user.brandId as string);
-    const chat = await bot.telegram.getChat(telegramId);
+    const chat = await bot.telegram.getChat(chatId);
 
     let bigAvatar: string | undefined;
     let smallAvatar: string | undefined;
@@ -231,7 +231,7 @@ export class TelegramService {
     };
 
     const updatedData = {
-      id: extendedChat.id,
+      chatId: extendedChat.id,
       userId: user.id,
       firstname: extendedChat.first_name,
       lastname: extendedChat.last_name,
@@ -242,7 +242,8 @@ export class TelegramService {
 
     const updatedTelegramUser = await this.prisma.telegramUser.upsert({
       where: {
-        id: telegramId,
+        chatId,
+        userId: user.id,
       },
       create: updatedData,
       update: updatedData,
@@ -251,13 +252,10 @@ export class TelegramService {
     return [updatedTelegramUser, bigPhoto];
   }
 
-  async addPhone(ctx: Context, phone: string): Promise<void> {
-    const telegramUser = await this.prisma.telegramUser.update({
+  async addPhone(ctx: Context, phone: string) {
+    const telegramUsers = await this.prisma.telegramUser.findMany({
       where: {
-        id: ctx.from!.id,
-      },
-      data: {
-        phone,
+        chatId: ctx.from!.id,
       },
       include: {
         user: {
@@ -268,14 +266,37 @@ export class TelegramService {
         },
       },
     });
-    const bot = this.getBot(telegramUser.user.brandId as string);
-    await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
-    const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.fullname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.fullname}`;
-    void bot.telegram.sendMessage(telegramUser.user.brand?.reportGroupId as string, caption);
+
+    if (telegramUsers.length === 0) {
+      throw new Error('TelegramUsers not found');
+    }
+
+    await this.prisma.telegramUser.updateMany({
+      where: {
+        chatId: ctx.from!.id,
+      },
+      data: {
+        phone,
+      },
+    });
+    const promises = telegramUsers.map(async (telegramUser) => {
+      await this.prisma.user.update({ where: { id: telegramUser.userId }, data: { isVerified: true } });
+      const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${telegramUser.user.fullname}  (@${telegramUser?.username})\n📞 موبایل: +98${telegramUser.user.phone}\n📱 موبایل تلگرام: +${telegramUser.phone}\n👨 نام تلگرام: ${telegramUser.firstname} ${telegramUser.lastname}\n\n👨 مارکتر: ${telegramUser.user?.parent?.fullname}`;
+      const bot = this.getBot(telegramUser.user.brandId as string);
+
+      return bot.telegram.sendMessage(this.reportGroupId, caption);
+    });
+
+    return Promise.all(promises);
   }
 
   async enableGift(ctx: Context) {
-    const telegramUser = await this.prisma.telegramUser.findUniqueOrThrow({ where: { id: ctx.from!.id } });
+    const telegramUser = await this.prisma.telegramUser.findFirst({ where: { chatId: ctx.from!.id } });
+
+    if (!telegramUser) {
+      throw new BadRequestException('Telegram User is not found.');
+    }
+
     const user = await this.prisma.user.findFirstOrThrow({
       where: { id: telegramUser?.userId },
       include: { brand: true, userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } } },
@@ -321,9 +342,9 @@ export class TelegramService {
 
       for (const telegramUser of telegramUsers) {
         try {
-          await this.upsertTelegramUser(telegramUser.user, Number(telegramUser.id), telegramUser);
+          await this.upsertTelegramUser(telegramUser.user, Number(telegramUser.chatId), telegramUser);
         } catch (error) {
-          console.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.id}`, error);
+          console.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.chatId}`, error);
         }
       }
 
