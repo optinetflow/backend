@@ -217,9 +217,9 @@ export class TelegramService {
 
       for (const telegramUser of telegramUsers) {
         try {
-          await this.upsertTelegramUser(telegramUser.user, Number(telegramUser.id), telegramUser);
+          await this.upsertTelegramUser(telegramUser.user, Number(telegramUser.chatId), telegramUser);
         } catch (error) {
-          console.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.id}`, error);
+          console.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.chatId}`, error);
         }
       }
 

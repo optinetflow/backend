@@ -12,11 +12,4 @@ export class AppService {
   getHelloName(name: string): string {
     return `Hello ${name}!`;
   }
-
-  async populateTelegramUserChatId() {
-    await this.prisma.$executeRaw`
-    UPDATE "TelegramUser"
-    SET "chatId" = "id"`;
-    console.log('Update successful.');
-  }
 }

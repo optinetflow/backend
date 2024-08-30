@@ -90,7 +90,7 @@ export class PaymentService {
       if (receiptBuffer) {
         if (telegramUser) {
           await this.bot.telegram.sendPhoto(
-            Number(telegramUser.id),
+            Number(telegramUser.chatId),
             { source: receiptBuffer },
             {
               caption,
