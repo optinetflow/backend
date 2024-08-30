@@ -37,6 +37,7 @@ Table User {
 }
 
 Table TelegramUser {
+  chatId BigInt
   id BigInt [pk]
   userId String [unique, not null]
   createdAt DateTime [default: `now()`, not null]
