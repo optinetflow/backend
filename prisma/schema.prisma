@@ -57,6 +57,7 @@ model User {
 }
 
 model TelegramUser {
+  chatId      BigInt?    
   id          BigInt   @id
   userId      String   @unique @db.Uuid
   createdAt   DateTime @default(now())

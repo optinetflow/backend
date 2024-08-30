@@ -8,6 +8,7 @@ import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.js';
 import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 
 import { AppModule } from './app.module';
+import { AppService } from './app.service';
 import type { CorsConfig, NestConfig, SwaggerConfig } from './common/configs/config.interface';
 
 async function bootstrap() {
@@ -50,6 +51,8 @@ async function bootstrap() {
     app.enableCors();
   }
 
+  const appService = app.get(AppService);
+  await appService.populateTelegramUserChatId();
   await app.listen(process.env.PORT || nestConfig?.port || 3000);
 }
 
