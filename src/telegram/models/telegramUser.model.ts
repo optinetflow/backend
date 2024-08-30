@@ -9,6 +9,9 @@ export class TelegramUser {
   @Field(() => BigNumberScalar)
   id: bigint;
 
+  @Field(() => BigNumberScalar, { nullable: true })
+  chatId?: bigint | null;
+
   @Field(() => String, { nullable: true })
   firstname?: string | null;
 

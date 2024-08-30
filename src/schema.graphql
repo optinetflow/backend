@@ -332,6 +332,7 @@ input SignupInput {
 
 type TelegramUser {
   bigAvatar: String
+  chatId: BigNumber
   firstname: String
   id: BigNumber!
   lastname: String
