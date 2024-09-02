@@ -55,6 +55,10 @@ Table TelegramUser {
   bigAvatar String
   smallAvatar String
   user User [not null]
+
+  indexes {
+    (chatId, userId) [unique]
+  }
 }
 
 Table BankCard {
@@ -111,17 +115,21 @@ Table Server {
   updatedAt DateTime [not null]
   deletedAt DateTime
   type ServerCountry [not null]
-  ip String [unique, not null]
-  domain String [unique, not null]
+  domain String [not null]
   inboundId Int [not null, default: 1]
   token String [not null]
-  tunnelDomain String
+  tunnelDomain String [not null]
   stats Json
   brandId String
   brand Brand
+  activeFor Brand
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
+
+  indexes {
+    (domain, brandId) [unique]
+  }
 }
 
 Table Package {
@@ -242,9 +250,11 @@ Table Brand {
   botToken String [not null]
   botUsername String [unique, not null]
   reportGroupId String
+  activeServerId String [unique]
   logo Json
   Server Server [not null]
   User User [not null]
+  activeServer Server
 }
 
 Enum Role {
@@ -316,3 +326,5 @@ Ref: Promotion.giftPackageId > Package.id
 Ref: UserGift.userId > User.id
 
 Ref: UserGift.giftPackageId > Package.id
+
+Ref: Brand.activeServerId - Server.id

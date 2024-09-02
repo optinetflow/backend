@@ -142,7 +142,7 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: {
-        PhoneBrandIdUnique: {
+        UserPhoneBrandIdUnique: {
           phone,
           brandId: brand.id,
         },

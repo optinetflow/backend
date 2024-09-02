@@ -1,5 +1,5 @@
 /* eslint-disable max-len */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
@@ -210,8 +210,12 @@ export class PackageService {
     }
   }
 
-  async getFreeServer(): Promise<Server> {
-    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'p-temp.iguardvpn.com' } });
+  async getFreeServer(user: User): Promise<Server> {
+    if (!user.brand?.activeServerId) {
+      throw new NotAcceptableException('Active Server is not Found');
+    }
+
+    return this.prisma.server.findUniqueOrThrow({ where: { id: user.brand?.activeServerId } });
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
@@ -222,7 +226,7 @@ export class PackageService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.getFreeServer();
+    const server = await this.getFreeServer(user);
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
     const email = nanoid();
@@ -275,7 +279,7 @@ export class PackageService {
   async enableGift(user: User, userGiftId: string): Promise<void> {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
 
-    const server = await this.getFreeServer();
+    const server = await this.getFreeServer(user);
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
     const email = nanoid();
@@ -538,7 +542,7 @@ export class PackageService {
         name: userPack.name,
         link: getVlessLink(
           userPack.statId,
-          userPack.server.tunnelDomain!,
+          userPack.server.tunnelDomain,
           `${userPack.name} | ${new URL(this.webPanel).hostname}`,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),

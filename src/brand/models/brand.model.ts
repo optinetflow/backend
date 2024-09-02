@@ -21,4 +21,7 @@ export class Brand extends BaseModel {
 
   @Field(() => String, { nullable: true })
   reportGroupId?: string | null;
+
+  @Field(() => String, { nullable: true })
+  activeServerId?: string | null;
 }

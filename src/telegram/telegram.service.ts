@@ -297,14 +297,14 @@ export class TelegramService {
   }
 
   async enableGift(ctx: Context) {
-    const telegramUser = await this.prisma.telegramUser.findFirst({ where: { chatId: ctx.from!.id } });
-
-    if (!telegramUser) {
-      throw new BadRequestException('Telegram User is not found.');
-    }
-
+    const brand = await this.prisma.brand.findUniqueOrThrow({ where: { botUsername: ctx.botInfo.username } });
     const user = await this.prisma.user.findFirstOrThrow({
-      where: { id: telegramUser?.userId },
+      where: {
+        telegram: {
+          chatId: ctx.from!.id,
+        },
+        brandId: brand.id,
+      },
       include: { brand: true, userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } } },
     });
 

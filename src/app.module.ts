@@ -9,7 +9,6 @@ import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 import { AppResolver } from './app.resolver';
 import { AppService } from './app.service';
-import { ArvanModule } from './arvan/arvan.module';
 import { AuthModule } from './auth/auth.module';
 import { BrandModule } from './brand/brand.module';
 import config from './common/configs/config';
@@ -45,7 +44,6 @@ import { XuiModule } from './xui/xui.module';
     MinioClientModule,
     AuthModule,
     UsersModule,
-    ArvanModule,
     ServerModule,
     XuiModule,
     TelegramModule,

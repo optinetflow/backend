@@ -57,7 +57,7 @@ model User {
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
   @@index([referId], name: "UserReferIdIndex")
-  @@unique([phone, brandId], name: "PhoneBrandIdUnique")
+  @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
 }
 
 model TelegramUser {
@@ -76,6 +76,7 @@ model TelegramUser {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId], name: "TelegramUserUserIdIndex")
+  @@unique([chatId, userId], name: "TelegramChatIdUserIdUnique")
 }
 
 model BankCard {
@@ -157,18 +158,21 @@ model Server {
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
   type         ServerCountry
-  ip           String        @unique // @db.VarChar(255)
-  domain       String        @unique // @db.VarChar(255)
+  domain       String        @db.VarChar(255)
   inboundId    Int           @default(1)
   token        String // @db.VarChar(255)
-  tunnelDomain String?       @db.VarChar(255)
+  tunnelDomain String      @db.VarChar(255)
   stats        Json?
   brandId      String?      @db.Uuid      
 
   brand        Brand?  @relation(fields: [brandId], references: [id])
+  activeFor    Brand?  @relation("ActiveServer")
   userPackage  UserPackage[]
   Domain       Domain[]
-  clientStat   ClientStat[]      
+  clientStat   ClientStat[]   
+  
+  @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
+   
 }
 
 model Package {
@@ -348,8 +352,12 @@ model Brand {
   botToken      String    @db.VarChar(255)
   botUsername   String    @unique @db.VarChar(255)
   reportGroupId String?   @db.VarChar(255)
+  activeServerId String?   @unique @db.Uuid
   logo          Json?
   Server Server[]
 
   User User[]
+
+  activeServer   Server?   @relation("ActiveServer", fields: [activeServerId], references: [id])
+
 }

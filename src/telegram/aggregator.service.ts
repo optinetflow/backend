@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { AxiosRequestConfig } from 'axios';
@@ -207,7 +207,7 @@ export class AggregatorService {
   async enableGift(user: User, userGiftId: string) {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
 
-    const server = await this.getFreeServer();
+    const server = await this.getFreeServer(user);
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
     const email = nanoid();
@@ -243,8 +243,12 @@ export class AggregatorService {
     return { package: pack, userPack };
   }
 
-  private async getFreeServer(): Promise<Server> {
-    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'p-temp.iguardvpn.com' } });
+  private async getFreeServer(user: User): Promise<Server> {
+    if (!user.brand?.activeServerId) {
+      throw new NotAcceptableException('Active Server is not Found');
+    }
+
+    return this.prisma.server.findUniqueOrThrow({ where: { id: user.brand?.activeServerId } });
   }
 
   private async deleteClient(clientStatId: string) {
