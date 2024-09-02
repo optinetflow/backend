@@ -254,27 +254,34 @@ export class TelegramService {
   }
 
   async addPhone(ctx: Context, phone: string) {
-    const telegramUserCount = await this.prisma.telegramUser.count({
-      where: {
-        chatId: ctx.from!.id,
-      },
-    });
+    const brand = await this.prisma.brand.findUniqueOrThrow({ where: { botUsername: ctx.botInfo.username } });
+    // const telegramUserCount = await this.prisma.telegramUser.count({
+    //   where: {
+    //     chatId: ctx.from!.id,
+    //   },
+    // });
 
-    if (telegramUserCount === 0) {
-      throw new Error('TelegramUsers not found');
-    }
+    // if (telegramUserCount === 0) {
+    //   throw new Error('TelegramUsers not found');
+    // }
 
     await this.prisma.telegramUser.updateMany({
       where: {
         chatId: ctx.from!.id,
+        user: {
+          brandId: brand.id,
+        },
       },
       data: {
         phone,
       },
     });
-    const updatedTelegramUsers = await this.prisma.telegramUser.findMany({
+    const updatedTelegramUser = await this.prisma.telegramUser.findFirstOrThrow({
       where: {
         chatId: ctx.from!.id,
+        user: {
+          brandId: brand.id,
+        },
       },
       include: {
         user: {
@@ -285,15 +292,11 @@ export class TelegramService {
         },
       },
     });
-    const promises = updatedTelegramUsers.map(async (updatedTelegramUser) => {
-      await this.prisma.user.update({ where: { id: updatedTelegramUser.userId }, data: { isVerified: true } });
-      const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
-      const bot = this.getBot(updatedTelegramUser.user.brandId as string);
+    await this.prisma.user.update({ where: { id: updatedTelegramUser.userId }, data: { isVerified: true } });
+    const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
+    const bot = this.getBot(updatedTelegramUser.user.brandId as string);
 
-      return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
-    });
-
-    return Promise.all(promises);
+    return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
   }
 
   async enableGift(ctx: Context) {
