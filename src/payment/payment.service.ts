@@ -74,6 +74,7 @@ export class PaymentService {
     }\n💵 سود تقریبی: ${convertPersianCurrency(roundTo(approximateProfit, 0))}`;
 
     const bot = this.telegramService.getBot(user.brandId as string);
+    console.log({bot})
 
     if (user.parentId) {
       const acceptData = { A_CHARGE: paymentId } as CallbackData;
@@ -119,6 +120,7 @@ export class PaymentService {
         );
       }
     } else if (receiptBuffer) {
+      console.log('sending', 'receiptBuffer')
       await bot.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: receiptBuffer }, { caption });
     }
 
