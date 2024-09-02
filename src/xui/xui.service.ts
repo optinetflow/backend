@@ -570,63 +570,63 @@ export class XuiService {
     }
   }
 
-  async toggleUserBlock(userId: string, isBlocked: boolean) {
-    const userPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId,
-        deletedAt: null,
-      },
-    });
+  async toggleUserBlock(userId: string, isBlocked: boolean): Promise<void> {
+    try {
+      const [userPacks, children] = await Promise.all([
+        this.prisma.userPackage.findMany({
+          where: {
+            userId,
+            deletedAt: null,
+          },
+        }),
+        this.prisma.user.findMany({
+          where: {
+            parentId: userId,
+            ...(isBlocked ? {} : { isDisabled: false }),
+          },
+        }),
+      ]);
 
-    const children = await this.prisma.user.findMany({
-      where: {
-        parentId: userId,
-        ...(isBlocked
-          ? {}
-          : {
-              isDisabled: false,
-            }),
-      },
-    });
+      const childrenIds = children.map((child) => child.id);
 
-    const childrenIds = children.map((child) => child.id);
-
-    const childrenPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId: {
-          in: childrenIds,
+      const childrenPacks = await this.prisma.userPackage.findMany({
+        where: {
+          userId: {
+            in: childrenIds,
+          },
+          deletedAt: null,
         },
-        deletedAt: null,
-      },
-    });
+      });
 
-    const allStatIds = [...childrenPacks, ...userPacks].map((i) => i.statId);
+      const allStatIds = [...userPacks, ...childrenPacks].map((pack) => pack.statId);
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+      const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const [i, statId] of allStatIds.entries()) {
-      void queue.add(() => this.toggleClientState(statId, !isBlocked));
+      for (const statId of allStatIds) {
+        await queue.add(async () => {
+          await this.toggleClientState(statId, !isBlocked);
+        });
+      }
+
+      await queue.onIdle();
+
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { isDisabled: isBlocked },
+        }),
+        this.prisma.user.updateMany({
+          where: { id: { in: childrenIds } },
+          data: { isParentDisabled: isBlocked },
+        }),
+      ]);
+
+    } catch (error) {
+      console.error('Error toggling user block:', error);
+
+      // You might want to add more sophisticated error handling here
+      throw error;
     }
-
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        isDisabled: isBlocked,
-      },
-    });
-
-    await this.prisma.user.updateMany({
-      where: {
-        id: {
-          in: childrenIds,
-        },
-      },
-      data: {
-        isParentDisabled: isBlocked,
-      },
-    });
   }
 
   // @Interval('getServerStatus', 0.25 * 60 * 1000)

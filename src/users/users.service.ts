@@ -159,7 +159,9 @@ export class UsersService {
     }
 
     if (typeof input.isDisabled === 'boolean') {
-      void this.xuiService.toggleUserBlock(childId, input.isDisabled);
+      setImmediate(() => {
+        void this.xuiService.toggleUserBlock(childId, input.isDisabled as boolean);
+      });
     }
 
     return this.prisma.user.update({
