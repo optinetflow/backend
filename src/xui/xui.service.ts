@@ -74,22 +74,20 @@ export class XuiService {
 
   private readonly logger = new Logger(XuiService.name);
 
-  private readonly webPanel = this.configService.get('webPanelUrl');
-
-  // private readonly reportGroupId = this.configService.get('telGroup')!.report;
-
-  private readonly loginToPanelBtn = {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: 'ورود به سایت',
-            url: this.webPanel,
-          },
+  private loginToPanelBtn(url: string) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'ورود به سایت',
+              url,
+            },
+          ],
         ],
-      ],
-    },
-  };
+      },
+    };
+  }
 
   async login(domain: string): Promise<string> {
     try {
@@ -257,6 +255,7 @@ export class XuiService {
         user: {
           include: {
             telegram: true,
+            brand: true,
           },
         },
         package: true,
@@ -295,7 +294,9 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void telegramQueue.add(() => bot?.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void telegramQueue.add(() =>
+          bot?.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
 
       void queue.add(() => this.deleteClient(userPack.statId));
@@ -313,7 +314,9 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void telegramQueue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
 
       void queue.add(() => this.deleteClient(userPack.statId));
@@ -339,6 +342,7 @@ export class XuiService {
         user: {
           include: {
             telegram: true,
+            brand: true,
           },
         },
         package: true,
@@ -375,7 +379,9 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
         const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void queue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
     }
 
@@ -391,7 +397,9 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
         const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void queue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
     }
   }

@@ -37,20 +37,20 @@ export class PackageService {
     private readonly configService: ConfigService,
   ) {}
 
-  private readonly webPanel = this.configService.get('webPanelUrl');
-
-  private readonly loginToPanelBtn = {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: 'ورود به سایت',
-            url: this.webPanel,
-          },
+  private loginToPanelBtn(url: string) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'ورود به سایت',
+              url,
+            },
+          ],
         ],
-      ],
-    },
-  };
+      },
+    };
+  }
 
   /* eslint-disable sonarjs/cognitive-complexity, sonarjs/no-nested-template-literals */
   async updateFinishedPackages(stats: Stat[]) {
@@ -71,6 +71,7 @@ export class PackageService {
         user: {
           include: {
             telegram: true,
+            brand: true,
           },
         },
         package: true,
@@ -109,7 +110,9 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void telegramQueue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
 
       void queue.add(() => this.xuiService.deleteClient(userPack.statId));
@@ -127,7 +130,9 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void telegramQueue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
 
       void queue.add(() => this.xuiService.deleteClient(userPack.statId));
@@ -153,6 +158,7 @@ export class PackageService {
         user: {
           include: {
             telegram: true,
+            brand: true,
           },
         },
         package: true,
@@ -189,7 +195,9 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void queue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
     }
 
@@ -205,7 +213,9 @@ export class PackageService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        void queue.add(() =>
+          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
+        );
       }
     }
   }
@@ -522,7 +532,11 @@ export class PackageService {
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
         stat: true,
-        server: true,
+        server: {
+          include: {
+            brand: true,
+          },
+        },
       },
       where: {
         userId: user.id,
@@ -543,7 +557,7 @@ export class PackageService {
         link: getVlessLink(
           userPack.statId,
           userPack.server.tunnelDomain,
-          `${userPack.name} | ${new URL(this.webPanel).hostname}`,
+          `${userPack.name} | ${userPack.server.brand?.domainName as string}`,
           userPack.server.port,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
