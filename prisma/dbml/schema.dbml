@@ -121,6 +121,7 @@ Table Server {
   tunnelDomain String [not null]
   stats Json
   brandId String
+  port Int [not null, default: 443]
   brand Brand
   activeFor Brand
   userPackage UserPackage [not null]

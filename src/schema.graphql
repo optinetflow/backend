@@ -20,9 +20,6 @@ type BankCard {
 scalar BigNumber
 
 type Brand {
-  activeServerId: String
-  backupGroupId: String
-  botToken: String!
   botUsername: String!
 
   """Identifies the date and time when the object was created."""
@@ -30,7 +27,7 @@ type Brand {
   description: String!
   domainName: String!
   id: ID!
-  reportGroupId: String
+  logo: JSON
   title: String!
 
   """Identifies the date and time when the object was last updated."""
@@ -117,9 +114,18 @@ input EnterCostInput {
   type: PaymentType!
 }
 
+input GetBrandInfoInput {
+  domainName: String!
+}
+
 input GetClientStatsFiltersInput {
   id: String!
 }
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
 
 """
 A field whose value is a JSON Web Token (JWT): https://jwt.io/introduction.
@@ -192,6 +198,7 @@ type Query {
   checkAuth: CheckAuth!
   children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
+  getBrandInfo(input: GetBrandInfoInput!): Brand!
   hello(name: String!): String!
   helloWorld: String!
   me: User!

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
-import { Field, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
-import { DomainState, ServerCountry } from '@prisma/client';
+import { Field, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { ServerCountry } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
 
@@ -21,9 +21,12 @@ export class Server extends BaseModel {
   @Field(() => ServerCountry)
   type: ServerCountry;
 
-  @Field()
+  @HideField()
   token: string;
 
-  @Field(() => Int)
+  @HideField()
   inboundId: number;
+
+  @HideField()
+  port: number;
 }

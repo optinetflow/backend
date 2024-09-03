@@ -72,6 +72,7 @@
     "graphql": "16.7.1",
     "graphql-scalars": "1.22.2",
     "graphql-subscriptions": "2.0.0",
+    "graphql-type-json": "^0.3.2",
     "graphql-upload": "14.0.0",
     "jalali-moment": "^3.3.11",
     "mime-types": "^2.1.35",

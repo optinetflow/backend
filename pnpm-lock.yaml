@@ -80,6 +80,9 @@ dependencies:
   graphql-subscriptions:
     specifier: 2.0.0
     version: 2.0.0(graphql@16.7.1)
+  graphql-type-json:
+    specifier: ^0.3.2
+    version: 0.3.2(graphql@16.7.1)
   graphql-upload:
     specifier: 14.0.0
     version: 14.0.0(@types/express@4.17.17)(graphql@16.7.1)
@@ -5410,6 +5413,14 @@ packages:
     dependencies:
       graphql: 16.7.1
       tslib: 2.6.1
+    dev: false
+
+  /graphql-type-json@0.3.2(graphql@16.7.1):
+    resolution: {integrity: sha512-J+vjof74oMlCWXSvt0DOf2APEdZOCdubEvGDUAlqH//VBYcOYsGgRW7Xzorr44LvkjiuvecWc8fChxuZZbChtg==}
+    peerDependencies:
+      graphql: '>=0.8.0'
+    dependencies:
+      graphql: 16.7.1
     dev: false
 
   /graphql-upload@14.0.0(@types/express@4.17.17)(graphql@16.7.1):
