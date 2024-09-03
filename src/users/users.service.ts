@@ -35,6 +35,7 @@ export class UsersService {
         bankCard: true,
         userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } },
         parent: { include: { telegram: true, bankCard: true } },
+        brand: true,
       },
     });
 
@@ -158,7 +159,7 @@ export class UsersService {
     }
 
     if (typeof input.isDisabled === 'boolean') {
-      void this.xuiService.toggleUserBlock(childId, input.isDisabled);
+      await this.xuiService.toggleUserBlock(childId, input.isDisabled);
     }
 
     return this.prisma.user.update({

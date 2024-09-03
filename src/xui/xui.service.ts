@@ -9,10 +9,8 @@ import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
 import PQueue from 'p-queue';
 import { firstValueFrom } from 'rxjs';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
 import { TelGroup } from '../common/configs/config.interface';
@@ -26,8 +24,9 @@ import {
   jsonObjectToQueryString,
   roundTo,
 } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
 import { User } from '../users/models/user.model';
+import { BrandService } from './../brand/brand.service';
+import { TelegramService } from './../telegram/telegram.service';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
 import {
@@ -36,7 +35,6 @@ import {
   InboundListRes,
   InboundSetting,
   OnlineInboundRes,
-  ServerStat,
   Stat,
   UpdateClientInput,
   UpdateClientReqInput,
@@ -63,8 +61,8 @@ const ENDPOINTS = (domain: string) => {
 @Injectable()
 export class XuiService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
+    private readonly brandService: BrandService,
     private prisma: PrismaService,
     private httpService: HttpService,
     private readonly configService: ConfigService,
@@ -78,9 +76,7 @@ export class XuiService {
 
   private readonly webPanel = this.configService.get('webPanelUrl');
 
-  private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
-
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
+  // private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   private readonly loginToPanelBtn = {
     reply_markup: {
@@ -94,8 +90,6 @@ export class XuiService {
       ],
     },
   };
-
-  private ServerStatDic: Record<string, ServerStat[]> = {};
 
   async login(domain: string): Promise<string> {
     try {
@@ -299,8 +293,9 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void telegramQueue.add(() => bot?.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
       void queue.add(() => this.deleteClient(userPack.statId));
@@ -316,8 +311,9 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void telegramQueue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
 
       void queue.add(() => this.deleteClient(userPack.statId));
@@ -377,8 +373,9 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
 
@@ -392,8 +389,9 @@ export class XuiService {
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
+        const bot = this.telegramService.getBot(userPack.user.brandId as string);
+        void queue.add(() => bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
       }
     }
   }
@@ -570,63 +568,62 @@ export class XuiService {
     }
   }
 
-  async toggleUserBlock(userId: string, isBlocked: boolean) {
-    const userPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId,
-        deletedAt: null,
-      },
-    });
+  async toggleUserBlock(userId: string, isBlocked: boolean): Promise<void> {
+    try {
+      const [userPacks, children] = await Promise.all([
+        this.prisma.userPackage.findMany({
+          where: {
+            userId,
+            deletedAt: null,
+          },
+        }),
+        this.prisma.user.findMany({
+          where: {
+            parentId: userId,
+            ...(isBlocked ? {} : { isDisabled: false }),
+          },
+        }),
+      ]);
 
-    const children = await this.prisma.user.findMany({
-      where: {
-        parentId: userId,
-        ...(isBlocked
-          ? {}
-          : {
-              isDisabled: false,
-            }),
-      },
-    });
+      const childrenIds = children.map((child) => child.id);
 
-    const childrenIds = children.map((child) => child.id);
-
-    const childrenPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId: {
-          in: childrenIds,
+      const childrenPacks = await this.prisma.userPackage.findMany({
+        where: {
+          userId: {
+            in: childrenIds,
+          },
+          deletedAt: null,
         },
-        deletedAt: null,
-      },
-    });
+      });
 
-    const allStatIds = [...childrenPacks, ...userPacks].map((i) => i.statId);
+      const allStatIds = [...userPacks, ...childrenPacks].map((pack) => pack.statId);
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+      const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const [i, statId] of allStatIds.entries()) {
-      void queue.add(() => this.toggleClientState(statId, !isBlocked));
+      for (const statId of allStatIds) {
+        await queue.add(async () => {
+          await this.toggleClientState(statId, !isBlocked);
+        });
+      }
+
+      await queue.onIdle();
+
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { isDisabled: isBlocked },
+        }),
+        this.prisma.user.updateMany({
+          where: { id: { in: childrenIds } },
+          data: { isParentDisabled: isBlocked },
+        }),
+      ]);
+    } catch (error) {
+      console.error('Error toggling user block:', error);
+
+      // You might want to add more sophisticated error handling here
+      throw error;
     }
-
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        isDisabled: isBlocked,
-      },
-    });
-
-    await this.prisma.user.updateMany({
-      where: {
-        id: {
-          in: childrenIds,
-        },
-      },
-      data: {
-        isParentDisabled: isBlocked,
-      },
-    });
   }
 
   // @Interval('getServerStatus', 0.25 * 60 * 1000)
@@ -677,7 +674,17 @@ export class XuiService {
     }
 
     this.logger.debug('BackupDB call every 1 min');
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+    const servers = await this.prisma.server.findMany({
+      where: { deletedAt: null },
+      include: {
+        brand: {
+          select: {
+            id: true,
+            backupGroupId: true,
+          },
+        },
+      },
+    });
 
     for (const server of servers) {
       const res = await this.authenticatedReq<string>({
@@ -687,7 +694,8 @@ export class XuiService {
         isBuffer: true,
       });
 
-      void this.bot.telegram.sendDocument(this.backupGroup, {
+      const bot = this.telegramService.getBot(server?.brand?.id as string);
+      void bot.telegram.sendDocument(server.brand?.backupGroupId as string, {
         source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });

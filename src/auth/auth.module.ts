@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
 import { SecurityConfig } from '../common/configs/config.interface';
+import { TelegramModule } from '../telegram/telegram.module';
 import { UsersModule } from '../users/users.module';
 import { UsersService } from '../users/users.service';
 import { XuiModule } from '../xui/xui.module';
@@ -31,6 +32,7 @@ import { PasswordService } from './password.service';
     }),
     XuiModule,
     UsersModule,
+    TelegramModule,
   ],
   providers: [AuthService, AuthResolver, JwtStrategy, GqlAuthGuard, PasswordService, UsersService],
   exports: [GqlAuthGuard],

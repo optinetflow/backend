@@ -24,7 +24,6 @@ export class OptionalGqlAuthGuard extends AuthGuard('jwt') {
     const ctx = GqlExecutionContext.create(context);
     const req = ctx.getContext().req;
 
-    // console.log('req.cookies.token.accessT', JSON.parse(req.cookies.token).accessT);
     const token = req?.cookies?.token && JSON.parse(req.cookies.token).accessT;
 
     if (token) {

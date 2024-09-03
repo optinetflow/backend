@@ -1,22 +1,20 @@
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Logger, Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ScheduleModule } from '@nestjs/schedule';
 import { loggingMiddleware, PrismaModule } from 'nestjs-prisma';
-import { TelegrafModule } from 'nestjs-telegraf';
 
 import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 import { AppResolver } from './app.resolver';
 import { AppService } from './app.service';
-import { ArvanModule } from './arvan/arvan.module';
 import { AuthModule } from './auth/auth.module';
+import { BrandModule } from './brand/brand.module';
 import config from './common/configs/config';
-import type { Telegraf } from './common/configs/config.interface';
-import { sessionMiddleware } from './common/middleware/session.middleware';
 import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
+import { PackageModule } from './package/package.module';
 import { PaymentModule } from './payment/payment.module';
 import { ServerModule } from './server/server.module';
 import { TelegramModule } from './telegram/telegram.module';
@@ -46,20 +44,13 @@ import { XuiModule } from './xui/xui.module';
     MinioClientModule,
     AuthModule,
     UsersModule,
-    ArvanModule,
     ServerModule,
     XuiModule,
-    TelegrafModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        token: configService.get<Telegraf>('telegraf')!.token,
-        middlewares: [sessionMiddleware],
-        include: [TelegramModule],
-      }),
-    }),
     TelegramModule,
     PaymentModule,
     AiModule,
+    BrandModule,
+    PackageModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],

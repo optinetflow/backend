@@ -17,4 +17,8 @@ export class SignupInput {
 
   @Field(() => String, { nullable: true })
   promoCode?: string;
+
+  @Field()
+  @IsNotEmpty()
+  domainName: string;
 }

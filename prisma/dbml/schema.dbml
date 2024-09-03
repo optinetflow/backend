@@ -6,7 +6,7 @@ Table User {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  phone String [unique, not null]
+  phone String [not null]
   password String [not null]
   fullname String [not null]
   balance Float [not null, default: 0]
@@ -14,6 +14,7 @@ Table User {
   totalProfit Float [not null, default: 0]
   parentId String
   referId String
+  brandId String
   role Role [not null, default: 'USER']
   isDisabled Boolean [not null, default: false]
   isParentDisabled Boolean [not null, default: false]
@@ -23,6 +24,7 @@ Table User {
   initialDiscountPercent Float
   appliedDiscountPercent Float
   description String
+  brand Brand
   parent User
   children User [not null]
   refer User
@@ -34,6 +36,10 @@ Table User {
   file File [not null]
   promotion Promotion [not null]
   userGift UserGift [not null]
+
+  indexes {
+    (phone, brandId) [unique]
+  }
 }
 
 Table TelegramUser {
@@ -49,6 +55,10 @@ Table TelegramUser {
   bigAvatar String
   smallAvatar String
   user User [not null]
+
+  indexes {
+    (chatId, userId) [unique]
+  }
 }
 
 Table BankCard {
@@ -105,15 +115,21 @@ Table Server {
   updatedAt DateTime [not null]
   deletedAt DateTime
   type ServerCountry [not null]
-  ip String [unique, not null]
-  domain String [unique, not null]
+  domain String [not null]
   inboundId Int [not null, default: 1]
   token String [not null]
-  tunnelDomain String
+  tunnelDomain String [not null]
   stats Json
+  brandId String
+  brand Brand
+  activeFor Brand
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
+
+  indexes {
+    (domain, brandId) [unique]
+  }
 }
 
 Table Package {
@@ -223,6 +239,25 @@ Table UserGift {
   giftPackage Package
 }
 
+Table Brand {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  domainName String [unique, not null]
+  title String [not null]
+  description String [not null]
+  botToken String [not null]
+  botUsername String [unique, not null]
+  reportGroupId String
+  backupGroupId String
+  activeServerId String [unique]
+  logo Json
+  Server Server [not null]
+  User User [not null]
+  activeServer Server
+}
+
 Enum Role {
   ADMIN
   USER
@@ -253,6 +288,8 @@ Enum PaymentType {
   EXTERNAL_SERVER_COST
 }
 
+Ref: User.brandId > Brand.id
+
 Ref: User.parentId - User.id
 
 Ref: User.referId - User.id
@@ -266,6 +303,8 @@ Ref: File.userId > User.id
 Ref: Domain.arvanId > Arvan.id
 
 Ref: Domain.serverId > Server.id
+
+Ref: Server.brandId > Brand.id
 
 Ref: UserPackage.paymentId > Payment.id
 
@@ -288,3 +327,5 @@ Ref: Promotion.giftPackageId > Package.id
 Ref: UserGift.userId > User.id
 
 Ref: UserGift.giftPackageId > Package.id
+
+Ref: Brand.activeServerId - Server.id

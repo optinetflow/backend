@@ -1,17 +1,14 @@
 /* eslint-disable max-len */
-import { BadRequestException, Injectable, Logger, NotAcceptableException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { User as UserPrisma } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
 import { convertPersianCurrency, jsonToB64Url, roundTo } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
 import { MinioClientService } from '../minio/minio.service';
 import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
+import { TelegramService } from './../telegram/telegram.service';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
 import { EnterCostInput } from './dto/enterCost.input';
 import { PurchasePaymentRequestInput } from './dto/purchasePaymentRequest.input';
@@ -28,15 +25,10 @@ interface PaymentReq {
 export class PaymentService {
   constructor(
     private prisma: PrismaService,
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
     private readonly minioService: MinioClientService,
     private readonly configService: ConfigService,
   ) {}
-
-  private readonly logger = new Logger(PaymentService.name);
-
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async getRechargePackages(user: User): Promise<RechargePackage[]> {
     return this.prisma.rechargePackage.findMany({
@@ -81,6 +73,8 @@ export class PaymentService {
       user.phone
     }\n💵 سود تقریبی: ${convertPersianCurrency(roundTo(approximateProfit, 0))}`;
 
+    const bot = this.telegramService.getBot(user.brandId as string);
+
     if (user.parentId) {
       const acceptData = { A_CHARGE: paymentId } as CallbackData;
       const rejectData = { R_CHARGE: paymentId } as CallbackData;
@@ -89,7 +83,7 @@ export class PaymentService {
 
       if (receiptBuffer) {
         if (telegramUser) {
-          await this.bot.telegram.sendPhoto(
+          await bot.telegram.sendPhoto(
             Number(telegramUser.chatId),
             { source: receiptBuffer },
             {
@@ -118,10 +112,14 @@ export class PaymentService {
           `\n\n👨 مارکتر: ${parent?.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(
             roundTo(parent?.balance || 0, 0),
           )}`;
-        await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption: reportCaption });
+        await bot.telegram.sendPhoto(
+          user.brand?.reportGroupId as string,
+          { source: receiptBuffer },
+          { caption: reportCaption },
+        );
       }
     } else if (receiptBuffer) {
-      await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption });
+      await bot.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: receiptBuffer }, { caption });
     }
 
     return this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
