@@ -374,8 +374,7 @@ export class TelegramService {
             [
               {
                 text: 'ورود به سایت',
-                // url: `https://${domainName}`,
-                url: 'https://google.com',
+                url: `https://${domainName}`,
               },
             ],
           ],
