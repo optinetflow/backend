@@ -1,36 +1,23 @@
 /* eslint-disable max-len */
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import fs from 'fs';
-import { PrismaService } from 'nestjs-prisma';
 
-import { PostgresConfig, TelGroup } from '../common/configs/config.interface';
-import { errors } from '../common/errors';
+import { PostgresConfig } from '../common/configs/config.interface';
 import { asyncShellExec } from '../common/helpers';
-import { MinioClientService } from '../minio/minio.service';
-import { User } from '../users/models/user.model';
-import { XuiService } from '../xui/xui.service';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
-import { CreateServerInput } from './dto/createServer.input';
-import { IssueCertInput } from './dto/issueCert.input';
-import { Server } from './models/server.model';
 
 @Injectable()
 export class ServerService {
   constructor(
     private readonly telegramService: TelegramService,
     private readonly brandService: BrandService,
-    private prisma: PrismaService,
     private readonly configService: ConfigService,
-    private readonly minioService: MinioClientService,
-    private readonly xuiService: XuiService,
   ) {}
 
   private readonly logger = new Logger(ServerService.name);
-
-  private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
 
   // async issueCert(data: IssueCertInput): Promise<Domain> {
   //   const domain = data.domain;
@@ -273,7 +260,10 @@ export class ServerService {
       const buffer = fs.readFileSync(`${outputFile}.gz`);
       const firstBrand = await this.brandService.getFirstBrand();
       const bot = this.telegramService.getBot(firstBrand?.id as string);
-      void bot.telegram.sendDocument(this.backupGroup, { source: buffer, filename: `${outputFile}.gz` });
+      void bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
+        source: buffer,
+        filename: `${outputFile}.gz`,
+      });
 
       await asyncShellExec(`rm -rf ${outputFile}.gz`);
     } catch (error_) {

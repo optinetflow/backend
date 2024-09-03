@@ -23,5 +23,8 @@ export class Brand extends BaseModel {
   reportGroupId?: string | null;
 
   @Field(() => String, { nullable: true })
+  backupGroupId?: string | null;
+
+  @Field(() => String, { nullable: true })
   activeServerId?: string | null;
 }

@@ -250,6 +250,7 @@ Table Brand {
   botToken String [not null]
   botUsername String [unique, not null]
   reportGroupId String
+  backupGroupId String
   activeServerId String [unique]
   logo Json
   Server Server [not null]

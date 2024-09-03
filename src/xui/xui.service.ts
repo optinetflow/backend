@@ -76,8 +76,6 @@ export class XuiService {
 
   private readonly webPanel = this.configService.get('webPanelUrl');
 
-  private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
-
   // private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   private readonly loginToPanelBtn = {
@@ -620,7 +618,6 @@ export class XuiService {
           data: { isParentDisabled: isBlocked },
         }),
       ]);
-
     } catch (error) {
       console.error('Error toggling user block:', error);
 
@@ -677,7 +674,17 @@ export class XuiService {
     }
 
     this.logger.debug('BackupDB call every 1 min');
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+    const servers = await this.prisma.server.findMany({
+      where: { deletedAt: null },
+      include: {
+        brand: {
+          select: {
+            id: true,
+            backupGroupId: true,
+          },
+        },
+      },
+    });
 
     for (const server of servers) {
       const res = await this.authenticatedReq<string>({
@@ -687,9 +694,8 @@ export class XuiService {
         isBuffer: true,
       });
 
-      const firstBrand = await this.brandService.getFirstBrand();
-      const bot = this.telegramService.getBot(firstBrand?.id as string);
-      void bot.telegram.sendDocument(this.backupGroup, {
+      const bot = this.telegramService.getBot(server?.brand?.id as string);
+      void bot.telegram.sendDocument(server.brand?.backupGroupId as string, {
         source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });

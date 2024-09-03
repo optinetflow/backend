@@ -21,6 +21,7 @@ scalar BigNumber
 
 type Brand {
   activeServerId: String
+  backupGroupId: String
   botToken: String!
   botUsername: String!
 
