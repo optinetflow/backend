@@ -1,4 +1,6 @@
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, HideField, ObjectType } from '@nestjs/graphql';
+import { Prisma } from '@prisma/client';
+import { GraphQLJSON } from 'graphql-type-json';
 
 import { BaseModel } from '../../common/models/base.model';
 
@@ -13,18 +15,21 @@ export class Brand extends BaseModel {
   @Field(() => String)
   description: string;
 
-  @Field(() => String)
+  @HideField()
   botToken: string;
 
   @Field(() => String)
   botUsername: string;
 
-  @Field(() => String, { nullable: true })
+  @HideField()
   reportGroupId?: string | null;
 
-  @Field(() => String, { nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
+  logo?: Prisma.JsonValue | null;
+
+  @HideField()
   backupGroupId?: string | null;
 
-  @Field(() => String, { nullable: true })
+  @HideField()
   activeServerId?: string | null;
 }

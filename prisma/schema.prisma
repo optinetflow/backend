@@ -161,9 +161,10 @@ model Server {
   domain       String        @db.VarChar(255)
   inboundId    Int           @default(1)
   token        String // @db.VarChar(255)
-  tunnelDomain String      @db.VarChar(255)
+  tunnelDomain String        @db.VarChar(255)
   stats        Json?
-  brandId      String?      @db.Uuid      
+  brandId      String?       @db.Uuid      
+  port         Int           @default(443)         
 
   brand        Brand?  @relation(fields: [brandId], references: [id])
   activeFor    Brand?  @relation("ActiveServer")
@@ -353,7 +354,7 @@ model Brand {
   botUsername   String    @unique @db.VarChar(255)
   reportGroupId String?   @db.VarChar(255)
   backupGroupId String?   @db.VarChar(255)
-  activeServerId String?   @unique @db.Uuid
+  activeServerId String?  @unique @db.Uuid
   logo          Json?
   Server Server[]
 

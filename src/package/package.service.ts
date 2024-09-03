@@ -544,6 +544,7 @@ export class PackageService {
           userPack.statId,
           userPack.server.tunnelDomain,
           `${userPack.name} | ${new URL(this.webPanel).hostname}`,
+          userPack.server.port,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
         totalTraffic: userPack.stat.total,
