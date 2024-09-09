@@ -98,7 +98,7 @@ export class TelegramService {
             await this.aggregatorService.toggleUserBlock(user.id, true);
           }
         });
-        await bot.launch();
+        void bot.launch();
         this.bots.set(brand.id, bot);
       }
     } catch (error) {
