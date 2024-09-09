@@ -57,13 +57,13 @@ export class TelegramService {
 
           if (parsed?.A_PACK) {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n✅ تایید شد';
-            void ctx.editMessageCaption(caption);
+            await ctx.editMessageCaption(caption);
             await this.aggregatorService.acceptPurchasePack(parsed.A_PACK);
           }
 
           if (parsed?.R_PACK) {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n❌ رد شد';
-            void ctx.editMessageCaption(caption);
+            await ctx.editMessageCaption(caption);
             const userPack = await this.aggregatorService.rejectPurchasePack(parsed.R_PACK);
             const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.user.parentId! } });
             const text = `#ریجکتـبسته\n📦 ${userPack.package.traffic} گیگ - ${convertPersianCurrency(
@@ -71,7 +71,7 @@ export class TelegramService {
             )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
               userPack.user.fullname
             }\n👨 مارکتر: ${parent?.fullname}`;
-            void bot.telegram.sendMessage(userPack.user.brand?.reportGroupId as string, text, {
+            await bot.telegram.sendMessage(userPack.user.brand?.reportGroupId as string, text, {
               reply_markup: {
                 inline_keyboard: [
                   [
@@ -87,18 +87,18 @@ export class TelegramService {
 
           if (parsed?.A_CHARGE) {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n✅ تایید شد';
-            void ctx.editMessageCaption(caption);
+            await ctx.editMessageCaption(caption);
             await this.aggregatorService.acceptRechargePack(parsed.A_CHARGE);
           }
 
           if (parsed?.R_CHARGE) {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n❌ رد شد';
-            void ctx.editMessageCaption(caption);
+            await ctx.editMessageCaption(caption);
             const user = await this.aggregatorService.rejectRechargePack(parsed.R_CHARGE);
             await this.aggregatorService.toggleUserBlock(user.id, true);
           }
         });
-        void bot.launch();
+        await bot.launch();
         this.bots.set(brand.id, bot);
       }
     } catch (error) {
@@ -174,12 +174,12 @@ export class TelegramService {
       const bot = this.getBot(user.brandId as string);
 
       if (bigPhoto) {
-        void bot?.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: bigPhoto }, { caption });
+        await bot?.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: bigPhoto }, { caption });
 
         return;
       }
 
-      void bot?.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
+      await bot?.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
     }
   }
 
@@ -209,10 +209,10 @@ export class TelegramService {
       smallAvatar = `userPhotoSmall/${chat.photo.small_file_id}.jpg`;
 
       if (telegramUser?.smallAvatar && telegramUser?.bigAvatar) {
-        void this.minioService.delete([telegramUser.smallAvatar, telegramUser.bigAvatar]);
+        await this.minioService.delete([telegramUser.smallAvatar, telegramUser.bigAvatar]);
       }
 
-      void this.minioService.upload([
+      await this.minioService.upload([
         {
           buffer: bigPhoto,
           filename: bigAvatar,

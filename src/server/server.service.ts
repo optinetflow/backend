@@ -260,7 +260,7 @@ export class ServerService {
       const buffer = fs.readFileSync(`${outputFile}.gz`);
       const firstBrand = await this.brandService.getFirstBrand();
       const bot = this.telegramService.getBot(firstBrand?.id as string);
-      void bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
+      await bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
         source: buffer,
         filename: `${outputFile}.gz`,
       });

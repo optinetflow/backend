@@ -66,11 +66,7 @@ export class XuiService {
     private prisma: PrismaService,
     private httpService: HttpService,
     private readonly configService: ConfigService,
-  ) {
-    setTimeout(() => {
-      void this.backupDB();
-    }, 2000);
-  }
+  ) {}
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -279,11 +275,12 @@ export class XuiService {
       },
     });
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-    const telegramQueue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+    const telegramQueue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const finishedTrafficPack of finishedTrafficPacks) {
       const userPack = finishedUserPackDic[finishedTrafficPack];
+      const bot = this.telegramService.getBot(userPack.user.brandId);
 
       if (!userPack) {
         continue;
@@ -293,17 +290,23 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void telegramQueue.add(() =>
-          bot?.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
+        await telegramQueue.add(async () => {
+          await bot.telegram.sendMessage(
+            telegramId,
+            text,
+            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+          );
+        });
       }
 
-      void queue.add(() => this.deleteClient(userPack.statId));
+      await queue.add(async () => {
+        await this.deleteClient(userPack.statId);
+      });
     }
 
     for (const finishedTimePack of finishedTimePacks) {
       const userPack = finishedUserPackDic[finishedTimePack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
@@ -313,14 +316,22 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void telegramQueue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
+        await telegramQueue.add(async () => {
+          await bot.telegram.sendMessage(
+            telegramId,
+            text,
+            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+          );
+        });
       }
 
-      void queue.add(() => this.deleteClient(userPack.statId));
+      await queue.add(async () => {
+        await this.deleteClient(userPack.statId);
+      });
     }
+
+    await telegramQueue.onIdle();
+    await queue.onIdle();
   }
 
   async sendThresholdWarning(stats: Stat[]) {
@@ -365,10 +376,11 @@ export class XuiService {
       },
     });
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const thresholdTrafficPack of thresholdTrafficPacks) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
@@ -378,15 +390,19 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void queue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
+        await queue.add(async () => {
+          await bot.telegram.sendMessage(
+            telegramId,
+            text,
+            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+          );
+        });
       }
     }
 
     for (const thresholdTimePack of thresholdTimePacks) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
@@ -396,12 +412,17 @@ export class XuiService {
 
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        const bot = this.telegramService.getBot(userPack.user.brandId as string);
-        void queue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
+        await queue.add(async () => {
+          await bot.telegram.sendMessage(
+            telegramId,
+            text,
+            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+          );
+        });
       }
     }
+
+    await queue.onIdle();
   }
 
   async upsertClientStats(stats: Stat[], serverId: string, onlinesStat: string[]) {
@@ -703,7 +724,7 @@ export class XuiService {
       });
 
       const bot = this.telegramService.getBot(server?.brand?.id as string);
-      void bot.telegram.sendDocument(server.brand?.backupGroupId as string, {
+      await bot.telegram.sendDocument(server.brand?.backupGroupId as string, {
         source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });

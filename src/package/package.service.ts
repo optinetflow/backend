@@ -52,174 +52,6 @@ export class PackageService {
     };
   }
 
-  /* eslint-disable sonarjs/cognitive-complexity, sonarjs/no-nested-template-literals */
-  async updateFinishedPackages(stats: Stat[]) {
-    const finishedTrafficPacks = stats.filter((stat) => stat.down + stat.up >= stat.total).map((stat) => stat.id);
-    const finishedTimePacks = stats
-      .filter((stat) => stat.expiryTime > 0 && stat.expiryTime <= Date.now())
-      .map((stat) => stat.id);
-
-    const finishedPacks = [...new Set([...finishedTrafficPacks, ...finishedTimePacks])];
-
-    if (finishedPacks.length === 0) {
-      return;
-    }
-
-    const finishedUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: finishedPacks }, deletedAt: null, finishedAt: null },
-      include: {
-        user: {
-          include: {
-            telegram: true,
-            brand: true,
-          },
-        },
-        package: true,
-      },
-    });
-
-    if (finishedUserPacks.length === 0) {
-      return;
-    }
-
-    const finishedUserPackDic = arrayToDic(finishedUserPacks, 'statId');
-
-    await this.prisma.userPackage.updateMany({
-      where: {
-        id: {
-          in: finishedUserPacks.map((i) => i.id),
-        },
-      },
-      data: {
-        finishedAt: new Date(),
-      },
-    });
-
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-    const telegramQueue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-
-    for (const finishedTrafficPack of finishedTrafficPacks) {
-      const userPack = finishedUserPackDic[finishedTrafficPack];
-      const bot = this.telegramService.getBot(userPack.user.brandId);
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
-      }
-
-      void queue.add(() => this.xuiService.deleteClient(userPack.statId));
-    }
-
-    for (const finishedTimePack of finishedTimePacks) {
-      const userPack = finishedUserPackDic[finishedTimePack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
-      }
-
-      void queue.add(() => this.xuiService.deleteClient(userPack.statId));
-    }
-  }
-
-  async sendThresholdWarning(stats: Stat[]) {
-    const thresholdTrafficPacks = stats
-      .filter((stat) => stat.down + stat.up >= stat.total * 0.85)
-      .map((pack) => pack.id);
-
-    const thresholdTimePacks = stats.filter((stat) => getRemainingDays(stat.expiryTime) <= 2).map((pack) => pack.id);
-
-    const allThresholdPacks = [...new Set([...thresholdTrafficPacks, ...thresholdTimePacks])];
-
-    if (allThresholdPacks.length === 0) {
-      return;
-    }
-
-    const thresholdUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
-      include: {
-        user: {
-          include: {
-            telegram: true,
-            brand: true,
-          },
-        },
-        package: true,
-      },
-    });
-
-    if (thresholdUserPacks.length === 0) {
-      return;
-    }
-
-    const thresholdUserPackDic = arrayToDic(thresholdUserPacks, 'statId');
-    await this.prisma.userPackage.updateMany({
-      where: {
-        id: {
-          in: thresholdUserPacks.map((i) => i.id),
-        },
-      },
-      data: {
-        thresholdWarningSentAt: new Date(),
-      },
-    });
-
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-
-    for (const thresholdTrafficPack of thresholdTrafficPacks) {
-      const userPack = thresholdUserPackDic[thresholdTrafficPack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
-      }
-    }
-
-    for (const thresholdTimePack of thresholdTimePacks) {
-      const userPack = thresholdUserPackDic[thresholdTimePack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() =>
-          bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn(userPack.user.brand?.domainName as string)),
-        );
-      }
-    }
-  }
-
   async getFreeServer(user: User): Promise<Server> {
     if (!user.brand?.activeServerId) {
       throw new NotAcceptableException('Active Server is not Found');
@@ -344,15 +176,6 @@ export class PackageService {
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentId = uuid();
 
-    await this.prisma.userPackage.update({
-      where: {
-        id: userPack.id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
     const modifiedPack = { ...pack };
 
     try {
@@ -398,6 +221,15 @@ export class PackageService {
           orderN: userPack.orderN,
         });
 
+        await this.prisma.userPackage.update({
+          where: {
+            id: userPack.id,
+          },
+          data: {
+            deletedAt: new Date(),
+          },
+        });
+
         await this.sendBuyPackMessage(user, {
           inRenew: true,
           pack,
@@ -438,6 +270,15 @@ export class PackageService {
       package: modifiedPack,
       paymentId,
       orderN: userPack.orderN,
+    });
+
+    await this.prisma.userPackage.update({
+      where: {
+        id: userPack.id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
     });
 
     await this.sendBuyPackMessage(user, {
@@ -505,7 +346,7 @@ export class PackageService {
             roundTo(parent?.balance || 0, 0),
           )}`;
         const bot = this.telegramService.getBot(user.brandId as string);
-        void bot.telegram.sendPhoto(
+        await bot.telegram.sendPhoto(
           user.brand?.reportGroupId as string,
           { source: input.receiptBuffer },
           { caption: reportCaption },

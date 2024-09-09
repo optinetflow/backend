@@ -177,12 +177,15 @@ export class AggregatorService {
 
     const allStatIds = [...childrenPacks, ...userPacks].map((i) => i.statId);
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const [i, statId] of allStatIds.entries()) {
-      void queue.add(() => this.toggleClientState(statId, !isBlocked));
+      await queue.add(async () => {
+        await this.toggleClientState(statId, !isBlocked);
+      });
     }
 
+    await queue.onIdle();
     await this.prisma.user.update({
       where: {
         id: userId,

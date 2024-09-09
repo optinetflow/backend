@@ -88,7 +88,7 @@ export class AuthService {
       const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname} ${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
       const bot = this.telegramService.getBot(brand.id);
 
-      void bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
+      await bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
 
       const token = this.generateTokens({
         userId: newUser.id,
