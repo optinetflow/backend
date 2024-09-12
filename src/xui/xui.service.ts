@@ -558,7 +558,7 @@ export class XuiService {
       include: { server: true },
     });
 
-    console.log('updateClientReq =====> statID =', clientStat.id, clientStat.server.domain);
+    console.log('updateClientReq => statID =', clientStat.id, clientStat.server.domain, input.enable);
 
     const jsonData = {
       id: clientStat.server.inboundId,
@@ -571,7 +571,7 @@ export class XuiService {
             limitIp: clientStat.limitIp,
             totalGB: Number(clientStat.total),
             expiryTime: Number(clientStat.expiryTime),
-            enable: clientStat.enable,
+            enable: input.enable,
             tgId: clientStat.tgId,
             subId: clientStat.subId,
             reset: 0,
