@@ -775,7 +775,9 @@ export class XuiService {
 
     for (const server of servers) {
       try {
-        const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+        const updatedClientStats = (await this.getInbounds(server.id))
+          .filter((i) => isUUID(i.id))
+          .filter((stat) => stat.inboundId === server.inboundId);
         const onlinesStat = await this.getOnlinesInbounds(server.id);
         // Upsert ClientStat records in bulk
         await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
