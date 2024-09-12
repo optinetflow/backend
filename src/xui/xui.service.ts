@@ -16,6 +16,7 @@ import { v4 as uuid } from 'uuid';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
+  excludeFromArr,
   getDateTimeString,
   getRemainingDays,
   isSessionExpired,
@@ -427,6 +428,32 @@ export class XuiService {
     await queue.onIdle();
   }
 
+  async syncNotExistClientStats(stats: Stat[], serverId: string) {
+    const statsInDb = await this.prisma.userPackage.findMany({
+      where: {
+        serverId,
+        finishedAt: null,
+      },
+    });
+    const statIdsInDb = statsInDb.map((stat) => stat.statId);
+
+    const notExistStatIds = excludeFromArr(
+      statIdsInDb,
+      stats.map((stat) => stat.id),
+    );
+
+    await this.prisma.userPackage.updateMany({
+      where: {
+        statId: {
+          in: notExistStatIds,
+        },
+      },
+      data: {
+        finishedAt: new Date(),
+      },
+    });
+  }
+
   async upsertClientStats(stats: Stat[], serverId: string, onlinesStat: string[]) {
     if (stats.length === 0) {
       return; // Nothing to upsert
@@ -439,6 +466,7 @@ export class XuiService {
 
     await this.sendThresholdWarning(stats);
     await this.updateFinishedPackages(stats);
+    await this.syncNotExistClientStats(stats, serverId);
     await this.delDepletedClients(serverId);
     const updatedValues: Prisma.Sql[] = [];
 
@@ -609,6 +637,7 @@ export class XuiService {
         this.prisma.userPackage.findMany({
           where: {
             userId,
+            finishedAt: null,
             deletedAt: null,
           },
         }),
@@ -628,6 +657,7 @@ export class XuiService {
             in: childrenIds,
           },
           deletedAt: null,
+          finishedAt: null,
         },
       });
 
