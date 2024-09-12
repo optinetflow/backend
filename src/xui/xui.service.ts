@@ -558,8 +558,6 @@ export class XuiService {
       include: { server: true },
     });
 
-    console.log('updateClientReq => statID =', clientStat.id, clientStat.server.domain, input.enable);
-
     const jsonData = {
       id: clientStat.server.inboundId,
       settings: {
@@ -588,8 +586,6 @@ export class XuiService {
       method: 'post',
       body: params,
     });
-
-    console.log('UpdateClientReq result', res.data);
 
     if (!res.data.success) {
       throw new BadRequestException(errors.xui.updateClientError);
@@ -771,7 +767,7 @@ export class XuiService {
   }
 
   // @Interval('syncClientStats', 0.25 * 60 * 1000)
-  @Interval('syncClientStats', 1 * 60 * 1000)
+  @Interval('syncClientStats', 0.25 * 60 * 1000)
   async syncClientStats() {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
