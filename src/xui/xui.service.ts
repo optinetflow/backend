@@ -314,11 +314,12 @@ export class XuiService {
 
     for (const finishedTimePack of finishedTimePacks) {
       const userPack = finishedUserPackDic[finishedTimePack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
       }
+
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
@@ -587,6 +588,8 @@ export class XuiService {
       method: 'post',
       body: params,
     });
+
+    console.log('UpdateClientReq result', res.data);
 
     if (!res.data.success) {
       throw new BadRequestException(errors.xui.updateClientError);
