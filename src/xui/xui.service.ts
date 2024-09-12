@@ -529,6 +529,8 @@ export class XuiService {
       include: { server: true },
     });
 
+    console.log('updateClientReq =====> statID =', clientStat.id, clientStat.server.domain);
+
     const jsonData = {
       id: clientStat.server.inboundId,
       settings: {
