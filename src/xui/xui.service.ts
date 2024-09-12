@@ -13,7 +13,6 @@ import PQueue from 'p-queue';
 import { firstValueFrom } from 'rxjs';
 import { v4 as uuid } from 'uuid';
 
-import { TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
@@ -55,6 +54,7 @@ const ENDPOINTS = (domain: string) => {
     delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
     serverStatus: `${url}/server/status`,
     getDb: `${url}/server/getDb`,
+    delDepletedClients: `${url}/panel/inbound/delDepletedClients/-1`,
   };
 };
 
@@ -228,7 +228,19 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.deleteClientError);
+    }
+  }
+
+  async delDepletedClients(serverId: string) {
+    const res = await this.authenticatedReq<{ success: boolean }>({
+      serverId,
+      url: (domain) => ENDPOINTS(domain).delDepletedClients,
+      method: 'post',
+    });
+
+    if (!res.data.success) {
+      throw new BadRequestException(errors.xui.delDepletedClients);
     }
   }
 
@@ -275,7 +287,6 @@ export class XuiService {
       },
     });
 
-    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
     const telegramQueue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const finishedTrafficPack of finishedTrafficPacks) {
@@ -298,10 +309,6 @@ export class XuiService {
           );
         });
       }
-
-      await queue.add(async () => {
-        await this.deleteClient(userPack.statId);
-      });
     }
 
     for (const finishedTimePack of finishedTimePacks) {
@@ -324,14 +331,9 @@ export class XuiService {
           );
         });
       }
-
-      await queue.add(async () => {
-        await this.deleteClient(userPack.statId);
-      });
     }
 
     await telegramQueue.onIdle();
-    await queue.onIdle();
   }
 
   async sendThresholdWarning(stats: Stat[]) {
@@ -437,6 +439,7 @@ export class XuiService {
 
     await this.sendThresholdWarning(stats);
     await this.updateFinishedPackages(stats);
+    await this.delDepletedClients(serverId);
     const updatedValues: Prisma.Sql[] = [];
 
     // ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
@@ -476,7 +479,7 @@ export class XuiService {
           "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
     } catch (error) {
-      console.error('Error upserting ClientStats:', error);
+      console.error('An error occurred while upserting ClientStats:', error);
     }
   }
 
@@ -531,6 +534,7 @@ export class XuiService {
       settings: {
         clients: [
           {
+            id: input.id,
             flow: clientStat.flow,
             email: clientStat.email,
             limitIp: clientStat.limitIp,
@@ -539,7 +543,7 @@ export class XuiService {
             enable: clientStat.enable,
             tgId: clientStat.tgId,
             subId: clientStat.subId,
-            ...input,
+            reset: 0,
           },
         ],
       },
@@ -555,7 +559,7 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.updateClientError);
     }
   }
 

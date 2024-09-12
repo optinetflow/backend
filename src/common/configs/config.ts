@@ -58,11 +58,6 @@ const config: Config = {
   xui: {
     password: process.env.XUI_PASSWORD!,
   },
-  telGroup: {
-    report: process.env.REPORT_GROUP_ID!,
-    backup: process.env.BACKUP_GROUP_ID!,
-    server: process.env.SERVER_GROUP_ID!,
-  },
   gcp: {
     credential: process.env.AI_GCP_CREDENTIAL!,
   },
