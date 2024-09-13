@@ -766,8 +766,8 @@ export class XuiService {
     }
   }
 
+  @Interval('syncClientStats', 1 * 60 * 1000)
   // @Interval('syncClientStats', 0.25 * 60 * 1000)
-  @Interval('syncClientStats', 0.25 * 60 * 1000)
   async syncClientStats() {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });

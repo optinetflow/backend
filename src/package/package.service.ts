@@ -37,21 +37,6 @@ export class PackageService {
     private readonly configService: ConfigService,
   ) {}
 
-  private loginToPanelBtn(url: string) {
-    return {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: 'ورود به سایت',
-              url,
-            },
-          ],
-        ],
-      },
-    };
-  }
-
   async getFreeServer(user: User): Promise<Server> {
     if (!user.brand?.activeServerId) {
       throw new NotAcceptableException('Active Server is not Found');

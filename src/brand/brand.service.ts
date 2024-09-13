@@ -12,7 +12,7 @@ export class BrandService {
   }
 
   async getFirstBrand() {
-    return this.prisma.brand.findFirst({ where: { deletedAt: null } });
+    return this.prisma.brand.findFirst({ where: { deletedAt: null, id: 'da99bcd1-4a96-416f-bc38-90c5b363573e' } });
   }
 
   async getBrandByDomainName(domainName: string): Promise<Brand> {
