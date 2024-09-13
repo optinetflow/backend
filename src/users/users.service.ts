@@ -190,4 +190,18 @@ export class UsersService {
       where: { id: userId },
     });
   }
+
+  async getUserByPhoneAndDomainName(phone: string, domainName: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        phone,
+        brand: {
+          domainName,
+        },
+      },
+      include: {
+        brand: true,
+      },
+    });
+  }
 }

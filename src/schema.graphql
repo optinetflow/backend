@@ -2,15 +2,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type Auth {
-  """JWT access token"""
-  accessToken: JWT!
-
-  """JWT refresh token"""
-  refreshToken: JWT!
-  user: User!
-}
-
 type BankCard {
   name: String!
   number: String!
@@ -70,9 +61,12 @@ type Child {
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
+  isVerified: Boolean!
   lastConnectedAt: DateTime
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
+  otp: String
+  otpExpiration: DateTime
   parent: Parent
   parentId: String
   phone: String!
@@ -85,6 +79,7 @@ type Child {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  user: User!
   userGift: [UserGift!]
 }
 
@@ -157,10 +152,13 @@ type Mutation {
   logout: Boolean!
   refreshToken(token: JWT!): Token!
   renewPackage(input: RenewPackageInput!): String!
-  signup(data: SignupInput!): Auth!
+  sendOtpAgain(data: SendOtpAgainInput!): Boolean!
+  signup(data: SignupInput!): Boolean!
   updateChild(input: UpdateChildInput!): User!
+  updatePhone(data: UpdatePhoneInput!): Boolean!
   updateUser(input: UpdateUserInput!): User!
   uploadImage(input: UploadInput!): String!
+  verifyPhone(data: VerifyPhoneInput!): Token!
 }
 
 type Package {
@@ -231,6 +229,10 @@ enum Role {
   USER
 }
 
+input SendOtpAgainInput {
+  domainName: String!
+}
+
 input SignupInput {
   domainName: String!
   fullname: String!
@@ -274,6 +276,11 @@ input UpdateChildInput {
   role: Role
 }
 
+input UpdatePhoneInput {
+  domainName: String!
+  phone: String!
+}
+
 input UpdateUserInput {
   cardBandName: String
   cardBandNumber: String
@@ -303,7 +310,10 @@ type User {
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
+  isVerified: Boolean!
   maxRechargeDiscountPercent: Float
+  otp: String
+  otpExpiration: DateTime
   parent: Parent
   parentId: String
   phone: String!
@@ -316,6 +326,7 @@ type User {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  user: User!
   userGift: [UserGift!]
 }
 
@@ -337,4 +348,10 @@ type UserPackage {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+}
+
+input VerifyPhoneInput {
+  domainName: String!
+  otp: String!
+  phone: String
 }

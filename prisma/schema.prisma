@@ -29,8 +29,9 @@ model User {
   totalProfit                Float    @default(0)
   parentId                   String?  @db.Uuid
   referId                    String?  @db.Uuid
-  brandId                    String?   @db.Uuid      
-
+  brandId                    String?  @db.Uuid      
+  otp                        String?   
+  otpExpiration              DateTime? 
   role                       Role     @default(USER)
   isDisabled                 Boolean  @default(false)
   isParentDisabled           Boolean  @default(false)

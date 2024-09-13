@@ -57,6 +57,7 @@ export interface SecurityConfig {
   jwtRefreshSecret: string;
   expiresIn: string;
   refreshIn: string;
+  otpExpiration: number;
   bcryptSaltOrRound: string | number;
 }
 
