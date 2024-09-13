@@ -280,6 +280,7 @@ export class AuthService {
     const brand = await this.prisma.brand.findUniqueOrThrow({
       where: {
         domainName,
+        deletedAt: null,
       },
     });
 

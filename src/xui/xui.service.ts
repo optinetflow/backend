@@ -13,10 +13,10 @@ import PQueue from 'p-queue';
 import { firstValueFrom } from 'rxjs';
 import { v4 as uuid } from 'uuid';
 
-import { TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
+  excludeFromArr,
   getDateTimeString,
   getRemainingDays,
   isSessionExpired,
@@ -55,6 +55,7 @@ const ENDPOINTS = (domain: string) => {
     delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
     serverStatus: `${url}/server/status`,
     getDb: `${url}/server/getDb`,
+    delDepletedClients: `${url}/panel/inbound/delDepletedClients/-1`,
   };
 };
 
@@ -228,7 +229,19 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.deleteClientError);
+    }
+  }
+
+  async delDepletedClients(serverId: string) {
+    const res = await this.authenticatedReq<{ success: boolean }>({
+      serverId,
+      url: (domain) => ENDPOINTS(domain).delDepletedClients,
+      method: 'post',
+    });
+
+    if (!res.data.success) {
+      throw new BadRequestException(errors.xui.delDepletedClients);
     }
   }
 
@@ -275,7 +288,6 @@ export class XuiService {
       },
     });
 
-    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
     const telegramQueue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const finishedTrafficPack of finishedTrafficPacks) {
@@ -298,19 +310,16 @@ export class XuiService {
           );
         });
       }
-
-      await queue.add(async () => {
-        await this.deleteClient(userPack.statId);
-      });
     }
 
     for (const finishedTimePack of finishedTimePacks) {
       const userPack = finishedUserPackDic[finishedTimePack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       if (!userPack) {
         continue;
       }
+
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
@@ -324,14 +333,9 @@ export class XuiService {
           );
         });
       }
-
-      await queue.add(async () => {
-        await this.deleteClient(userPack.statId);
-      });
     }
 
     await telegramQueue.onIdle();
-    await queue.onIdle();
   }
 
   async sendThresholdWarning(stats: Stat[]) {
@@ -425,6 +429,32 @@ export class XuiService {
     await queue.onIdle();
   }
 
+  async syncNotExistClientStats(stats: Stat[], serverId: string) {
+    const statsInDb = await this.prisma.userPackage.findMany({
+      where: {
+        serverId,
+        finishedAt: null,
+      },
+    });
+    const statIdsInDb = statsInDb.map((stat) => stat.statId);
+
+    const notExistStatIds = excludeFromArr(
+      statIdsInDb,
+      stats.map((stat) => stat.id),
+    );
+
+    await this.prisma.userPackage.updateMany({
+      where: {
+        statId: {
+          in: notExistStatIds,
+        },
+      },
+      data: {
+        finishedAt: new Date(),
+      },
+    });
+  }
+
   async upsertClientStats(stats: Stat[], serverId: string, onlinesStat: string[]) {
     if (stats.length === 0) {
       return; // Nothing to upsert
@@ -437,6 +467,8 @@ export class XuiService {
 
     await this.sendThresholdWarning(stats);
     await this.updateFinishedPackages(stats);
+    await this.syncNotExistClientStats(stats, serverId);
+    await this.delDepletedClients(serverId);
     const updatedValues: Prisma.Sql[] = [];
 
     // ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
@@ -476,7 +508,7 @@ export class XuiService {
           "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
     } catch (error) {
-      console.error('Error upserting ClientStats:', error);
+      console.error('An error occurred while upserting ClientStats:', error);
     }
   }
 
@@ -531,15 +563,16 @@ export class XuiService {
       settings: {
         clients: [
           {
+            id: input.id,
             flow: clientStat.flow,
             email: clientStat.email,
             limitIp: clientStat.limitIp,
             totalGB: Number(clientStat.total),
             expiryTime: Number(clientStat.expiryTime),
-            enable: clientStat.enable,
+            enable: input.enable,
             tgId: clientStat.tgId,
             subId: clientStat.subId,
-            ...input,
+            reset: 0,
           },
         ],
       },
@@ -555,7 +588,7 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.updateClientError);
     }
   }
 
@@ -603,6 +636,7 @@ export class XuiService {
         this.prisma.userPackage.findMany({
           where: {
             userId,
+            finishedAt: null,
             deletedAt: null,
           },
         }),
@@ -622,6 +656,7 @@ export class XuiService {
             in: childrenIds,
           },
           deletedAt: null,
+          finishedAt: null,
         },
       });
 
@@ -732,14 +767,16 @@ export class XuiService {
   }
 
   // @Interval('syncClientStats', 0.25 * 60 * 1000)
-  @Interval('syncClientStats', 1 * 60 * 1000)
+  @Interval('syncClientStats', 0.25 * 60 * 1000)
   async syncClientStats() {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
     for (const server of servers) {
       try {
-        const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+        const updatedClientStats = (await this.getInbounds(server.id))
+          .filter((i) => isUUID(i.id))
+          .filter((stat) => stat.inboundId === server.inboundId);
         const onlinesStat = await this.getOnlinesInbounds(server.id);
         // Upsert ClientStat records in bulk
         await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);

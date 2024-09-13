@@ -8,17 +8,18 @@ export class BrandService {
   constructor(private prisma: PrismaService) {}
 
   async getBrands() {
-    return this.prisma.brand.findMany({});
+    return this.prisma.brand.findMany({ where: { deletedAt: null } });
   }
 
   async getFirstBrand() {
-    return this.prisma.brand.findFirst({});
+    return this.prisma.brand.findFirst({ where: { deletedAt: null } });
   }
 
   async getBrandByDomainName(domainName: string): Promise<Brand> {
     return this.prisma.brand.findUniqueOrThrow({
       where: {
         domainName,
+        deletedAt: null,
       },
     });
   }

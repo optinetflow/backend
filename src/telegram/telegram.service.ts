@@ -300,7 +300,9 @@ export class TelegramService {
   }
 
   async enableGift(ctx: Context) {
-    const brand = await this.prisma.brand.findUniqueOrThrow({ where: { botUsername: ctx.botInfo.username } });
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: { botUsername: ctx.botInfo.username, deletedAt: null },
+    });
     const user = await this.prisma.user.findFirstOrThrow({
       where: {
         telegram: {

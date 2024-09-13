@@ -15,7 +15,6 @@ export interface Config {
   minio: MinioConfig;
   telegraf: Telegraf;
   xui: XUI;
-  telGroup: TelGroup;
   gcp: GCP;
 }
 
@@ -76,12 +75,6 @@ export interface Telegraf {
 
 export interface XUI {
   password: string;
-}
-
-export interface TelGroup {
-  report: string;
-  backup: string;
-  server: string;
 }
 
 export interface GCP {
