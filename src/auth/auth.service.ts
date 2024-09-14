@@ -52,8 +52,8 @@ export class AuthService {
 
     try {
       newUser = await (newUser && !newUser.isVerified
-        ? this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails, promo)
-        : this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails, promo));
+        ? this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails)
+        : this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails));
 
       await this.sendRegistrationReport(newUser, promo, brand, parentId);
 
@@ -104,7 +104,6 @@ export class AuthService {
     hashedPassword: string,
     parentId: string | undefined,
     otpDetails: { otp: string; otpExpiration: Date },
-    promo: Promotion | null,
   ): Promise<User> {
     return this.prisma.user.update({
       where: { UserPhoneBrandIdUnique: { phone: payload.phone, brandId: user.brandId as string } },
@@ -114,7 +113,6 @@ export class AuthService {
         fullname: payload.fullname.trim(),
         password: hashedPassword,
         parentId,
-        isVerified: promo ? false : true,
       },
     });
   }
@@ -125,7 +123,6 @@ export class AuthService {
     parentId: string | undefined,
     brandId: string,
     otpDetails: { otp: string; otpExpiration: Date },
-    promo: Promotion | null,
   ): Promise<User> {
     return this.prisma.user.create({
       data: {
@@ -136,7 +133,6 @@ export class AuthService {
         brandId,
         otp: otpDetails.otp,
         otpExpiration: otpDetails.otpExpiration,
-        isVerified: promo ? false : true,
       },
     });
   }
@@ -173,7 +169,7 @@ export class AuthService {
     return { otp, otpExpiration };
   }
 
-  async verifyPhone(user: User, domainName: string, otp: string): Promise<Token> {
+  async verifyPhone(user: User, domainName: string, otp: string, req: RequestType): Promise<Token> {
     const userDomainName = user.brand?.domainName;
 
     if (user.isVerified === true) {
@@ -203,7 +199,14 @@ export class AuthService {
 
     await bot.telegram.sendMessage(user?.brand?.reportGroupId as string, reportCaption);
 
-    return this.generateTokens({ userId: user.id });
+    const tokens = this.generateTokens({ userId: user.id });
+    this.setAuthCookie({
+      req,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+
+    return tokens;
   }
 
   async updatePhone(user: User, phone: string, domainName: string) {

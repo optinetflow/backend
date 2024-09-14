@@ -1,4 +1,4 @@
-import { BadRequestException, UseGuards } from '@nestjs/common';
+import { BadRequestException, UnprocessableEntityException, UseGuards } from '@nestjs/common';
 import { Args, Context, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import type { Request as RequestType } from 'express';
 
@@ -32,22 +32,41 @@ export class AuthResolver {
 
   @UseGuards(OptionalGqlAuthGuard)
   @Mutation(() => Token)
-  async verifyPhone(@UserEntity() user: User, @Args('data') { domainName, otp }: VerifyPhoneInput): Promise<Token> {
-    // if (!user && phone) {
-    //   user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
+  async verifyPhone(
+    @UserEntity() user: User,
+    @Args('data') { domainName, phone, otp }: VerifyPhoneInput,
+    @Context() context: { req: RequestType },
+  ): Promise<Token> {
+    if (!user) {
+      if (!phone) {
+        throw new UnprocessableEntityException('Phone is required');
+      }
 
-    //   if (!user) {
-    //     throw new BadRequestException('User not found');
-    //   }
-    // }
-    console.log({user});
+      user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
 
-    return this.auth.verifyPhone(user as User, domainName, otp);
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+    }
+
+    return this.auth.verifyPhone(user, domainName, otp, context.req);
   }
 
-  @UseGuards(GqlAuthGuard)
+  @UseGuards(OptionalGqlAuthGuard)
   @Mutation(() => Boolean)
-  async sendOtpAgain(@UserEntity() user: User, @Args('data') { domainName }: SendOtpAgainInput) {
+  async sendOtpAgain(@UserEntity() user: User, @Args('data') { domainName, phone }: SendOtpAgainInput) {
+    if (!user) {
+      if (!phone) {
+        throw new UnprocessableEntityException('Phone is required');
+      }
+
+      user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
+
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+    }
+
     await this.auth.sendOtpAgain(user, domainName);
 
     return true;

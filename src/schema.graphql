@@ -231,6 +231,7 @@ enum Role {
 
 input SendOtpAgainInput {
   domainName: String!
+  phone: String
 }
 
 input SignupInput {

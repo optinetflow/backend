@@ -191,8 +191,8 @@ export class UsersService {
     });
   }
 
-  async getUserByPhoneAndDomainName(phone: string, domainName: string): Promise<User | null> {
-    return this.prisma.user.findFirst({
+  async getUserByPhoneAndDomainName(phone: string, domainName: string): Promise<User> {
+    const user = await this.prisma.user.findFirst({
       where: {
         phone,
         brand: {
@@ -203,5 +203,11 @@ export class UsersService {
         brand: true,
       },
     });
+
+    if (!user) {
+      throw new BadRequestException('User Not Found');
+    }
+
+    return user;
   }
 }

@@ -35,7 +35,7 @@ model User {
   role                       Role     @default(USER)
   isDisabled                 Boolean  @default(false)
   isParentDisabled           Boolean  @default(false)
-  isVerified                 Boolean  @default(true)
+  isVerified                 Boolean  @default(false)
   maxRechargeDiscountPercent Float?
   profitPercent              Float    @default(0)
   initialDiscountPercent     Float?
