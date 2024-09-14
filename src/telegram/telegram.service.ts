@@ -4,22 +4,16 @@ import { TelegramUser, User } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { Scenes, session, Telegraf } from 'telegraf';
 
+import { Brand } from '../brand/models/brand.model';
 import { b64UrlToJson, convertPersianCurrency, extractFileName, getFileFromURL, roundTo } from '../common/helpers';
 import { Context } from '../common/interfaces/context.interface';
 import { MinioClientService } from '../minio/minio.service';
 import { BrandService } from './../brand/brand.service';
 import { AggregatorService } from './aggregator.service';
-import { CallbackData, HOME_SCENE_ID, REGISTER_SCENE_ID } from './telegram.constants';
+import { CallbackData, HOME_SCENE_ID } from './telegram.constants';
 
 interface StartPayload {
   uid?: string;
-}
-
-interface Contact {
-  phone_number: string;
-  first_name: string;
-  last_name: string;
-  user_id: number;
 }
 
 @Injectable()
@@ -43,7 +37,7 @@ export class TelegramService {
 
       for (const brand of brands) {
         const bot = new Telegraf(brand.botToken);
-        const stage = new Scenes.Stage([this.createRegisterScene(), this.createHomeScene(brand.domainName)]);
+        const stage = new Scenes.Stage([this.createHomeScene(brand)]);
 
         bot.use(session());
         bot.use(stage.middleware() as never);
@@ -130,18 +124,8 @@ export class TelegramService {
       where: { chatId: ctx.from!.id, userId: params?.uid as string },
     });
 
-    if (telegramUser?.phone) {
-      await ctx.scene.enter(HOME_SCENE_ID);
-
-      return;
-    }
-
     if (payload.length > 0) {
       await this.handleStartPayload(ctx, params, telegramUser);
-    }
-
-    if (telegramUser) {
-      await ctx.scene.enter(REGISTER_SCENE_ID);
     }
   }
 
@@ -162,13 +146,22 @@ export class TelegramService {
       }
 
       const [updatedTelegramUser, bigPhoto] = await this.upsertTelegramUser(user, ctx.from!.id);
-      await ctx.scene.enter(REGISTER_SCENE_ID);
 
       let parent: User | null = null;
 
       if (user.parentId) {
         parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
       }
+
+      await ctx.reply('ثبت نام شما با موفقیت انجام شد.', {
+        reply_markup: {
+          remove_keyboard: true,
+        },
+      });
+
+      // await this.enableGift(ctx);
+
+      await ctx.scene.enter(HOME_SCENE_ID);
 
       const caption = `#ثبـنامـتلگرام\n👤 ${user.fullname} (@${updatedTelegramUser?.username})\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${parent?.fullname}`;
       const bot = this.getBot(user.brandId as string);
@@ -253,51 +246,51 @@ export class TelegramService {
     return [updatedTelegramUser, bigPhoto];
   }
 
-  async addPhone(ctx: Context, phone: string) {
-    const brand = await this.prisma.brand.findUniqueOrThrow({ where: { botUsername: ctx.botInfo.username } });
-    // const telegramUserCount = await this.prisma.telegramUser.count({
-    //   where: {
-    //     chatId: ctx.from!.id,
-    //   },
-    // });
+  // async addPhone(ctx: Context, phone: string) {
+  //   const brand = await this.prisma.brand.findUniqueOrThrow({ where: { botUsername: ctx.botInfo.username } });
+  //   // const telegramUserCount = await this.prisma.telegramUser.count({
+  //   //   where: {
+  //   //     chatId: ctx.from!.id,
+  //   //   },
+  //   // });
 
-    // if (telegramUserCount === 0) {
-    //   throw new Error('TelegramUsers not found');
-    // }
+  //   // if (telegramUserCount === 0) {
+  //   //   throw new Error('TelegramUsers not found');
+  //   // }
 
-    await this.prisma.telegramUser.updateMany({
-      where: {
-        chatId: ctx.from!.id,
-        user: {
-          brandId: brand.id,
-        },
-      },
-      data: {
-        phone,
-      },
-    });
-    const updatedTelegramUser = await this.prisma.telegramUser.findFirstOrThrow({
-      where: {
-        chatId: ctx.from!.id,
-        user: {
-          brandId: brand.id,
-        },
-      },
-      include: {
-        user: {
-          include: {
-            parent: true,
-            brand: true,
-          },
-        },
-      },
-    });
-    await this.prisma.user.update({ where: { id: updatedTelegramUser.userId }, data: { isVerified: true } });
-    const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
-    const bot = this.getBot(updatedTelegramUser.user.brandId as string);
+  //   await this.prisma.telegramUser.updateMany({
+  //     where: {
+  //       chatId: ctx.from!.id,
+  //       user: {
+  //         brandId: brand.id,
+  //       },
+  //     },
+  //     data: {
+  //       phone,
+  //     },
+  //   });
+  //   const updatedTelegramUser = await this.prisma.telegramUser.findFirstOrThrow({
+  //     where: {
+  //       chatId: ctx.from!.id,
+  //       user: {
+  //         brandId: brand.id,
+  //       },
+  //     },
+  //     include: {
+  //       user: {
+  //         include: {
+  //           parent: true,
+  //           brand: true,
+  //         },
+  //       },
+  //     },
+  //   });
+  //   await this.prisma.user.update({ where: { id: updatedTelegramUser.userId }, data: { isVerified: true } });
+  //   const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
+  //   const bot = this.getBot(updatedTelegramUser.user.brandId as string);
 
-    return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
-  }
+  //   return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
+  // }
 
   async enableGift(ctx: Context) {
     const brand = await this.prisma.brand.findUniqueOrThrow({
@@ -366,17 +359,19 @@ export class TelegramService {
     }
   }
 
-  private createHomeScene(domainName: string) {
+  private createHomeScene(brand: Brand) {
     const homeScene = new Scenes.BaseScene<Scenes.SceneContext>(HOME_SCENE_ID);
 
     homeScene.enter(async (ctx) => {
-      await ctx.reply(`وصل کن دات کام (${domainName})`, {
+      await ctx.reply('👌');
+      await ctx.reply(`${brand.title} (${brand.domainName})`, {
         reply_markup: {
           inline_keyboard: [
             [
               {
                 text: 'ورود به سایت',
-                url: `https://${domainName}`,
+                // url: `https://${brand.domainName}`,
+                url: 'https://xvideos.com',
               },
             ],
           ],
@@ -385,46 +380,5 @@ export class TelegramService {
     });
 
     return homeScene;
-  }
-
-  private createRegisterScene() {
-    const registerScene = new Scenes.BaseScene<Scenes.SceneContext>(REGISTER_SCENE_ID);
-
-    registerScene.enter(async (ctx) => {
-      await ctx.reply('برای ثبت‌نام دکمه «می‌خواهم عضو بشوم» را در پایین صفحه بزنید.\n👇👇👇👇👇👇', {
-        reply_markup: {
-          keyboard: [
-            [
-              {
-                text: 'می‌خواهم عضو بشوم',
-                request_contact: true,
-              },
-            ],
-          ],
-          resize_keyboard: true,
-        },
-      });
-    });
-
-    registerScene.on('contact', async (ctx) => {
-      const contact = (ctx?.message as unknown as { contact: Contact }).contact;
-
-      if (ctx.message?.from.id === contact.user_id) {
-        await this.addPhone(ctx, contact.phone_number);
-        await ctx.reply('ثبت نام شما با موفقیت انجام شد.', {
-          reply_markup: {
-            remove_keyboard: true,
-          },
-        });
-
-        await this.enableGift(ctx);
-
-        await ctx.scene.enter(HOME_SCENE_ID);
-      } else {
-        await ctx.reply('فقط باید از طریق دکمه‌ی زیر اقدام به ارسال شماره موبایل کنید.');
-      }
-    });
-
-    return registerScene;
   }
 }
