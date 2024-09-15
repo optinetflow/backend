@@ -563,13 +563,13 @@ export class XuiService {
       settings: {
         clients: [
           {
-            id: input.id,
+            id: input?.id || clientStat.id,
             flow: clientStat.flow,
             email: clientStat.email,
-            limitIp: clientStat.limitIp,
-            totalGB: Number(clientStat.total),
-            expiryTime: Number(clientStat.expiryTime),
-            enable: input.enable,
+            limitIp: input?.limitIp || clientStat.limitIp,
+            totalGB: input?.totalGB || Number(clientStat.total),
+            expiryTime: input?.expiryTime || Number(clientStat.expiryTime),
+            enable: input?.enable || clientStat.enable,
             tgId: clientStat.tgId,
             subId: clientStat.subId,
             reset: 0,
