@@ -177,7 +177,6 @@ export class PackageService {
           remainingDays > maxTransformableExpirationDays ? maxTransformableExpirationDays : remainingDays;
 
         await this.xuiService.resetClientTraffic(userPack.statId);
-
         await this.xuiService.updateClient(user, {
           id: userPack.statId,
           email: userPack.stat.email,

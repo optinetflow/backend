@@ -212,7 +212,7 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.resetClientTrafficError);
     }
   }
 
