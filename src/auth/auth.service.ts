@@ -53,15 +53,17 @@ export class AuthService {
     let newUser = await this.findExistingUser(payload.phone, brand.id);
 
     try {
-      newUser = await (newUser && !newUser.isVerified
-        ? this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails)
-        : this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails));
+      if (newUser && !newUser.isVerified) {
+        newUser = await this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails);
+      } else {
+        newUser = await this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails);
+
+        if (promo && newUser) {
+          await this.assignGiftToUser(newUser.id, promo);
+        }
+      }
 
       await this.sendRegistrationReport(newUser, promo, brand, parentId);
-
-      if (promo) {
-        await this.assignGiftToUser(newUser.id, promo);
-      }
 
       void this.smsService.sendOtp(payload.phone, otpDetails.otp);
 
