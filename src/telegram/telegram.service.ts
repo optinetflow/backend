@@ -163,7 +163,7 @@ export class TelegramService {
         parent = await this.prisma.user.findUnique({ where: { id: user.parentId } });
       }
 
-      await ctx.reply('ثبت نام شما با موفقیت انجام شد.', {
+      await ctx.reply('تبریک. شما الان عضو ربات هستید', {
         reply_markup: {
           remove_keyboard: true,
         },

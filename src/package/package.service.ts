@@ -134,7 +134,7 @@ export class PackageService {
       email,
       serverId: server.id,
       package: pack,
-      name: 'وصل کن دات کام',
+      name: 'هدیه',
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -147,7 +147,7 @@ export class PackageService {
       subId,
       email,
       server,
-      name: 'وصل کن دات کام',
+      name: 'هدیه',
       package: pack,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
