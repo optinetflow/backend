@@ -15,10 +15,12 @@ Table User {
   parentId String
   referId String
   brandId String
+  otp String
+  otpExpiration DateTime
   role Role [not null, default: 'USER']
   isDisabled Boolean [not null, default: false]
   isParentDisabled Boolean [not null, default: false]
-  isVerified Boolean [not null, default: true]
+  isVerified Boolean [not null, default: false]
   maxRechargeDiscountPercent Float
   profitPercent Float [not null, default: 0]
   initialDiscountPercent Float

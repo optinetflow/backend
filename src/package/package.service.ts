@@ -119,7 +119,7 @@ export class PackageService {
       email,
       serverId: server.id,
       package: pack,
-      name: 'وصل کن دات کام',
+      name: 'هدیه 🎁',
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -132,14 +132,14 @@ export class PackageService {
       subId,
       email,
       server,
-      name: 'وصل کن دات کام',
+      name: 'هدیه 🎁',
       package: pack,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
 
     await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
 
-    const caption = `#فعالسازیـهدیه\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
+    const caption = `#فعالسازیـهدیه 🎁\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
       pack.expirationDays
     } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
       user.phone

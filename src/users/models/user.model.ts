@@ -67,6 +67,12 @@ export class User extends BaseModel {
   @Field(() => Float)
   balance: number;
 
+  @Field(() => String, { nullable: true })
+  otp?: string | null;
+
+  @Field(() => Date, { nullable: true })
+  otpExpiration?: Date | null;
+
   @Field(() => Float)
   profitBalance: number;
 
@@ -84,6 +90,9 @@ export class User extends BaseModel {
 
   @Field(() => Boolean, { nullable: true })
   isDisabled?: boolean | null;
+
+  @Field(() => Boolean)
+  isVerified: boolean;
 
   @Field(() => Boolean, { nullable: true })
   isParentDisabled?: boolean | null;
