@@ -68,7 +68,7 @@ export class AuthService {
       return newUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(`Phone ${payload.phone} already used.`);
+        throw new ConflictException('کاربر قبلا ثبت نام کرده است');
       }
 
       throw new Error(error as string);
@@ -258,7 +258,7 @@ export class AuthService {
     });
 
     if (userAlreadyVerifiedWithThisPhone) {
-      throw new ConflictException(`Phone ${phone} already used.`);
+      throw new ConflictException('کاربر قبلا ثبت نام کرده است');
     }
 
     // Start transaction
