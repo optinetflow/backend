@@ -370,8 +370,7 @@ export class TelegramService {
             [
               {
                 text: 'ورود به سایت',
-                // url: `https://${brand.domainName}`,
-                url: 'https://xvideos.com',
+                url: `https://${brand.domainName}`,
               },
             ],
           ],
