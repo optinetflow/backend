@@ -223,7 +223,7 @@ export class AggregatorService {
       email,
       serverId: server.id,
       package: pack,
-      name: 'هدیه',
+      name: 'هدیه 🎁',
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -236,7 +236,7 @@ export class AggregatorService {
       subId,
       email,
       server,
-      name: 'هدیه',
+      name: 'هدیه 🎁',
       package: pack,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });

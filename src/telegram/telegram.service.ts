@@ -314,7 +314,7 @@ export class TelegramService {
 
     if (userGift) {
       const { package: pack, userPack } = await this.aggregatorService.enableGift(user, userGift.id);
-      const caption = `#فعالسازیـهدیه\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
+      const caption = `#فعالسازیـهدیه 🎁\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
         pack.expirationDays
       } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
         user.phone
@@ -325,7 +325,7 @@ export class TelegramService {
       // const traffic = userGift.giftPackage!.traffic;
 
       // if (traffic) {
-      //   await ctx.reply(`${traffic} گیگ هدیه برای شما در سایت فعال شد.`);
+      //   await ctx.reply(`${traffic} گیگ هدیه 🎁 برای شما در سایت فعال شد.`);
       // }
     }
   }
