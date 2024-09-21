@@ -147,6 +147,7 @@ type Mutation {
   buyPackage(data: BuyPackageInput!): String!
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
+  enableGift: Boolean!
   enterCost(input: EnterCostInput!): User!
   login(data: LoginInput!): Login!
   logout: Boolean!
