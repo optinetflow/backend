@@ -178,7 +178,7 @@ export class UsersService {
     const isPasswordValid = await this.passwordService.validatePassword(changePassword.oldPassword, userPassword);
 
     if (!isPasswordValid) {
-      throw new BadRequestException('Invalid password');
+      throw new BadRequestException('رمز عبور اشتباه است');
     }
 
     const hashedPassword = await this.passwordService.hashPassword(changePassword.newPassword);
@@ -205,7 +205,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new BadRequestException('User Not Found');
+      throw new BadRequestException('کاربر یافت نشد');
     }
 
     return user;

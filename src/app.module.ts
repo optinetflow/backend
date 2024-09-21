@@ -20,6 +20,7 @@ import { ServerModule } from './server/server.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { XuiModule } from './xui/xui.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { XuiModule } from './xui/xui.module';
     AiModule,
     BrandModule,
     PackageModule,
+    SmsModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],

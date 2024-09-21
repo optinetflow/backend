@@ -152,6 +152,8 @@ type Mutation {
   logout: Boolean!
   refreshToken(token: JWT!): Token!
   renewPackage(input: RenewPackageInput!): String!
+  resetPassword(data: ResetPasswordInput!): Boolean!
+  sendForgetPasswordOtp(data: SendForgetPasswordOtpInput!): Boolean!
   sendOtpAgain(data: SendOtpAgainInput!): Boolean!
   signup(data: SignupInput!): Boolean!
   updateChild(input: UpdateChildInput!): User!
@@ -223,10 +225,22 @@ input RenewPackageInput {
   userPackageId: String!
 }
 
+input ResetPasswordInput {
+  domainName: String!
+  otp: String!
+  password: String!
+  phone: String!
+}
+
 """User role"""
 enum Role {
   ADMIN
   USER
+}
+
+input SendForgetPasswordOtpInput {
+  domainName: String!
+  phone: String!
 }
 
 input SendOtpAgainInput {

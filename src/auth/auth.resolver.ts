@@ -9,6 +9,8 @@ import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { RefreshTokenInput } from './dto/refresh-token.input';
+import { ResetPasswordInput } from './dto/reset-password.input';
+import { SendForgetPasswordOtpInput } from './dto/send-forget-password-otp.input';
 import { SendOtpAgainInput } from './dto/send-otp-again.input';
 import { SignupInput } from './dto/signup.input';
 import { UpdatePhoneInput } from './dto/update-phone.input';
@@ -26,6 +28,20 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async signup(@UserEntity() user: User, @Args('data') data: SignupInput) {
     await this.auth.createUser(user, data);
+
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async sendForgetPasswordOtp(@Args('data') data: SendForgetPasswordOtpInput) {
+    await this.auth.sendForgetPasswordOtp(data.domainName, data.phone);
+
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async resetPassword(@Args('data') data: ResetPasswordInput) {
+    await this.auth.resetPassword(data.domainName, data.phone, data.otp, data.password);
 
     return true;
   }

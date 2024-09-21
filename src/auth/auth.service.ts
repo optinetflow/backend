@@ -14,6 +14,7 @@ import { v4 as uuid } from 'uuid';
 
 import { Brand } from '../brand/models/brand.model';
 import { SecurityConfig } from '../common/configs/config.interface';
+import { SmsService } from '../sms/sms.service';
 import { User } from '../users/models/user.model';
 import { UsersService } from '../users/users.service';
 import { TelegramService } from './../telegram/telegram.service';
@@ -32,6 +33,7 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly configService: ConfigService,
     private readonly userService: UsersService,
+    private readonly smsService: SmsService,
   ) {}
 
   async createUser(user: User | null, payload: SignupInput): Promise<User> {
@@ -61,6 +63,8 @@ export class AuthService {
         await this.assignGiftToUser(newUser.id, promo);
       }
 
+      void this.smsService.sendOtp(payload.phone, otpDetails.otp);
+
       return newUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -69,6 +73,35 @@ export class AuthService {
 
       throw new Error(error as string);
     }
+  }
+
+  async sendForgetPasswordOtp(domainName: string, phone: string) {
+    const user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
+    const { otp, otpExpiration } = this.generateOtp();
+    await this.prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiration } });
+
+    return this.smsService.sendOtp(phone, otp);
+  }
+
+  async resetPassword(domainName: string, phone: string, otp: string, password: string) {
+    const user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
+
+    const now = new Date();
+
+    if (user.otpExpiration && user.otpExpiration < now) {
+      throw new BadRequestException('کد تایید منقضی شده است');
+    }
+
+    if (user.otp !== otp) {
+      throw new BadRequestException('کد تایید اشتباه است');
+    }
+
+    const hashedPassword = await this.passwordService.hashPassword(password);
+
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { otp: null, otpExpiration: null, password: hashedPassword },
+    });
   }
 
   private async getBrandByDomain(domainName: string): Promise<Brand> {
@@ -183,11 +216,11 @@ export class AuthService {
     const now = new Date();
 
     if (user.otpExpiration && user.otpExpiration < now) {
-      throw new BadRequestException('Otp is expired');
+      throw new BadRequestException('کد تایید منقضی شده است');
     }
 
     if (user.otp !== otp) {
-      throw new BadRequestException('Otp is wrong');
+      throw new BadRequestException('کد تایید اشتباه است');
     }
 
     await this.prisma.user.update({
@@ -262,7 +295,9 @@ export class AuthService {
 
     const { otp, otpExpiration } = this.generateOtp();
 
-    return this.prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiration } });
+    await this.prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiration } });
+
+    return this.smsService.sendOtp(user.phone, otp);
   }
 
   async createPromotion(user: User, code: string, giftPackageId?: string) {
@@ -309,7 +344,7 @@ export class AuthService {
     const isPasswordValid = await this.passwordService.validatePassword(password, user.password, user);
 
     if (!isPasswordValid) {
-      throw new BadRequestException('Invalid password');
+      throw new BadRequestException('رمز عبور اشتباه است');
     }
 
     const token = this.generateTokens({
