@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { SmsIrSmsProvider } from './providers/kavenegar.provider';
+import { SmsIrSmsProvider } from './providers/sms-ir.provider';
 
 @Injectable()
 export class SmsService {

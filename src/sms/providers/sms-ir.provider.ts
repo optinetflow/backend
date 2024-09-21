@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
+import { SecurityConfig } from '../../common/configs/config.interface';
 import { SmsServiceInterface } from '../interfaces/sms.interface';
 
 @Injectable()
 export class SmsIrSmsProvider implements SmsServiceInterface {
-  private apiKey = '662F4265426C4C724C35747254624C413958376C586D4B51312F757A38335A5A504E414561576F702B43773D';
+  constructor(private readonly configService: ConfigService) {}
+
+  private apiKey = this.configService.get<SecurityConfig>('security')?.smsIrApiKey;
 
   async sendOtpSms(to: string, otp: string): Promise<void> {
     try {
@@ -24,7 +28,7 @@ export class SmsIrSmsProvider implements SmsServiceInterface {
         },
         headers: {
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          'x-api-key': '2xqgzpC7Db1Pn7Q4eHJkFFZHRi9PnYfcjVPcyqC98ZzS4wUbhwUsAXhDjfqYKuwF',
+          'x-api-key': this.apiKey,
         },
       };
       await axios.request(options);

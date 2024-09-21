@@ -44,6 +44,7 @@ const config: Config = {
     otpExpiration: Number(process.env.OTP_EXPIRATION) || 2,
     refreshIn: '7d',
     bcryptSaltOrRound: 10,
+    smsIrApiKey: process.env.SMS_IR_API_KEY!,
   },
   minio: {
     endpoint: process.env.MINIO_ENDPOINT!,

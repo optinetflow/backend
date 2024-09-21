@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { SmsIrSmsProvider } from './providers/kavenegar.provider';
+import { SmsIrSmsProvider } from './providers/sms-ir.provider';
 import { SmsService } from './sms.service';
 
 @Module({

@@ -58,6 +58,7 @@ export interface SecurityConfig {
   refreshIn: string;
   otpExpiration: number;
   bcryptSaltOrRound: string | number;
+  smsIrApiKey: string;
 }
 
 export interface MinioConfig {
