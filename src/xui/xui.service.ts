@@ -351,6 +351,9 @@ export class XuiService {
       return;
     }
 
+    console.log('thresholdTrafficPacks', thresholdTrafficPacks);
+    console.log('thresholdTimePacks', thresholdTimePacks);
+
     const thresholdUserPacks = await this.prisma.userPackage.findMany({
       where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
       include: {
@@ -363,6 +366,8 @@ export class XuiService {
         package: true,
       },
     });
+
+    console.log('thresholdUserPacks', thresholdUserPacks);
 
     if (thresholdUserPacks.length === 0) {
       return;
@@ -380,11 +385,16 @@ export class XuiService {
       },
     });
 
+    console.log('thresholdUserPackDic', thresholdUserPackDic);
+
     const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const thresholdTrafficPack of thresholdTrafficPacks) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
       const bot = this.telegramService.getBot(userPack.user.brandId as string);
+
+      console.log('userPack', userPack);
+      console.log('bot', bot);
 
       if (!userPack) {
         continue;
@@ -395,11 +405,15 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
         await queue.add(async () => {
-          await bot.telegram.sendMessage(
-            telegramId,
-            text,
-            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
-          );
+          try {
+            await bot.telegram.sendMessage(
+              telegramId,
+              text,
+              this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+            );
+          } catch (error) {
+            console.error('Threshold 1 Telegram message failed.', error);
+          }
         });
       }
     }
@@ -407,6 +421,9 @@ export class XuiService {
     for (const thresholdTimePack of thresholdTimePacks) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
       const bot = this.telegramService.getBot(userPack.user.brandId as string);
+
+      console.log('userPack', userPack);
+      console.log('bot', bot);
 
       if (!userPack) {
         continue;
@@ -417,11 +434,15 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
         await queue.add(async () => {
-          await bot.telegram.sendMessage(
-            telegramId,
-            text,
-            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
-          );
+          try {
+            await bot.telegram.sendMessage(
+              telegramId,
+              text,
+              this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+            );
+          } catch (error) {
+            console.error('Threshold 2 Telegram message failed.', error);
+          }
         });
       }
     }

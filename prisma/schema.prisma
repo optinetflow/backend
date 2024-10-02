@@ -362,5 +362,4 @@ model Brand {
   User User[]
 
   activeServer   Server?   @relation("ActiveServer", fields: [activeServerId], references: [id])
-
 }
