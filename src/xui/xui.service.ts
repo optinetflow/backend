@@ -259,7 +259,7 @@ export class XuiService {
     }
 
     const finishedUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: finishedPacks }, deletedAt: null, finishedAt: null },
+      where: { statId: { in: finishedPacks }, finishedAt: null },
       include: {
         user: {
           include: {
@@ -355,7 +355,7 @@ export class XuiService {
     console.log('thresholdTimePacks', thresholdTimePacks);
 
     const thresholdUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
+      where: { statId: { in: allThresholdPacks }, thresholdWarningSentAt: null },
       include: {
         user: {
           include: {
