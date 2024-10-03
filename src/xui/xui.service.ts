@@ -259,7 +259,7 @@ export class XuiService {
     }
 
     const finishedUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: finishedPacks }, finishedAt: null },
+      where: { statId: { in: finishedPacks }, deletedAt: null, finishedAt: null },
       include: {
         user: {
           include: {
@@ -290,7 +290,7 @@ export class XuiService {
 
     const telegramQueue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const finishedTrafficPack of finishedTrafficPacks) {
+    for (const finishedTrafficPack of finishedTrafficPacks.filter((i) => finishedUserPackDic[i])) {
       const userPack = finishedUserPackDic[finishedTrafficPack];
       const bot = this.telegramService.getBot(userPack.user.brandId);
 
@@ -312,7 +312,7 @@ export class XuiService {
       }
     }
 
-    for (const finishedTimePack of finishedTimePacks) {
+    for (const finishedTimePack of finishedTimePacks.filter((i) => finishedUserPackDic[i])) {
       const userPack = finishedUserPackDic[finishedTimePack];
 
       if (!userPack) {
@@ -355,7 +355,7 @@ export class XuiService {
     console.log('thresholdTimePacks', thresholdTimePacks);
 
     const thresholdUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: allThresholdPacks }, thresholdWarningSentAt: null },
+      where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
       include: {
         user: {
           include: {
@@ -389,7 +389,7 @@ export class XuiService {
 
     const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const thresholdTrafficPack of thresholdTrafficPacks) {
+    for (const thresholdTrafficPack of thresholdTrafficPacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
       const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
@@ -418,7 +418,7 @@ export class XuiService {
       }
     }
 
-    for (const thresholdTimePack of thresholdTimePacks) {
+    for (const thresholdTimePack of thresholdTimePacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
       const bot = this.telegramService.getBot(userPack.user.brandId as string);
 
