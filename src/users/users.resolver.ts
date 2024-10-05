@@ -13,7 +13,6 @@ import { Child, User } from './models/user.model';
 import { UsersService } from './users.service';
 
 @Resolver(() => User)
-@UseGuards(GqlAuthGuard)
 export class UsersResolver {
   constructor(
     private usersService: UsersService,
