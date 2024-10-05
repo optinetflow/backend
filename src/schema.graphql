@@ -117,6 +117,14 @@ input GetClientStatsFiltersInput {
   id: String!
 }
 
+input GetOptinetflowCustomerInfoInput {
+  companyName: String
+  description: String
+  email: String!
+  fullname: String!
+  phone: String!
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -151,6 +159,7 @@ type Mutation {
   enterCost(input: EnterCostInput!): User!
   login(data: LoginInput!): Login!
   logout: Boolean!
+  notifOptinetflowCustomerInfoToUs(data: GetOptinetflowCustomerInfoInput!): Boolean!
   refreshToken(token: JWT!): Token!
   renewPackage(input: RenewPackageInput!): String!
   resetPassword(data: ResetPasswordInput!): Boolean!
