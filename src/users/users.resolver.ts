@@ -2,18 +2,23 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { BrandService } from '../brand/brand.service';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { TelegramService } from '../telegram/telegram.service';
 import { ChangePasswordInput } from './dto/change-password.input';
+import { GetOptinetflowCustomerInfoInput } from './dto/get-optinetflow-customer-info.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UpdateChildInput } from './dto/updateChild.input';
 import { Child, User } from './models/user.model';
 import { UsersService } from './users.service';
 
 @Resolver(() => User)
-@UseGuards(GqlAuthGuard)
 export class UsersResolver {
-  constructor(private usersService: UsersService, private telegramService: TelegramService) {}
+  constructor(
+    private usersService: UsersService,
+    private telegramService: TelegramService,
+    private readonly brandService: BrandService,
+  ) {}
 
   @UseGuards(GqlAuthGuard)
   @Query(() => User)
@@ -49,6 +54,22 @@ export class UsersResolver {
   @Mutation(() => Boolean)
   async enableGift(@UserEntity() user: User) {
     await this.telegramService.enableGift(user.id);
+
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async notifOptinetflowCustomerInfoToUs(@Args('data') data: GetOptinetflowCustomerInfoInput) {
+    const brand = await this.brandService.getBrandByDomainName('vaslshim.com');
+    const bot = this.telegramService.getBot(brand.id);
+    const caption = `#درخواست_سازمانی\n👤 نام: ${data.fullname}\n📱 موبایل: ${data.phone}\n📧 ایمیل: ${data.email}\n🏢 شرکت: ${data.companyName}\n📝 توضیحات: ${data.description}`;
+    const chatIds = ['406607551', '118763170'];
+
+    for await (const chatId of chatIds) {
+      await bot.telegram.sendSticker(chatId, 'CAACAgIAAxkBAAOEZvAlfoRyhpaikie54VgNity1Ae4AAn89AAItySlKdrcmTxVTXBc2BA');
+      await bot.telegram.sendMessage(chatId, 'یه مشتری جدید پیدا کردیم 😁');
+      await bot.telegram.sendMessage(chatId, caption);
+    }
 
     return true;
   }
