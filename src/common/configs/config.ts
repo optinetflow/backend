@@ -41,8 +41,10 @@ const config: Config = {
     jwtAccessSecret: process.env.JWT_ACCESS_SECRET!,
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET!,
     expiresIn: process.env.ACCESS_TOKEN_EXPIRE_IN || '2m',
+    otpExpiration: Number(process.env.OTP_EXPIRATION) || 2,
     refreshIn: '7d',
     bcryptSaltOrRound: 10,
+    smsIrApiKey: process.env.SMS_IR_API_KEY!,
   },
   minio: {
     endpoint: process.env.MINIO_ENDPOINT!,
@@ -57,11 +59,6 @@ const config: Config = {
   },
   xui: {
     password: process.env.XUI_PASSWORD!,
-  },
-  telGroup: {
-    report: process.env.REPORT_GROUP_ID!,
-    backup: process.env.BACKUP_GROUP_ID!,
-    server: process.env.SERVER_GROUP_ID!,
   },
   gcp: {
     credential: process.env.AI_GCP_CREDENTIAL!,

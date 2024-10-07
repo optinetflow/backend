@@ -37,6 +37,22 @@ export const errors = {
       type: 'xui.addClientError',
       message: 'Add client failed.',
     },
+    resetClientTrafficError: {
+      type: 'xui.resetClientTrafficError',
+      message: 'reset Client Traffic failed.',
+    },
+    updateClientError: {
+      type: 'xui.updateClientError',
+      message: 'Update client failed.',
+    },
+    deleteClientError: {
+      type: 'xui.deleteClientError',
+      message: 'Delete client failed.',
+    },
+    delDepletedClients: {
+      type: 'xui.delDepletedClients',
+      message: 'Delete all depleted clients failed.',
+    },
     updatePaymentFailed: {
       type: 'xui.updatePaymentFailed',
       message: 'Update payment got failed.',

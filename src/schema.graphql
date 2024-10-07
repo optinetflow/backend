@@ -2,29 +2,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type Arvan {
-  """Identifies the date and time when the object was created."""
-  createdAt: DateTime!
-  email: String!
-  id: ID!
-  nsKeys: [String!]!
-  password: String!
-  token: String
-  tokenExpiredAt: DateTime
-
-  """Identifies the date and time when the object was last updated."""
-  updatedAt: DateTime!
-}
-
-type Auth {
-  """JWT access token"""
-  accessToken: JWT!
-
-  """JWT refresh token"""
-  refreshToken: JWT!
-  user: User!
-}
-
 type BankCard {
   name: String!
   number: String!
@@ -32,6 +9,21 @@ type BankCard {
 
 """A custom scalar type for big numbers"""
 scalar BigNumber
+
+type Brand {
+  botUsername: String!
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  description: String!
+  domainName: String!
+  id: ID!
+  logo: JSON
+  title: String!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
 
 input BuyPackageInput {
   name: String!
@@ -58,6 +50,8 @@ type Child {
   appliedDiscountPercent: Float
   balance: Float!
   bankCard: [BankCard!]
+  brand: Brand
+  brandId: String
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -67,9 +61,12 @@ type Child {
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
+  isVerified: Boolean!
   lastConnectedAt: DateTime
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
+  otp: String
+  otpExpiration: DateTime
   parent: Parent
   parentId: String
   phone: String!
@@ -82,6 +79,7 @@ type Child {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  user: User!
   userGift: [UserGift!]
 }
 
@@ -100,80 +98,10 @@ type ClientStat {
   updatedAt: DateTime!
 }
 
-input CreateArvanAccountInput {
-  email: String!
-  password: String!
-}
-
-input CreateDomainInput {
-  arvanAccount: String!
-  domain: String!
-  expiredAt: String
-  serverDomain: String!
-}
-
-input CreateServerInput {
-  domain: String!
-  inboundId: Int!
-  ip: String!
-  type: ServerCountry!
-}
-
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
-
-type Dns {
-  cloud: Boolean!
-
-  """Identifies the date and time when the object was created."""
-  createdAt: DateTime!
-  id: String!
-  name: String!
-  ttl: Int!
-  type: String!
-
-  """Identifies the date and time when the object was last updated."""
-  updatedAt: DateTime!
-  upstream_https: UpstreamHttps!
-  value: [DnsValue!]!
-}
-
-type DnsValue {
-  country: String!
-  ip: String!
-  port: String
-  weight: Int!
-}
-
-type Domain {
-  arvanSslState: DomainState!
-
-  """Identifies the date and time when the object was created."""
-  createdAt: DateTime!
-  domain: String!
-  expiredAt: DateTime!
-  id: ID!
-  letsEncryptSsl: DomainState!
-  nsState: DomainState!
-
-  """Identifies the date and time when the object was last updated."""
-  updatedAt: DateTime!
-}
-
-"""Domain state"""
-enum DomainState {
-  APPLIED
-  PENDING
-}
-
-input DomainsFiltersInput {
-  arvanSslState: DomainState
-  domain: String
-  letsEncryptSsl: DomainState
-  nsState: DomainState
-}
 
 input EnterCostInput {
   amount: Int!
@@ -181,13 +109,26 @@ input EnterCostInput {
   type: PaymentType!
 }
 
+input GetBrandInfoInput {
+  domainName: String!
+}
+
 input GetClientStatsFiltersInput {
   id: String!
 }
 
-input IssueCertInput {
-  domain: String!
+input GetOptinetflowCustomerInfoInput {
+  companyName: String
+  description: String
+  email: String!
+  fullname: String!
+  phone: String!
 }
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
 
 """
 A field whose value is a JSON Web Token (JWT): https://jwt.io/introduction.
@@ -205,32 +146,31 @@ type LoginData {
 }
 
 input LoginInput {
+  domainName: String!
   password: String!
   phone: String!
 }
 
 type Mutation {
-  addArvanAccount(data: CreateArvanAccountInput!): Arvan!
-  addDomain(data: CreateDomainInput!): Domain!
-  addServer(data: CreateServerInput!): Server!
   buyPackage(data: BuyPackageInput!): String!
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
+  enableGift: Boolean!
   enterCost(input: EnterCostInput!): User!
-  issueCert(data: IssueCertInput!): Domain!
   login(data: LoginInput!): Login!
   logout: Boolean!
+  notifOptinetflowCustomerInfoToUs(data: GetOptinetflowCustomerInfoInput!): Boolean!
   refreshToken(token: JWT!): Token!
   renewPackage(input: RenewPackageInput!): String!
-  signup(data: SignupInput!): Auth!
-  updateArvanSslStates: Boolean!
+  resetPassword(data: ResetPasswordInput!): Boolean!
+  sendForgetPasswordOtp(data: SendForgetPasswordOtpInput!): Boolean!
+  sendOtpAgain(data: SendOtpAgainInput!): Boolean!
+  signup(data: SignupInput!): Boolean!
   updateChild(input: UpdateChildInput!): User!
-  updateIp(data: UpdateDnsIpInput!): [Dns!]!
-  updateLetsEncryptSslStates: Boolean!
-  updateNsStates: Boolean!
-  updatePort(data: UpdateDnsPortInput!): Dns!
+  updatePhone(data: UpdatePhoneInput!): Boolean!
   updateUser(input: UpdateUserInput!): User!
   uploadImage(input: UploadInput!): String!
+  verifyPhone(data: VerifyPhoneInput!): Token!
 }
 
 type Package {
@@ -269,7 +209,7 @@ type Query {
   checkAuth: CheckAuth!
   children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
-  domains(filters: DomainsFiltersInput): [Domain!]!
+  getBrandInfo(input: GetBrandInfoInput!): Brand!
   hello(name: String!): String!
   helloWorld: String!
   me: User!
@@ -296,35 +236,31 @@ input RenewPackageInput {
   userPackageId: String!
 }
 
+input ResetPasswordInput {
+  domainName: String!
+  otp: String!
+  password: String!
+  phone: String!
+}
+
 """User role"""
 enum Role {
   ADMIN
   USER
 }
 
-type Server {
-  """Identifies the date and time when the object was created."""
-  createdAt: DateTime!
-  domain: String!
-  id: ID!
-  inboundId: Int!
-  ip: String!
-  token: String!
-  type: ServerCountry!
-
-  """Identifies the date and time when the object was last updated."""
-  updatedAt: DateTime!
+input SendForgetPasswordOtpInput {
+  domainName: String!
+  phone: String!
 }
 
-"""ServerCountry"""
-enum ServerCountry {
-  DE
-  IR
-  NL
-  TR
+input SendOtpAgainInput {
+  domainName: String!
+  phone: String
 }
 
 input SignupInput {
+  domainName: String!
   fullname: String!
   password: String!
   phone: String!
@@ -333,11 +269,18 @@ input SignupInput {
 
 type TelegramUser {
   bigAvatar: String
+  chatId: BigNumber
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
   firstname: String
-  id: BigNumber!
+  id: ID!
   lastname: String
   phone: String
   smallAvatar: String
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
   username: String
 }
 
@@ -360,14 +303,9 @@ input UpdateChildInput {
   role: Role
 }
 
-input UpdateDnsIpInput {
-  domain: String!
-  ip: String!
-}
-
-input UpdateDnsPortInput {
-  domain: String!
-  port: String!
+input UpdatePhoneInput {
+  domainName: String!
+  phone: String!
 }
 
 input UpdateUserInput {
@@ -386,18 +324,12 @@ input UploadInput {
   image: Upload!
 }
 
-"""Upstream Https"""
-enum UpstreamHttps {
-  auto
-  default
-  http
-  https
-}
-
 type User {
   appliedDiscountPercent: Float
   balance: Float!
   bankCard: [BankCard!]
+  brand: Brand
+  brandId: String
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -406,7 +338,10 @@ type User {
   initialDiscountPercent: Float
   isDisabled: Boolean
   isParentDisabled: Boolean
+  isVerified: Boolean!
   maxRechargeDiscountPercent: Float
+  otp: String
+  otpExpiration: DateTime
   parent: Parent
   parentId: String
   phone: String!
@@ -419,6 +354,7 @@ type User {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+  user: User!
   userGift: [UserGift!]
 }
 
@@ -440,4 +376,10 @@ type UserPackage {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+}
+
+input VerifyPhoneInput {
+  domainName: String!
+  otp: String!
+  phone: String
 }

@@ -21,7 +21,7 @@ model User {
   id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
-  phone                      String   @unique
+  phone                      String  
   password                   String // @db.VarChar(255)
   fullname                   String  @db.VarChar(255)
   balance                    Float    @default(0)
@@ -29,16 +29,20 @@ model User {
   totalProfit                Float    @default(0)
   parentId                   String?  @db.Uuid
   referId                    String?  @db.Uuid
+  brandId                    String?  @db.Uuid      
+  otp                        String?   
+  otpExpiration              DateTime? 
   role                       Role     @default(USER)
   isDisabled                 Boolean  @default(false)
   isParentDisabled           Boolean  @default(false)
-  isVerified                 Boolean  @default(true)
+  isVerified                 Boolean  @default(false)
   maxRechargeDiscountPercent Float?
   profitPercent              Float    @default(0)
   initialDiscountPercent     Float?
   appliedDiscountPercent     Float?
   description                String?
 
+  brand       Brand?         @relation(fields: [brandId], references: [id])
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children    User[]        @relation("UserParentRelation")
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
@@ -54,14 +58,16 @@ model User {
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
   @@index([referId], name: "UserReferIdIndex")
+  @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
 }
 
 model TelegramUser {
-  id          BigInt   @id
+  chatId      BigInt?    
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String   @unique @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  phone       String?  @unique
+  phone       String?  
   firstname   String?  @db.VarChar(255)
   lastname    String?  @db.VarChar(255)
   username    String?  @db.VarChar(64)
@@ -71,6 +77,7 @@ model TelegramUser {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId], name: "TelegramUserUserIdIndex")
+  @@unique([chatId, userId], name: "TelegramChatIdUserIdUnique")
 }
 
 model BankCard {
@@ -78,7 +85,7 @@ model BankCard {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   userId    String   @db.Uuid
-  number    String   @unique
+  number    String
   name      String   @db.VarChar(255)
 
   user User @relation(fields: [userId], references: [id])
@@ -152,15 +159,22 @@ model Server {
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
   type         ServerCountry
-  ip           String        @unique // @db.VarChar(255)
-  domain       String        @unique // @db.VarChar(255)
+  domain       String        @db.VarChar(255)
   inboundId    Int           @default(1)
   token        String // @db.VarChar(255)
-  tunnelDomain String?       @db.VarChar(255)
+  tunnelDomain String        @db.VarChar(255)
   stats        Json?
+  brandId      String?       @db.Uuid      
+  port         Int           @default(443)         
+
+  brand        Brand?  @relation(fields: [brandId], references: [id])
+  activeFor    Brand?  @relation("ActiveServer")
   userPackage  UserPackage[]
   Domain       Domain[]
-  clientStat   ClientStat[]
+  clientStat   ClientStat[]   
+  
+  @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
+   
 }
 
 model Package {
@@ -308,8 +322,8 @@ model Promotion {
   parentUserId  String    @db.Uuid
   giftPackageId String?   @db.Uuid
 
-  parentUser  User     @relation(fields: [parentUserId], references: [id])
-  giftPackage Package? @relation(fields: [giftPackageId], references: [id])
+  parentUser    User      @relation(fields: [parentUserId], references: [id])
+  giftPackage   Package?  @relation(fields: [giftPackageId], references: [id])
 
   @@index([code], name: "PromotionCodeIndex")
 }
@@ -329,4 +343,25 @@ model UserGift {
 
   @@index([userId], name: "UserGiftUserIdIndex")
   @@index([isGiftUsed], name: "UserGiftIsGiftUsedIndex")
+}
+
+model Brand {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  domainName    String    @unique @db.VarChar(255)
+  title         String    @db.VarChar(255)
+  description   String    @db.VarChar(255)
+  botToken      String    @db.VarChar(255)
+  botUsername   String    @unique @db.VarChar(255)
+  reportGroupId String?   @db.VarChar(255)
+  backupGroupId String?   @db.VarChar(255)
+  activeServerId String?  @unique @db.Uuid
+  logo          Json?
+  Server Server[]
+
+  User User[]
+
+  activeServer   Server?   @relation("ActiveServer", fields: [activeServerId], references: [id])
 }

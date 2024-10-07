@@ -1,13 +1,10 @@
 /* eslint-disable max-len */
-import { HttpService } from '@nestjs/axios';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Package, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
 import PQueue from 'p-queue';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
 import {
@@ -21,13 +18,12 @@ import {
   jsonToB64Url,
   roundTo,
 } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
-import { MinioClientService } from '../minio/minio.service';
 import { PaymentService } from '../payment/payment.service';
 import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
 import { Stat } from '../xui/xui.types';
+import { TelegramService } from './../telegram/telegram.service';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { UserPackage } from './models/userPackage.model';
@@ -57,194 +53,19 @@ interface DiscountedPackage extends Package {
 @Injectable()
 export class PackageService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
-    private prisma: PrismaService,
-    private xuiService: XuiService,
+    private readonly prisma: PrismaService,
+    private readonly telegramService: TelegramService,
+    private readonly xuiService: XuiService,
     private readonly payment: PaymentService,
     private readonly configService: ConfigService,
-    private readonly minioService: MinioClientService,
-  ) {
-    // setTimeout(() => {
-    //   void this.syncClientStats();
-    // }, 2000);
-  }
+  ) {}
 
-  private readonly logger = new Logger(PackageService.name);
-
-  private readonly webPanel = this.configService.get('webPanelUrl');
-
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
-
-  private readonly loginToPanelBtn = {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: 'ورود به سایت',
-            url: this.webPanel,
-          },
-        ],
-      ],
-    },
-  };
-
-  /* eslint-disable sonarjs/cognitive-complexity, sonarjs/no-nested-template-literals */
-  async updateFinishedPackages(stats: Stat[]) {
-    const finishedTrafficPacks = stats.filter((stat) => stat.down + stat.up >= stat.total).map((stat) => stat.id);
-    const finishedTimePacks = stats
-      .filter((stat) => stat.expiryTime > 0 && stat.expiryTime <= Date.now())
-      .map((stat) => stat.id);
-
-    const finishedPacks = [...new Set([...finishedTrafficPacks, ...finishedTimePacks])];
-
-    if (finishedPacks.length === 0) {
-      return;
+  async getFreeServer(user: User): Promise<Server> {
+    if (!user.brand?.activeServerId) {
+      throw new NotAcceptableException('Active Server is not Found');
     }
 
-    const finishedUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: finishedPacks }, deletedAt: null, finishedAt: null },
-      include: {
-        user: {
-          include: {
-            telegram: true,
-          },
-        },
-        package: true,
-      },
-    });
-
-    if (finishedUserPacks.length === 0) {
-      return;
-    }
-
-    const finishedUserPackDic = arrayToDic(finishedUserPacks, 'statId');
-
-    await this.prisma.userPackage.updateMany({
-      where: {
-        id: {
-          in: finishedUserPacks.map((i) => i.id),
-        },
-      },
-      data: {
-        finishedAt: new Date(),
-      },
-    });
-
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-    const telegramQueue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-
-    for (const finishedTrafficPack of finishedTrafficPacks) {
-      const userPack = finishedUserPackDic[finishedTrafficPack];
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
-      }
-
-      void queue.add(() => this.xuiService.deleteClient(userPack.statId));
-    }
-
-    for (const finishedTimePack of finishedTimePacks) {
-      const userPack = finishedUserPackDic[finishedTimePack];
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
-      }
-
-      void queue.add(() => this.xuiService.deleteClient(userPack.statId));
-    }
-  }
-
-  async sendThresholdWarning(stats: Stat[]) {
-    const thresholdTrafficPacks = stats
-      .filter((stat) => stat.down + stat.up >= stat.total * 0.85)
-      .map((pack) => pack.id);
-
-    const thresholdTimePacks = stats.filter((stat) => getRemainingDays(stat.expiryTime) <= 2).map((pack) => pack.id);
-
-    const allThresholdPacks = [...new Set([...thresholdTrafficPacks, ...thresholdTimePacks])];
-
-    if (allThresholdPacks.length === 0) {
-      return;
-    }
-
-    const thresholdUserPacks = await this.prisma.userPackage.findMany({
-      where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
-      include: {
-        user: {
-          include: {
-            telegram: true,
-          },
-        },
-        package: true,
-      },
-    });
-
-    if (thresholdUserPacks.length === 0) {
-      return;
-    }
-
-    const thresholdUserPackDic = arrayToDic(thresholdUserPacks, 'statId');
-    await this.prisma.userPackage.updateMany({
-      where: {
-        id: {
-          in: thresholdUserPacks.map((i) => i.id),
-        },
-      },
-      data: {
-        thresholdWarningSentAt: new Date(),
-      },
-    });
-
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-
-    for (const thresholdTrafficPack of thresholdTrafficPacks) {
-      const userPack = thresholdUserPackDic[thresholdTrafficPack];
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
-      }
-    }
-
-    for (const thresholdTimePack of thresholdTimePacks) {
-      const userPack = thresholdUserPackDic[thresholdTimePack];
-
-      if (!userPack) {
-        continue;
-      }
-
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
-
-      if (telegramId) {
-        const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
-      }
-    }
-  }
-
-  async getFreeServer(): Promise<Server> {
-    return this.prisma.server.findUniqueOrThrow({ where: { domain: 'tr3.arvanvpn.online' } });
+    return this.prisma.server.findUniqueOrThrow({ where: { id: user.brand?.activeServerId } });
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
@@ -255,7 +76,7 @@ export class PackageService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.getFreeServer();
+    const server = await this.getFreeServer(user);
     const pack = (await this.getPackages(user, input.packageId))[0];
     const parent = user.parentId && (await this.prisma.user.findUnique({ where: { id: user.parentId } }));
     const paymentKey = uuid();
@@ -326,7 +147,7 @@ export class PackageService {
   async enableGift(user: User, userGiftId: string): Promise<void> {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
 
-    const server = await this.getFreeServer();
+    const server = await this.getFreeServer(user);
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
     const email = nanoid();
@@ -339,7 +160,7 @@ export class PackageService {
       email,
       serverId: server.id,
       package: pack,
-      name: 'وصل کن دات کام',
+      name: 'هدیه 🎁',
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -352,20 +173,21 @@ export class PackageService {
       subId,
       email,
       server,
-      name: 'وصل کن دات کام',
+      name: 'هدیه 🎁',
       package: pack,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
 
     await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
 
-    const caption = `#فعالسازیـهدیه\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
+    const caption = `#فعالسازیـهدیه 🎁\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
       pack.expirationDays
     } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
       user.phone
     }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
+    const bot = this.telegramService.getBot(user.brandId as string);
 
-    await this.bot.telegram.sendMessage(this.reportGroupId, caption);
+    await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
   }
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
@@ -379,15 +201,6 @@ export class PackageService {
     });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
     const paymentKey = uuid();
-
-    await this.prisma.userPackage.update({
-      where: {
-        id: userPack.id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
 
     const modifiedPack = { ...pack };
 
@@ -405,7 +218,6 @@ export class PackageService {
           remainingDays > maxTransformableExpirationDays ? maxTransformableExpirationDays : remainingDays;
 
         await this.xuiService.resetClientTraffic(userPack.statId);
-
         await this.xuiService.updateClient(user, {
           id: userPack.statId,
           email: userPack.stat.email,
@@ -423,16 +235,7 @@ export class PackageService {
           receipt: input.receipt,
         });
 
-        // await this.sendBuyPackMessage(user, {
-        //   inRenew: true,
-        //   pack,
-        //   userPack: userNewPack,
-        //   parentProfit,
-        //   profitAmount,
-        //   receiptBuffer,
-        // });
-
-        return await this.createPackage(user, {
+        const userNewPack = await this.createPackage(user, {
           id: userPack.statId,
           subId: userPack.stat.subId,
           email: userPack.stat.email,
@@ -442,6 +245,26 @@ export class PackageService {
           paymentKey,
           orderN: userPack.orderN,
         });
+
+        await this.prisma.userPackage.update({
+          where: {
+            id: userPack.id,
+          },
+          data: {
+            deletedAt: new Date(),
+          },
+        });
+
+        // await this.sendBuyPackMessage(user, {
+        //   inRenew: true,
+        //   pack,
+        //   userPack: userNewPack,
+        //   parentProfit,
+        //   profitAmount,
+        //   receiptBuffer,
+        // });
+
+        return userNewPack;
       }
     } catch {
       // nothing
@@ -463,16 +286,7 @@ export class PackageService {
       receipt: input.receipt,
     });
 
-    // await this.sendBuyPackMessage(user, {
-    //   inRenew: true,
-    //   pack,
-    //   userPack: userNewPack,
-    //   parentProfit,
-    //   profitAmount,
-    //   receiptBuffer,
-    // });
-
-    return this.createPackage(user, {
+    const userNewPack = this.createPackage(user, {
       id: userPack.statId,
       subId: userPack.stat.subId,
       email: userPack.stat.email,
@@ -482,6 +296,26 @@ export class PackageService {
       paymentKey,
       orderN: userPack.orderN,
     });
+
+    await this.prisma.userPackage.update({
+      where: {
+        id: userPack.id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    // await this.sendBuyPackMessage(user, {
+    //   inRenew: true,
+    //   pack,
+    //   userPack: userNewPack,
+    //   parentProfit,
+    //   profitAmount,
+    //   receiptBuffer,
+    // });
+
+    return userNewPack;
   }
 
   async sendBuyPackMessage(user: User, input: SendBuyPackMessageInput) {
@@ -494,15 +328,21 @@ export class PackageService {
     )}\n`;
 
     if (user.parentId) {
-      const telegramUser = await this.prisma.telegramUser.findUnique({ where: { userId: user.parentId } });
+      const telegramUser = await this.prisma.telegramUser.findUnique({
+        where: { userId: user.parentId },
+        include: {
+          user: true,
+        },
+      });
 
       if (input.receiptBuffer) {
         const rejectData = { R_PACK: input.userPack.id } as CallbackData;
         const acceptData = { A_PACK: input.userPack.id } as CallbackData;
 
         if (telegramUser) {
-          await this.bot.telegram.sendPhoto(
-            Number(telegramUser.id),
+          const bot = this.telegramService.getBot(telegramUser.user.brandId as string);
+          await bot.telegram.sendPhoto(
+            Number(telegramUser.chatId),
             { source: input.receiptBuffer },
             {
               caption,
@@ -530,8 +370,9 @@ export class PackageService {
           `\n\n👨 مارکتر: ${parent?.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(
             roundTo(parent?.balance || 0, 0),
           )}`;
-        void this.bot.telegram.sendPhoto(
-          this.reportGroupId,
+        const bot = this.telegramService.getBot(user.brandId as string);
+        await bot.telegram.sendPhoto(
+          user.brand?.reportGroupId as string,
           { source: input.receiptBuffer },
           { caption: reportCaption },
         );
@@ -540,9 +381,15 @@ export class PackageService {
       }
     }
 
-    const updatedUser = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const updatedUser = await this.prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: {
+        brand: true,
+      },
+    });
     const reportCaption = caption + `\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(updatedUser?.balance || 0, 0))}`;
-    await this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
+    const bot = this.telegramService.getBot(updatedUser.brandId as string);
+    await bot?.telegram.sendMessage(updatedUser.brand?.reportGroupId as string, reportCaption);
   }
 
   async getUserPackages(user: User): Promise<UserPackage[]> {
@@ -551,7 +398,11 @@ export class PackageService {
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
         stat: true,
-        server: true,
+        server: {
+          include: {
+            brand: true,
+          },
+        },
       },
       where: {
         userId: user.id,
@@ -571,8 +422,9 @@ export class PackageService {
         name: userPack.name,
         link: getVlessLink(
           userPack.statId,
-          userPack.server.tunnelDomain!,
-          `${userPack.name} | ${new URL(this.webPanel).hostname}`,
+          userPack.server.tunnelDomain,
+          `${userPack.name} | ${userPack.server.brand?.domainName as string}`,
+          userPack.server.port,
         ),
         remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
         totalTraffic: userPack.stat.total,
@@ -665,71 +517,5 @@ export class PackageService {
           };
         })
       : appliedPackPrice;
-  }
-
-  async acceptPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({ where: { id: userPackId } });
-    await this.prisma.payment.update({
-      where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'APPLIED',
-      },
-    });
-  }
-
-  async rejectPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({
-      where: { id: userPackId },
-      include: {
-        user: true,
-        package: true,
-      },
-    });
-    // const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.userId } });
-    const payment = await this.prisma.payment.update({
-      where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'REJECTED',
-      },
-    });
-
-    await this.prisma.user.update({
-      where: {
-        id: userPack.user.parentId!,
-      },
-      data: {
-        balance: {
-          increment: payment.amount,
-        },
-        profitBalance: {
-          increment: payment.parentProfit,
-        },
-        totalProfit: {
-          decrement: payment.parentProfit,
-        },
-      },
-    });
-
-    await this.prisma.userPackage.update({
-      where: { id: userPackId },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    await this.xuiService.deleteClient(userPack.statId);
-    await this.xuiService.toggleUserBlock(userPack.userId, true);
-
-    const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.user.parentId! } });
-    const text = `#ریجکتـبسته\n📦 ${userPack.package.traffic} گیگ - ${convertPersianCurrency(
-      userPack.package.price,
-    )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
-      userPack.user.fullname
-    } ${userPack.user.fullname}\n👨 مارکتر: ${parent?.fullname}`;
-    void this.bot.telegram.sendMessage(this.reportGroupId, text, this.loginToPanelBtn);
   }
 }

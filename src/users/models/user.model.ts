@@ -4,6 +4,7 @@ import { Field, Float, HideField, Int, ObjectType, registerEnumType } from '@nes
 import { Role } from '@prisma/client';
 import { IsMobilePhone } from 'class-validator';
 
+import { Brand } from '../../brand/models/brand.model';
 import { BaseModel } from '../../common/models/base.model';
 import { Package } from '../../package/models/package.model';
 import { TelegramUser } from '../../telegram/models/telegramUser.model';
@@ -66,6 +67,12 @@ export class User extends BaseModel {
   @Field(() => Float)
   balance: number;
 
+  @Field(() => String, { nullable: true })
+  otp?: string | null;
+
+  @Field(() => Date, { nullable: true })
+  otpExpiration?: Date | null;
+
   @Field(() => Float)
   profitBalance: number;
 
@@ -76,16 +83,25 @@ export class User extends BaseModel {
   parentId?: string | null;
 
   @Field(() => String, { nullable: true })
+  brandId?: string | null;
+
+  @Field(() => String, { nullable: true })
   referId?: string | null;
 
   @Field(() => Boolean, { nullable: true })
   isDisabled?: boolean | null;
+
+  @Field(() => Boolean)
+  isVerified: boolean;
 
   @Field(() => Boolean, { nullable: true })
   isParentDisabled?: boolean | null;
 
   @Field(() => TelegramUser, { nullable: true })
   telegram?: TelegramUser | null;
+
+  @Field(() => Brand, { nullable: true })
+  brand?: Brand | null;
 
   @Field(() => Parent, { nullable: true })
   parent?: Parent | null;

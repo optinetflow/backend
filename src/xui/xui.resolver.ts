@@ -14,8 +14,6 @@ export class XuiResolver {
     private prisma: PrismaService,
   ) {}
 
-  private readonly webPanel = this.configService.get('webPanelUrl');
-
   // @UseGuards(GqlAuthGuard)
   @Query(() => [ClientStat])
   clientStats(@Args('filters') filter: GetClientStatsFiltersInput): Promise<ClientStat[]> {

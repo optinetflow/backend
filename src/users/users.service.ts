@@ -39,6 +39,7 @@ export class UsersService {
         bankCard: true,
         userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } },
         parent: { include: { telegram: true, bankCard: true } },
+        brand: true,
       },
     });
 
@@ -197,7 +198,7 @@ export class UsersService {
     }
 
     if (typeof input.isDisabled === 'boolean') {
-      void this.xuiService.toggleUserBlock(childId, input.isDisabled);
+      await this.xuiService.toggleUserBlock(childId, input.isDisabled);
     }
 
     if (input?.initialDiscountPercent) {
@@ -226,7 +227,7 @@ export class UsersService {
     const isPasswordValid = await this.passwordService.validatePassword(changePassword.oldPassword, userPassword);
 
     if (!isPasswordValid) {
-      throw new BadRequestException('Invalid password');
+      throw new BadRequestException('رمز عبور اشتباه است');
     }
 
     const hashedPassword = await this.passwordService.hashPassword(changePassword.newPassword);
@@ -237,5 +238,25 @@ export class UsersService {
       },
       where: { id: userId },
     });
+  }
+
+  async getUserByPhoneAndDomainName(phone: string, domainName: string): Promise<User> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        phone,
+        brand: {
+          domainName,
+        },
+      },
+      include: {
+        brand: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('کاربر یافت نشد');
+    }
+
+    return user;
   }
 }

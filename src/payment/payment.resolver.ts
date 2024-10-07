@@ -1,24 +1,19 @@
-import { NotAcceptableException, UseGuards } from '@nestjs/common';
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
-import GraphQLUpload from 'graphql-upload/GraphQLUpload.js';
-import Upload from 'graphql-upload/Upload.js';
+import { UseGuards } from '@nestjs/common';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaService } from 'nestjs-prisma';
 
-import { Domain } from '../arvan/models/domain.model';
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { User } from '../users/models/user.model';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
 import { EnterCostInput } from './dto/enterCost.input';
 import { RechargePackage } from './models/rechargePackage.model';
-import { PaymentService } from './payment.service';
+import { PaymentService } from './payment.service.c';
 
 @Resolver()
 @UseGuards(GqlAuthGuard)
 export class PaymentResolver {
-  constructor(private paymentService: PaymentService, private prisma: PrismaService) {}
-
-  private defaultServerId: string;
+  constructor(private paymentService: PaymentService) {}
 
   @UseGuards(GqlAuthGuard)
   @Query(() => [RechargePackage])

@@ -9,16 +9,14 @@ import * as Cookie from 'cookie';
 import https from 'https';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
 import PQueue from 'p-queue';
 import { firstValueFrom } from 'rxjs';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
-import { TelGroup } from '../common/configs/config.interface';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
+  excludeFromArr,
   getDateTimeString,
   getRemainingDays,
   isSessionExpired,
@@ -26,8 +24,9 @@ import {
   jsonObjectToQueryString,
   roundTo,
 } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
 import { User } from '../users/models/user.model';
+import { BrandService } from './../brand/brand.service';
+import { TelegramService } from './../telegram/telegram.service';
 import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
 import {
@@ -36,7 +35,6 @@ import {
   InboundListRes,
   InboundSetting,
   OnlineInboundRes,
-  ServerStat,
   Stat,
   UpdateClientInput,
   UpdateClientReqInput,
@@ -57,45 +55,36 @@ const ENDPOINTS = (domain: string) => {
     delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
     serverStatus: `${url}/server/status`,
     getDb: `${url}/server/getDb`,
+    delDepletedClients: `${url}/panel/inbound/delDepletedClients/-1`,
   };
 };
 
 @Injectable()
 export class XuiService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
+    private readonly brandService: BrandService,
     private prisma: PrismaService,
     private httpService: HttpService,
     private readonly configService: ConfigService,
-  ) {
-    setTimeout(() => {
-      void this.backupDB();
-    }, 2000);
-  }
+  ) {}
 
   private readonly logger = new Logger(XuiService.name);
 
-  private readonly webPanel = this.configService.get('webPanelUrl');
-
-  private readonly backupGroup = this.configService.get<TelGroup>('telGroup')!.backup;
-
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
-
-  private readonly loginToPanelBtn = {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: 'ورود به سایت',
-            url: this.webPanel,
-          },
+  private loginToPanelBtn(url: string) {
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: 'ورود به سایت',
+              url,
+            },
+          ],
         ],
-      ],
-    },
-  };
-
-  private ServerStatDic: Record<string, ServerStat[]> = {};
+      },
+    };
+  }
 
   async login(domain: string): Promise<string> {
     try {
@@ -204,7 +193,7 @@ export class XuiService {
     });
 
     if (!inbounds.data.obj) {
-      throw new BadRequestException('Getting online inbounds failed.');
+      return [];
     }
 
     return inbounds.data.obj;
@@ -223,7 +212,7 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.resetClientTrafficError);
     }
   }
 
@@ -240,7 +229,19 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.deleteClientError);
+    }
+  }
+
+  async delDepletedClients(serverId: string) {
+    const res = await this.authenticatedReq<{ success: boolean }>({
+      serverId,
+      url: (domain) => ENDPOINTS(domain).delDepletedClients,
+      method: 'post',
+    });
+
+    if (!res.data.success) {
+      throw new BadRequestException(errors.xui.delDepletedClients);
     }
   }
 
@@ -263,6 +264,7 @@ export class XuiService {
         user: {
           include: {
             telegram: true,
+            brand: true,
           },
         },
         package: true,
@@ -286,42 +288,54 @@ export class XuiService {
       },
     });
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
-    const telegramQueue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+    const telegramQueue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const finishedTrafficPack of finishedTrafficPacks) {
+    for (const finishedTrafficPack of finishedTrafficPacks.filter((i) => finishedUserPackDic[i])) {
       const userPack = finishedUserPackDic[finishedTrafficPack];
+      const bot = this.telegramService.getBot(userPack.user.brandId);
 
       if (!userPack) {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        await telegramQueue.add(async () => {
+          await bot.telegram.sendMessage(
+            telegramId,
+            text,
+            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+          );
+        });
       }
-
-      void queue.add(() => this.deleteClient(userPack.statId));
     }
 
-    for (const finishedTimePack of finishedTimePacks) {
+    for (const finishedTimePack of finishedTimePacks.filter((i) => finishedUserPackDic[i])) {
       const userPack = finishedUserPackDic[finishedTimePack];
 
       if (!userPack) {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
+
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
-        void telegramQueue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
+        await telegramQueue.add(async () => {
+          await bot.telegram.sendMessage(
+            telegramId,
+            text,
+            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+          );
+        });
       }
-
-      void queue.add(() => this.deleteClient(userPack.statId));
     }
+
+    await telegramQueue.onIdle();
   }
 
   async sendThresholdWarning(stats: Stat[]) {
@@ -337,17 +351,23 @@ export class XuiService {
       return;
     }
 
+    console.log('thresholdTrafficPacks', thresholdTrafficPacks);
+    console.log('thresholdTimePacks', thresholdTimePacks);
+
     const thresholdUserPacks = await this.prisma.userPackage.findMany({
       where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
       include: {
         user: {
           include: {
             telegram: true,
+            brand: true,
           },
         },
         package: true,
       },
     });
+
+    console.log('thresholdUserPacks', thresholdUserPacks);
 
     if (thresholdUserPacks.length === 0) {
       return;
@@ -365,37 +385,95 @@ export class XuiService {
       },
     });
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+    console.log('thresholdUserPackDic', thresholdUserPackDic);
 
-    for (const thresholdTrafficPack of thresholdTrafficPacks) {
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+
+    for (const thresholdTrafficPack of thresholdTrafficPacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
+
+      console.log('userPack', userPack);
+      console.log('bot', bot);
 
       if (!userPack) {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
+        await queue.add(async () => {
+          try {
+            await bot.telegram.sendMessage(
+              telegramId,
+              text,
+              this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+            );
+          } catch (error) {
+            console.error('Threshold 1 Telegram message failed.', error);
+          }
+        });
       }
     }
 
-    for (const thresholdTimePack of thresholdTimePacks) {
+    for (const thresholdTimePack of thresholdTimePacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
+      const bot = this.telegramService.getBot(userPack.user.brandId as string);
+
+      console.log('userPack', userPack);
+      console.log('bot', bot);
 
       if (!userPack) {
         continue;
       }
 
-      const telegramId = userPack?.user?.telegram?.id ? Number(userPack.user.telegram.id) : undefined;
+      const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
       if (telegramId) {
-        const text = `${userPack.user.fullname} جان دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
-        void queue.add(() => this.bot.telegram.sendMessage(telegramId, text, this.loginToPanelBtn));
+        const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
+        await queue.add(async () => {
+          try {
+            await bot.telegram.sendMessage(
+              telegramId,
+              text,
+              this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+            );
+          } catch (error) {
+            console.error('Threshold 2 Telegram message failed.', error);
+          }
+        });
       }
     }
+
+    await queue.onIdle();
+  }
+
+  async syncNotExistClientStats(stats: Stat[], serverId: string) {
+    const statsInDb = await this.prisma.userPackage.findMany({
+      where: {
+        serverId,
+        finishedAt: null,
+      },
+    });
+    const statIdsInDb = statsInDb.map((stat) => stat.statId);
+
+    const notExistStatIds = excludeFromArr(
+      statIdsInDb,
+      stats.map((stat) => stat.id),
+    );
+
+    await this.prisma.userPackage.updateMany({
+      where: {
+        statId: {
+          in: notExistStatIds,
+        },
+      },
+      data: {
+        finishedAt: new Date(),
+      },
+    });
   }
 
   async upsertClientStats(stats: Stat[], serverId: string, onlinesStat: string[]) {
@@ -410,6 +488,8 @@ export class XuiService {
 
     await this.sendThresholdWarning(stats);
     await this.updateFinishedPackages(stats);
+    await this.syncNotExistClientStats(stats, serverId);
+    await this.delDepletedClients(serverId);
     const updatedValues: Prisma.Sql[] = [];
 
     // ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
@@ -449,7 +529,7 @@ export class XuiService {
           "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
     } catch (error) {
-      console.error('Error upserting ClientStats:', error);
+      console.error('An error occurred while upserting ClientStats:', error);
     }
   }
 
@@ -504,15 +584,16 @@ export class XuiService {
       settings: {
         clients: [
           {
+            id: input?.id || clientStat.id,
             flow: clientStat.flow,
             email: clientStat.email,
-            limitIp: clientStat.limitIp,
-            totalGB: Number(clientStat.total),
-            expiryTime: Number(clientStat.expiryTime),
-            enable: clientStat.enable,
+            limitIp: input?.limitIp || clientStat.limitIp,
+            totalGB: input?.totalGB || Number(clientStat.total),
+            expiryTime: input?.expiryTime || Number(clientStat.expiryTime),
+            enable: input?.enable || clientStat.enable,
             tgId: clientStat.tgId,
             subId: clientStat.subId,
-            ...input,
+            reset: 0,
           },
         ],
       },
@@ -528,7 +609,7 @@ export class XuiService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.updateClientError);
     }
   }
 
@@ -570,63 +651,64 @@ export class XuiService {
     }
   }
 
-  async toggleUserBlock(userId: string, isBlocked: boolean) {
-    const userPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId,
-        deletedAt: null,
-      },
-    });
+  async toggleUserBlock(userId: string, isBlocked: boolean): Promise<void> {
+    try {
+      const [userPacks, children] = await Promise.all([
+        this.prisma.userPackage.findMany({
+          where: {
+            userId,
+            finishedAt: null,
+            deletedAt: null,
+          },
+        }),
+        this.prisma.user.findMany({
+          where: {
+            parentId: userId,
+            ...(isBlocked ? {} : { isDisabled: false }),
+          },
+        }),
+      ]);
 
-    const children = await this.prisma.user.findMany({
-      where: {
-        parentId: userId,
-        ...(isBlocked
-          ? {}
-          : {
-              isDisabled: false,
-            }),
-      },
-    });
+      const childrenIds = children.map((child) => child.id);
 
-    const childrenIds = children.map((child) => child.id);
-
-    const childrenPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId: {
-          in: childrenIds,
+      const childrenPacks = await this.prisma.userPackage.findMany({
+        where: {
+          userId: {
+            in: childrenIds,
+          },
+          deletedAt: null,
+          finishedAt: null,
         },
-        deletedAt: null,
-      },
-    });
+      });
 
-    const allStatIds = [...childrenPacks, ...userPacks].map((i) => i.statId);
+      const allStatIds = [...userPacks, ...childrenPacks].map((pack) => pack.statId);
 
-    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+      const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const [i, statId] of allStatIds.entries()) {
-      void queue.add(() => this.toggleClientState(statId, !isBlocked));
+      for (const statId of allStatIds) {
+        await queue.add(async () => {
+          await this.toggleClientState(statId, !isBlocked);
+        });
+      }
+
+      await queue.onIdle();
+
+      await this.prisma.$transaction([
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { isDisabled: isBlocked },
+        }),
+        this.prisma.user.updateMany({
+          where: { id: { in: childrenIds } },
+          data: { isParentDisabled: isBlocked },
+        }),
+      ]);
+    } catch (error) {
+      console.error('Error toggling user block:', error);
+
+      // You might want to add more sophisticated error handling here
+      throw error;
     }
-
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        isDisabled: isBlocked,
-      },
-    });
-
-    await this.prisma.user.updateMany({
-      where: {
-        id: {
-          in: childrenIds,
-        },
-      },
-      data: {
-        isParentDisabled: isBlocked,
-      },
-    });
   }
 
   // @Interval('getServerStatus', 0.25 * 60 * 1000)
@@ -677,7 +759,17 @@ export class XuiService {
     }
 
     this.logger.debug('BackupDB call every 1 min');
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+    const servers = await this.prisma.server.findMany({
+      where: { deletedAt: null },
+      include: {
+        brand: {
+          select: {
+            id: true,
+            backupGroupId: true,
+          },
+        },
+      },
+    });
 
     for (const server of servers) {
       const res = await this.authenticatedReq<string>({
@@ -687,22 +779,25 @@ export class XuiService {
         isBuffer: true,
       });
 
-      void this.bot.telegram.sendDocument(this.backupGroup, {
+      const bot = this.telegramService.getBot(server?.brand?.id as string);
+      await bot.telegram.sendDocument(server.brand?.backupGroupId as string, {
         source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });
     }
   }
 
-  // @Interval('syncClientStats', 0.25 * 60 * 1000)
   @Interval('syncClientStats', 1 * 60 * 1000)
+  // @Interval('syncClientStats', 0.25 * 60 * 1000)
   async syncClientStats() {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
     for (const server of servers) {
       try {
-        const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+        const updatedClientStats = (await this.getInbounds(server.id))
+          .filter((i) => isUUID(i.id))
+          .filter((stat) => stat.inboundId === server.inboundId);
         const onlinesStat = await this.getOnlinesInbounds(server.id);
         // Upsert ClientStat records in bulk
         await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);

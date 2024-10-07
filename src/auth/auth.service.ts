@@ -10,15 +10,14 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma, Promotion } from '@prisma/client';
 import type { Request as RequestType } from 'express';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
+import { Brand } from '../brand/models/brand.model';
 import { SecurityConfig } from '../common/configs/config.interface';
-import { omit } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
+import { SmsService } from '../sms/sms.service';
 import { User } from '../users/models/user.model';
 import { UsersService } from '../users/users.service';
+import { TelegramService } from './../telegram/telegram.service';
 import { TokenCookie } from './dto/jwt.dto';
 import { SignupInput } from './dto/signup.input';
 import { Login } from './models/login.model';
@@ -28,86 +27,279 @@ import { PasswordService } from './password.service';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     private readonly configService: ConfigService,
     private readonly userService: UsersService,
+    private readonly smsService: SmsService,
   ) {}
 
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
-
-  async createUser(user: User | null | null, payload: SignupInput, req: RequestType): Promise<Token> {
-    let reseller = user;
-    const id = uuid();
+  async createUser(user: User | null, payload: SignupInput): Promise<User> {
+    const brand = await this.getBrandByDomain(payload.domainName);
     let parentId = user?.id;
-    let promo: Promotion | undefined;
+    const promo = await this.getPromotion(payload, brand);
 
-    if (!parentId) {
-      if (!payload?.promoCode) {
-        throw new BadRequestException('The promoCode is require!');
-      }
-
-      promo = await this.prisma.promotion.findFirstOrThrow({ where: { code: payload.promoCode } });
-
-      parentId = promo.parentUserId;
+    if (!parentId && !promo) {
+      throw new BadRequestException('The promoCode is required!');
     }
 
+    parentId = parentId || promo?.parentUserId;
+
     const hashedPassword = await this.passwordService.hashPassword(payload.password);
+    const otpDetails = this.generateOtp();
+
+    let newUser = await this.findExistingUser(payload.phone, brand.id);
 
     try {
-      const newUser = await this.prisma.user.create({
-        data: {
-          fullname: payload.fullname.trim(),
-          phone: payload.phone,
-          id,
-          password: hashedPassword,
-          parentId,
-          ...(promo && { isVerified: false }),
-        },
-      });
+      if (newUser && !newUser.isVerified) {
+        newUser = await this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails);
+      } else {
+        newUser = await this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails);
 
-      if (!user) {
-        reseller = await this.prisma.user.findUnique({
-          where: {
-            id: parentId,
-          },
-        });
+        if (promo && newUser) {
+          await this.assignGiftToUser(newUser.id, promo);
+        }
       }
 
-      const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
-      const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname} ${promoCaption}`;
-      void this.bot.telegram.sendMessage(this.reportGroupId, reportCaption);
+      await this.sendRegistrationReport(newUser, promo, brand, parentId);
 
-      const token = this.generateTokens({
-        userId: newUser.id,
-      });
+      void this.smsService.sendOtp(payload.phone, otpDetails.otp);
 
-      if (payload?.promoCode && promo) {
-        await this.prisma.userGift.create({
-          data: {
-            userId: id,
-            giftPackageId: promo.giftPackageId,
-            promotionId: promo.id,
-          },
-        });
-        this.setAuthCookie({
-          req,
-          accessToken: token.accessToken,
-          refreshToken: token.refreshToken,
-        });
-      }
-
-      return token;
+      return newUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(`Phone ${payload.phone} already used.`);
+        throw new ConflictException('کاربر قبلا ثبت نام کرده است');
       }
 
       throw new Error(error as string);
     }
+  }
+
+  async sendForgetPasswordOtp(domainName: string, phone: string) {
+    const user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
+    const { otp, otpExpiration } = this.generateOtp();
+    await this.prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiration } });
+
+    return this.smsService.sendOtp(phone, otp);
+  }
+
+  async resetPassword(domainName: string, phone: string, otp: string, password: string) {
+    const user = await this.userService.getUserByPhoneAndDomainName(phone, domainName);
+
+    const now = new Date();
+
+    if (user.otpExpiration && user.otpExpiration < now) {
+      throw new BadRequestException('کد تایید منقضی شده است');
+    }
+
+    if (user.otp !== otp) {
+      throw new BadRequestException('کد تایید اشتباه است');
+    }
+
+    const hashedPassword = await this.passwordService.hashPassword(password);
+
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: { otp: null, otpExpiration: null, password: hashedPassword },
+    });
+  }
+
+  private async getBrandByDomain(domainName: string): Promise<Brand> {
+    return this.prisma.brand.findUniqueOrThrow({ where: { domainName } });
+  }
+
+  private async getPromotion(payload: SignupInput, brand: Brand): Promise<Promotion | null> {
+    if (!payload.promoCode) {
+      return null;
+    }
+
+    const promo = await this.prisma.promotion.findFirstOrThrow({
+      where: { code: payload.promoCode },
+      include: { parentUser: true },
+    });
+
+    if (promo?.parentUser.brandId !== brand.id) {
+      throw new BadRequestException('The promoCode is wrong!');
+    }
+
+    return promo;
+  }
+
+  private async findExistingUser(phone: string, brandId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { UserPhoneBrandIdUnique: { phone, brandId } },
+    });
+  }
+
+  private async updateExistingUser(
+    user: User,
+    payload: SignupInput,
+    hashedPassword: string,
+    parentId: string | undefined,
+    otpDetails: { otp: string; otpExpiration: Date },
+  ): Promise<User> {
+    return this.prisma.user.update({
+      where: { UserPhoneBrandIdUnique: { phone: payload.phone, brandId: user.brandId as string } },
+      data: {
+        otp: otpDetails.otp,
+        otpExpiration: otpDetails.otpExpiration,
+        fullname: payload.fullname.trim(),
+        password: hashedPassword,
+        parentId,
+      },
+    });
+  }
+
+  private async createNewUser(
+    payload: SignupInput,
+    hashedPassword: string,
+    parentId: string | undefined,
+    brandId: string,
+    otpDetails: { otp: string; otpExpiration: Date },
+  ): Promise<User> {
+    return this.prisma.user.create({
+      data: {
+        phone: payload.phone,
+        fullname: payload.fullname.trim(),
+        password: hashedPassword,
+        parentId,
+        brandId,
+        otp: otpDetails.otp,
+        otpExpiration: otpDetails.otpExpiration,
+      },
+    });
+  }
+
+  private async sendRegistrationReport(
+    newUser: User,
+    promo: Promotion | null,
+    brand: Brand,
+    parentId: string | undefined,
+  ) {
+    const reseller = parentId ? await this.prisma.user.findUnique({ where: { id: parentId } }) : null;
+    const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
+    const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname}${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
+    const bot = this.telegramService.getBot(brand.id);
+
+    await bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
+  }
+
+  private async assignGiftToUser(userId: string, promo: Promotion) {
+    await this.prisma.userGift.create({
+      data: {
+        userId,
+        giftPackageId: promo.giftPackageId,
+        promotionId: promo.id,
+      },
+    });
+  }
+
+  private generateOtp() {
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const securityConfig = this.configService.get<SecurityConfig>('security');
+    const otpExpiration: Date = new Date(Date.now() + securityConfig!.otpExpiration * 60 * 1000);
+
+    return { otp, otpExpiration };
+  }
+
+  async verifyPhone(user: User, domainName: string, otp: string, req: RequestType): Promise<Token> {
+    const userDomainName = user.brand?.domainName;
+
+    if (user.isVerified === true) {
+      throw new BadRequestException('User is already verified!');
+    }
+
+    if (userDomainName !== domainName) {
+      throw new BadRequestException('Wrong brand!');
+    }
+
+    const now = new Date();
+
+    if (user.otpExpiration && user.otpExpiration < now) {
+      throw new BadRequestException('کد تایید منقضی شده است');
+    }
+
+    if (user.otp !== otp) {
+      throw new BadRequestException('کد تایید اشتباه است');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { otp: null, otpExpiration: null, isVerified: true },
+    });
+    const reportCaption = `#تایید_موبایل\n👤 ${user.fullname}\n📞 موبایل: +98${user.phone}\n\n🏷️ برند: ${user?.brand?.domainName}`;
+    const bot = this.telegramService.getBot(user.brandId as string);
+
+    await bot.telegram.sendMessage(user?.brand?.reportGroupId as string, reportCaption);
+
+    const tokens = this.generateTokens({ userId: user.id });
+    this.setAuthCookie({
+      req,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+
+    return tokens;
+  }
+
+  async updatePhone(user: User, phone: string, domainName: string) {
+    const userDomainName = user.brand?.domainName;
+
+    if (user.isVerified === true) {
+      throw new BadRequestException('User is already verified!');
+    }
+
+    if (userDomainName !== domainName) {
+      throw new BadRequestException('Wrong brand!');
+    }
+
+    const userAlreadyVerifiedWithThisPhone = await this.prisma.user.count({
+      where: { phone, isVerified: true, brandId: user.brandId },
+    });
+
+    if (userAlreadyVerifiedWithThisPhone) {
+      throw new ConflictException('کاربر قبلا ثبت نام کرده است');
+    }
+
+    // Start transaction
+    return this.prisma.$transaction(async (prisma) => {
+      // Delete unverified users with the same phone and brand within the transaction
+      await prisma.user.deleteMany({
+        where: {
+          phone,
+          brandId: user.brandId as string,
+          isVerified: false, // Only delete unverified users
+        },
+      });
+
+      const { otp, otpExpiration } = this.generateOtp();
+
+      // Update the current user's phone, OTP, and expiration
+      return prisma.user.update({
+        where: { id: user.id },
+        data: { phone, otp, otpExpiration },
+      });
+    });
+  }
+
+  async sendOtpAgain(user: User, domainName: string) {
+    const userDomainName = user.brand?.domainName;
+
+    if (user.isVerified === true) {
+      throw new BadRequestException('User is already verified!');
+    }
+
+    if (userDomainName !== domainName) {
+      throw new BadRequestException('Wrong brand!');
+    }
+
+    const { otp, otpExpiration } = this.generateOtp();
+
+    await this.prisma.user.update({ where: { id: user.id }, data: { otp, otpExpiration } });
+
+    return this.smsService.sendOtp(user.phone, otp);
   }
 
   async createPromotion(user: User, code: string, giftPackageId?: string) {
@@ -124,8 +316,22 @@ export class AuthService {
     }
   }
 
-  async login(phone: string, password: string, req: RequestType): Promise<Login> {
-    const user = await this.prisma.user.findUnique({ where: { phone } });
+  async login(phone: string, password: string, domainName: string, req: RequestType): Promise<Login> {
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: {
+        domainName,
+        deletedAt: null,
+      },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        UserPhoneBrandIdUnique: {
+          phone,
+          brandId: brand.id,
+        },
+      },
+    });
 
     if (!user) {
       const promo = await this.prisma.promotion.findUnique({ where: { code: password.toLowerCase() } });
@@ -140,7 +346,7 @@ export class AuthService {
     const isPasswordValid = await this.passwordService.validatePassword(password, user.password, user);
 
     if (!isPasswordValid) {
-      throw new BadRequestException('Invalid password');
+      throw new BadRequestException('رمز عبور اشتباه است');
     }
 
     const token = this.generateTokens({
@@ -162,14 +368,14 @@ export class AuthService {
   }
 
   validateUser(userId: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id: userId } });
+    return this.prisma.user.findUnique({ where: { id: userId }, include: { brand: true } });
   }
 
   getUserFromToken(token: string): Promise<User | null> {
     const decodedToken = this.jwtService.decode(token);
     const id = typeof decodedToken === 'object' && decodedToken !== null ? decodedToken?.userId : null;
 
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.prisma.user.findUnique({ where: { id }, include: { brand: true } });
   }
 
   generateTokens(payload: { userId: string }): Token {

@@ -15,8 +15,10 @@
     "onlines",
     "optinetflow",
     "PGPASSWORD",
+    "upserting",
     "uuidv",
     "Vless",
     "whois"
-  ]
+  ],
+  "files.eol": "\n"
 }

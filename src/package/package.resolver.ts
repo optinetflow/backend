@@ -15,13 +15,7 @@ import { PackageService } from './package.service';
 
 @Resolver()
 export class PackageResolver {
-  constructor(
-    private packageService: PackageService,
-    private readonly configService: ConfigService,
-    private prisma: PrismaService,
-  ) {}
-
-  private readonly webPanel = this.configService.get('webPanelUrl');
+  constructor(private packageService: PackageService, private prisma: PrismaService) {}
 
   @UseGuards(GqlAuthGuard)
   @Query(() => [Package])
@@ -39,17 +33,33 @@ export class PackageResolver {
   @Mutation(() => String)
   async buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): Promise<string> {
     const userPack = await this.packageService.buyPackage(user, data);
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
+    const server = await this.prisma.server.findUniqueOrThrow({
+      where: { id: userPack.serverId },
+      include: { brand: true },
+    });
 
-    return getVlessLink(userPack.statId, server.tunnelDomain!, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
+    return getVlessLink(
+      userPack.statId,
+      server.tunnelDomain,
+      `${userPack.name} | ${server.brand?.domainName as string}`,
+      server.port,
+    );
   }
 
   @UseGuards(GqlAuthGuard)
   @Mutation(() => String)
   async renewPackage(@UserEntity() user: User, @Args('input') input: RenewPackageInput): Promise<string> {
     const userPack = await this.packageService.renewPackage(user, input);
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: userPack.serverId } });
+    const server = await this.prisma.server.findUniqueOrThrow({
+      where: { id: userPack.serverId },
+      include: { brand: true },
+    });
 
-    return getVlessLink(userPack.statId, server.tunnelDomain!, `${userPack.name} | ${new URL(this.webPanel).hostname}`);
+    return getVlessLink(
+      userPack.statId,
+      server.tunnelDomain,
+      `${userPack.name} | ${server.brand?.domainName as string}`,
+      server.port,
+    );
   }
 }
