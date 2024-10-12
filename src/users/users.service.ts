@@ -162,9 +162,12 @@ export class UsersService {
       await this.xuiService.toggleUserBlock(childId, input.isDisabled);
     }
 
+    const isPhoneChanged = input.phone && input.phone !== child.phone;
+
     return this.prisma.user.update({
       data: {
         ...data,
+        ...(isPhoneChanged && { isVerified: false }),
         ...(data?.password && { password: await this.passwordService.hashPassword(data.password) }),
       },
       where: {
