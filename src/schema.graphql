@@ -125,6 +125,10 @@ input GetOptinetflowCustomerInfoInput {
   phone: String!
 }
 
+input GetPackageInput {
+  category: PackageCategory
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -174,6 +178,8 @@ type Mutation {
 }
 
 type Package {
+  category: PackageCategory!
+
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
   expirationDays: Int!
@@ -184,6 +190,12 @@ type Package {
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
   userCount: Int!
+}
+
+"""Package Category"""
+enum PackageCategory {
+  ECONOMIC
+  QUALITY
 }
 
 type Parent {
@@ -212,7 +224,7 @@ type Query {
   hello(name: String!): String!
   helloWorld: String!
   me: User!
-  packages: [Package!]!
+  packages(data: GetPackageInput!): [Package!]!
   rechargePackages: [RechargePackage!]!
   userPackages: [UserPackage!]!
 }

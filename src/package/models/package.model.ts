@@ -1,8 +1,14 @@
 import 'reflect-metadata';
 
-import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { PackageCategory } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
+
+registerEnumType(PackageCategory, {
+  name: 'PackageCategory',
+  description: 'Package Category',
+});
 
 @ObjectType()
 export class Package extends BaseModel {
@@ -17,4 +23,7 @@ export class Package extends BaseModel {
 
   @Field(() => Int)
   userCount: number;
+
+  @Field(() => PackageCategory)
+  category: PackageCategory;
 }

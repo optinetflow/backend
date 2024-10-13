@@ -17,6 +17,11 @@ enum Role {
   USER
 }
 
+enum PackageCategory {
+  ECONOMIC
+  QUALITY
+}
+
 model User {
   id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt                  DateTime @default(now())
@@ -186,6 +191,7 @@ model Package {
   expirationDays Float
   price          Float
   userCount      Int
+  category       PackageCategory @default(QUALITY)
   order          Int?
   forRole        Role[]        @default([ADMIN, USER])
   userPackage    UserPackage[]

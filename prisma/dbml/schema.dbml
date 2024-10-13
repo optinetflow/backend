@@ -144,6 +144,7 @@ Table Package {
   expirationDays Float [not null]
   price Float [not null]
   userCount Int [not null]
+  category PackageCategory [not null, default: 'QUALITY']
   order Int
   forRole Role[] [not null]
   userPackage UserPackage [not null]
@@ -264,6 +265,11 @@ Table Brand {
 Enum Role {
   ADMIN
   USER
+}
+
+Enum PackageCategory {
+  ECONOMIC
+  QUALITY
 }
 
 Enum DomainState {

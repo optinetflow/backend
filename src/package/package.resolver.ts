@@ -8,6 +8,7 @@ import { UserEntity } from '../common/decorators/user.decorator';
 import { getVlessLink } from '../common/helpers';
 import { User } from '../users/models/user.model';
 import { BuyPackageInput } from './dto/buyPackage.input';
+import { GetPackageInput } from './dto/get-packages.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { Package } from './models/package.model';
 import { UserPackage } from './models/userPackage.model';
@@ -19,8 +20,8 @@ export class PackageResolver {
 
   @UseGuards(GqlAuthGuard)
   @Query(() => [Package])
-  packages(@UserEntity() user: User): Promise<Package[]> {
-    return this.packageService.getPackages(user);
+  packages(@UserEntity() user: User, @Args('data') data: GetPackageInput): Promise<Package[]> {
+    return this.packageService.getPackages(user, data.category ?? null);
   }
 
   @UseGuards(GqlAuthGuard)

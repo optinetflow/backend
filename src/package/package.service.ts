@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { PackageCategory, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import PQueue from 'p-queue';
@@ -441,9 +441,13 @@ export class PackageService {
     }
   }
 
-  async getPackages(user: User) {
+  async getPackages(user: User, packageCategory: PackageCategory | null) {
     return this.prisma.package.findMany({
-      where: { deletedAt: null, forRole: { has: user.role } },
+      where: {
+        deletedAt: null,
+        forRole: { has: user.role },
+        category: packageCategory ? packageCategory : undefined,
+      },
       orderBy: { order: 'asc' },
     });
   }
