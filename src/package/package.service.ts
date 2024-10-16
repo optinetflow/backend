@@ -1,29 +1,20 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PackageCategory, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import PQueue from 'p-queue';
 import { v4 as uuid } from 'uuid';
 
-import {
-  arrayToDic,
-  bytesToGB,
-  convertPersianCurrency,
-  getRemainingDays,
-  getVlessLink,
-  jsonToB64Url,
-  roundTo,
-} from '../common/helpers';
+import { bytesToGB, convertPersianCurrency, getVlessLink, jsonToB64Url, roundTo } from '../common/helpers';
 import { PaymentService } from '../payment/payment.service';
 import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
-import { Stat } from '../xui/xui.types';
 import { TelegramService } from './../telegram/telegram.service';
 import { BuyPackageInput } from './dto/buyPackage.input';
+import { GetPackageInput } from './dto/get-packages.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
+import { Package } from './models/package.model';
 import { UserPackage } from './models/userPackage.model';
 import { CreatePackageInput, SendBuyPackMessageInput } from './package.types';
 
@@ -34,15 +25,32 @@ export class PackageService {
     private readonly telegramService: TelegramService,
     private readonly xuiService: XuiService,
     private readonly payment: PaymentService,
-    private readonly configService: ConfigService,
   ) {}
 
-  async getFreeServer(user: User): Promise<Server> {
-    if (!user.brand?.activeServerId) {
-      throw new NotAcceptableException('Active Server is not Found');
+  async getFreeServer(user: User, pack: Package): Promise<Server> {
+    if (!user.brandId) {
+      throw new NotAcceptableException('Brand is not found for this user');
     }
 
-    return this.prisma.server.findUniqueOrThrow({ where: { id: user.brand?.activeServerId } });
+    const brandPackageServer = await this.prisma.brandServerCategory.findUnique({
+      where: {
+        BrandCategoryUnique: {
+          brandId: user.brandId,
+          category: pack.category,
+        },
+      },
+      include: {
+        server: true,
+      },
+    });
+
+    if (!brandPackageServer?.server) {
+      throw new NotAcceptableException(
+        `No active server found for brand ${user.brandId} and category ${pack.category}`,
+      );
+    }
+
+    return brandPackageServer.server;
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
@@ -53,8 +61,8 @@ export class PackageService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.getFreeServer(user);
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
+    const server = await this.getFreeServer(user, pack);
     const paymentId = uuid();
     const email = nanoid();
     const id = uuid();
@@ -106,9 +114,9 @@ export class PackageService {
   async enableGift(user: User, userGiftId: string): Promise<void> {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
 
-    const server = await this.getFreeServer(user);
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
+    const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
@@ -441,12 +449,15 @@ export class PackageService {
     }
   }
 
-  async getPackages(user: User, packageCategory: PackageCategory | null) {
+  async getPackages(user: User, filters: GetPackageInput) {
+    const { category, expirationDays } = filters;
+
     return this.prisma.package.findMany({
       where: {
         deletedAt: null,
         forRole: { has: user.role },
-        category: packageCategory ? packageCategory : undefined,
+        category: category ? category : undefined,
+        expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined,
       },
       orderBy: { order: 'asc' },
     });

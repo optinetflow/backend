@@ -125,10 +125,10 @@ Table Server {
   brandId String
   port Int [not null, default: 443]
   brand Brand
-  activeFor Brand
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
+  BrandServerCategory BrandServerCategory [not null]
 
   indexes {
     (domain, brandId) [unique]
@@ -202,6 +202,21 @@ Table ClientStat {
   Package UserPackage [not null]
 }
 
+Table BrandServerCategory {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  brandId String [not null]
+  category PackageCategory [not null]
+  activeServerId String [not null]
+  brand Brand [not null]
+  server Server [not null]
+
+  indexes {
+    (brandId, category) [unique]
+  }
+}
+
 Table Payment {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
@@ -255,11 +270,10 @@ Table Brand {
   botUsername String [unique, not null]
   reportGroupId String
   backupGroupId String
-  activeServerId String [unique]
   logo Json
   Server Server [not null]
   User User [not null]
-  activeServer Server
+  BrandServerCategory BrandServerCategory [not null]
 }
 
 Enum Role {
@@ -327,6 +341,10 @@ Ref: UserPackage.statId > ClientStat.id
 
 Ref: ClientStat.serverId > Server.id
 
+Ref: BrandServerCategory.brandId > Brand.id
+
+Ref: BrandServerCategory.activeServerId > Server.id
+
 Ref: Payment.payerId > User.id
 
 Ref: Promotion.parentUserId > User.id
@@ -336,5 +354,3 @@ Ref: Promotion.giftPackageId > Package.id
 Ref: UserGift.userId > User.id
 
 Ref: UserGift.giftPackageId > Package.id
-
-Ref: Brand.activeServerId - Server.id

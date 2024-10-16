@@ -8,4 +8,8 @@ export class GetPackageInput {
   @IsEnum(PackageCategory)
   @IsOptional()
   category?: PackageCategory;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  expirationDays?: number;
 }

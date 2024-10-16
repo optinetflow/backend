@@ -127,6 +127,7 @@ input GetOptinetflowCustomerInfoInput {
 
 input GetPackageInput {
   category: PackageCategory
+  expirationDays: Int
 }
 
 """

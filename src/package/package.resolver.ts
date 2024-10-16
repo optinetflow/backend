@@ -21,7 +21,7 @@ export class PackageResolver {
   @UseGuards(GqlAuthGuard)
   @Query(() => [Package])
   packages(@UserEntity() user: User, @Args('data') data: GetPackageInput): Promise<Package[]> {
-    return this.packageService.getPackages(user, data.category ?? null);
+    return this.packageService.getPackages(user, data);
   }
 
   @UseGuards(GqlAuthGuard)
