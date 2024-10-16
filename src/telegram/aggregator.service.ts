@@ -13,6 +13,7 @@ import { v4 as uuid } from 'uuid';
 
 import { errors } from '../common/errors';
 import { isSessionExpired, jsonObjectToQueryString, roundTo } from '../common/helpers';
+import { Package } from '../package/models/package.model';
 import { User } from '../users/models/user.model';
 import { CreatePackageInput } from './../package/package.types';
 import { AddClientInput, AuthenticatedReq, UpdateClientReqInput } from './../xui/xui.types';
@@ -210,9 +211,9 @@ export class AggregatorService {
   async enableGift(user: User, userGiftId: string) {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
 
-    const server = await this.getFreeServer(user);
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
+    const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
@@ -246,12 +247,30 @@ export class AggregatorService {
     return { package: pack, userPack };
   }
 
-  private async getFreeServer(user: User): Promise<Server> {
-    if (!user.brand?.activeServerId) {
-      throw new NotAcceptableException('Active Server is not Found');
+  private async getFreeServer(user: User, pack: Package): Promise<Server> {
+    if (!user.brandId) {
+      throw new NotAcceptableException('Brand is not found for this user');
     }
 
-    return this.prisma.server.findUniqueOrThrow({ where: { id: user.brand?.activeServerId } });
+    const brandPackageServer = await this.prisma.brandServerCategory.findUnique({
+      where: {
+        BrandCategoryUnique: {
+          brandId: user.brandId,
+          category: pack.category,
+        },
+      },
+      include: {
+        server: true,
+      },
+    });
+
+    if (!brandPackageServer?.server) {
+      throw new NotAcceptableException(
+        `No active server found for brand ${user.brandId} and category ${pack.category}`,
+      );
+    }
+
+    return brandPackageServer.server;
   }
 
   private async deleteClient(clientStatId: string) {
