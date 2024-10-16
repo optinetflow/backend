@@ -1,10 +1,12 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
+import { GraphqlConfig } from '../common/configs/config.interface';
 import { bytesToGB, convertPersianCurrency, getVlessLink, jsonToB64Url, roundTo } from '../common/helpers';
 import { PaymentService } from '../payment/payment.service';
 import { CallbackData } from '../telegram/telegram.constants';
@@ -25,6 +27,7 @@ export class PackageService {
     private readonly telegramService: TelegramService,
     private readonly xuiService: XuiService,
     private readonly payment: PaymentService,
+    private readonly configService: ConfigService,
   ) {}
 
   async getFreeServer(user: User, pack: Package): Promise<Server> {
@@ -67,15 +70,18 @@ export class PackageService {
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
+    const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
 
-    await this.xuiService.addClient(user, {
-      id,
-      subId,
-      email,
-      serverId: server.id,
-      package: pack,
-      name: input.name || 'No Name',
-    });
+    if (!graphqlConfig?.debug) {
+      await this.xuiService.addClient(user, {
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: input.name || 'No Name',
+      });
+    }
 
     const { receiptBuffer, parentProfit, profitAmount } = await this.payment.purchasePaymentRequest(user, {
       amount: pack.price,
@@ -184,17 +190,21 @@ export class PackageService {
         modifiedPack.expirationDays +=
           remainingDays > maxTransformableExpirationDays ? maxTransformableExpirationDays : remainingDays;
 
-        await this.xuiService.resetClientTraffic(userPack.statId);
-        await this.xuiService.updateClient(user, {
-          id: userPack.statId,
-          email: userPack.stat.email,
-          subId: userPack.stat.subId,
-          name: userPack.name,
-          orderN: userPack.orderN,
-          package: modifiedPack,
-          server: userPack.server,
-          enable: userPack.stat.enable,
-        });
+        const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
+
+        if (!graphqlConfig?.debug) {
+          await this.xuiService.resetClientTraffic(userPack.statId);
+          await this.xuiService.updateClient(user, {
+            id: userPack.statId,
+            email: userPack.stat.email,
+            subId: userPack.stat.subId,
+            name: userPack.name,
+            orderN: userPack.orderN,
+            package: modifiedPack,
+            server: userPack.server,
+            enable: userPack.stat.enable,
+          });
+        }
 
         const { receiptBuffer, parentProfit, profitAmount } = await this.payment.purchasePaymentRequest(user, {
           amount: pack.price,
