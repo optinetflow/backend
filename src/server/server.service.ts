@@ -227,6 +227,12 @@ export class ServerService {
 
   @Interval('getPGBackup', 15 * 60 * 1000)
   async getPGBackup() {
+    const isDev = this.configService.get('env') === 'development';
+
+    if (isDev) {
+      return;
+    }
+
     this.logger.debug('getPGBackup called every 1 min');
     const postgresConfig = this.configService.get<PostgresConfig>('postgres');
 

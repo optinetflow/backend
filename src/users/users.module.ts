@@ -10,5 +10,6 @@ import { UsersService } from './users.service';
 @Module({
   imports: [XuiModule, TelegramModule, BrandModule],
   providers: [UsersResolver, UsersService, PasswordService],
+  exports: [UsersService],
 })
 export class UsersModule {}

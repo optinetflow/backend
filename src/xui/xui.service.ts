@@ -351,9 +351,6 @@ export class XuiService {
       return;
     }
 
-    console.log('thresholdTrafficPacks', thresholdTrafficPacks);
-    console.log('thresholdTimePacks', thresholdTimePacks);
-
     const thresholdUserPacks = await this.prisma.userPackage.findMany({
       where: { statId: { in: allThresholdPacks }, deletedAt: null, thresholdWarningSentAt: null },
       include: {
@@ -366,8 +363,6 @@ export class XuiService {
         package: true,
       },
     });
-
-    console.log('thresholdUserPacks', thresholdUserPacks);
 
     if (thresholdUserPacks.length === 0) {
       return;
@@ -385,16 +380,11 @@ export class XuiService {
       },
     });
 
-    console.log('thresholdUserPackDic', thresholdUserPackDic);
-
     const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
     for (const thresholdTrafficPack of thresholdTrafficPacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
       const bot = this.telegramService.getBot(userPack.user.brandId as string);
-
-      console.log('userPack', userPack);
-      console.log('bot', bot);
 
       if (!userPack) {
         continue;
@@ -421,9 +411,6 @@ export class XuiService {
     for (const thresholdTimePack of thresholdTimePacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
       const bot = this.telegramService.getBot(userPack.user.brandId as string);
-
-      console.log('userPack', userPack);
-      console.log('bot', bot);
 
       if (!userPack) {
         continue;
@@ -754,7 +741,9 @@ export class XuiService {
 
   @Interval('backupDB', 1 * 60 * 1000)
   async backupDB() {
-    if (this.configService.get('env') === 'development') {
+    const isDev = this.configService.get('env') === 'development';
+
+    if (isDev) {
       return;
     }
 
@@ -790,6 +779,12 @@ export class XuiService {
   @Interval('syncClientStats', 1 * 60 * 1000)
   // @Interval('syncClientStats', 0.25 * 60 * 1000)
   async syncClientStats() {
+    const isDev = this.configService.get('env') === 'development';
+
+    if (isDev) {
+      return;
+    }
+
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 

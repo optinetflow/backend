@@ -5,17 +5,8 @@ export interface CreatePackageInput {
   subId: string;
   email: string;
   server: Server;
-  paymentId?: string;
+  userPackageId: string;
   name: string;
   package: Package;
   orderN: number;
-}
-
-export interface SendBuyPackMessageInput {
-  receiptBuffer?: Buffer;
-  userPack: UserPackagePrisma;
-  pack: Package;
-  parentProfit?: number;
-  profitAmount?: number;
-  inRenew: boolean;
 }
