@@ -14,7 +14,7 @@ Table User {
   totalProfit Float [not null, default: 0]
   parentId String
   referId String
-  brandId String
+  brandId String [not null]
   otp String
   otpExpiration DateTime
   role Role [not null, default: 'USER']
@@ -171,16 +171,13 @@ Table UserPackage {
   userId String [not null]
   serverId String [not null]
   statId String [not null]
-  paymentId String
-  paymentKey String [unique]
   thresholdWarningSentAt DateTime
   orderN Int [not null, default: 1]
-  payment Payment
-  paymentsByKey Payment [not null]
   package Package [not null]
   user User [not null]
   server Server [not null]
   stat ClientStat [not null]
+  payments Payment [not null]
 }
 
 Table ClientStat {
@@ -205,7 +202,6 @@ Table ClientStat {
 
 Table Payment {
   id String [pk]
-  key String
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   amount Float [not null]
@@ -216,9 +212,9 @@ Table Payment {
   profitAmount Float [not null, default: 0]
   parentProfit Float [not null, default: 0]
   description String
+  userPackageId String
   payer User [not null]
-  userPackage UserPackage [not null]
-  userPackageByKey UserPackage
+  userPackage UserPackage
 }
 
 Table Promotion {
@@ -313,8 +309,6 @@ Ref: Domain.serverId > Server.id
 
 Ref: Server.brandId > Brand.id
 
-Ref: UserPackage.paymentId > Payment.id
-
 Ref: UserPackage.packageId > Package.id
 
 Ref: UserPackage.userId > User.id
@@ -327,7 +321,7 @@ Ref: ClientStat.serverId > Server.id
 
 Ref: Payment.payerId > User.id
 
-Ref: Payment.key - UserPackage.paymentKey
+Ref: Payment.userPackageId > UserPackage.id
 
 Ref: Promotion.parentUserId > User.id
 

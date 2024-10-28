@@ -1,17 +1,16 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, Logger, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Package, User as UserPrisma } from '@prisma/client';
+import { Package, Prisma, User as UserPrisma, UserPackage, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
-import { InjectBot, Phone } from 'nestjs-telegraf';
-import { Telegraf } from 'telegraf';
 import { v4 as uuid } from 'uuid';
 
-import { arrayToDic, convertPersianCurrency, jsonToB64Url, pFrom100, roundTo } from '../common/helpers';
-import { Context } from '../common/interfaces/context.interface';
+import { arrayToDic, ceilTo, convertPersianCurrency, jsonToB64Url, pctToDec, roundTo } from '../common/helpers';
 import { MinioClientService } from '../minio/minio.service';
 import { CallbackData } from '../telegram/telegram.constants';
+import { TelegramService, TelegramMessage, TelegramReplyMarkup } from '../telegram/telegram.service';
 import { User } from '../users/models/user.model';
+import { UsersService } from '../users/users.service';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
 import { EnterCostInput } from './dto/enterCost.input';
 import { PurchasePaymentRequestInput } from './dto/purchasePaymentRequest.input';
@@ -29,24 +28,44 @@ interface PaymentReq {
 }
 
 interface PackagePaymentInput {
-  key?: string;
   package: Package;
   receipt?: string;
+  inRenew: boolean;
+  userPackageId: string;
+  userPackageName: string;
+}
+
+export interface SendBuyPackMessage {
+  userId: string;
+  user: User;
+  receiptBuffer?: Buffer;
+  userPackageName: string;
+  pack: Package;
+  price: number;
+  discountedPrice: number;
+  sellPrice?: number;
+  profitAmount: number;
+  inRenew: boolean;
+}
+
+interface GetBuyPackMessages {
+  telegramUsers: TelegramUser[];
+  buyPackMessages: SendBuyPackMessage[];
+  receiptBuffer?: Buffer;
+  userPackageId: string;
 }
 
 @Injectable()
 export class PaymentService {
   constructor(
     private prisma: PrismaService,
-    @InjectBot()
-    private readonly bot: Telegraf<Context>,
+    private readonly telegramService: TelegramService,
     private readonly minioService: MinioClientService,
+    private readonly usersService: UsersService,
     private readonly configService: ConfigService,
   ) {}
 
   private readonly logger = new Logger(PaymentService.name);
-
-  private readonly reportGroupId = this.configService.get('telGroup')!.report;
 
   async getRechargePackages(user: User): Promise<RechargePackage[]> {
     return this.prisma.rechargePackage.findMany({
@@ -60,6 +79,68 @@ export class PaymentService {
         discountPercent: 'asc',
       },
     });
+  }
+
+  nestedParentsChargeTxt(firstParentId: string, parentsDic: Record<string, User>): string {
+    let txt = '';
+
+    const firstParent = parentsDic?.[firstParentId];
+
+    if (firstParent) {
+      txt += `\n\n👨 فروشنده: ${firstParent.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(
+        roundTo(firstParent.balance || 0, 0),
+      )}`;
+    }
+
+    if (firstParent && firstParent?.parentId) {
+      txt += this.nestedParentsChargeTxt(firstParent.parentId, parentsDic);
+    }
+
+    return txt;
+  }
+
+  nestedBuyPackageTxt(firstUserId: string, buyPackMessagesDic: Record<string, SendBuyPackMessage>, isNested = false): string {
+    let txt =  '';
+
+    const buyPackMessage = buyPackMessagesDic?.[firstUserId];
+
+    if (!buyPackMessage) {
+      return '';
+    }
+
+    if (!isNested) {
+      // Set header
+      txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
+    }
+
+    const child = buyPackMessagesDic?.[Object.keys(buyPackMessagesDic).find(userId => buyPackMessagesDic[userId].user.parentId === firstUserId) || ''];
+    txt += `\n\n👤 ${buyPackMessage.user.fullname}`;
+
+    if (buyPackMessage.user.role === 'ADMIN') {
+      txt += `\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(buyPackMessage.user.balance - buyPackMessage.discountedPrice, 0))}`;
+    }
+    txt += `\n📱 موبایل: +98${buyPackMessage.user.phone}`;
+
+    if (!child) {
+      const profitPercent = (1 - (buyPackMessage.discountedPrice / buyPackMessage.price)) * 100;
+      txt += `\n💰 قیمت واقعی: ${convertPersianCurrency(buyPackMessage.price)}`;
+      txt += `\n🏷️ قیمت پس از تخفیف: ${convertPersianCurrency(buyPackMessage.discountedPrice)}`;
+      txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
+    }
+
+    if (child) {
+      const profitPercent = (buyPackMessage.profitAmount / buyPackMessage.discountedPrice) * 100;
+      txt += `\n💰 قیمت خرید: ${convertPersianCurrency(buyPackMessage.discountedPrice)}`;
+      txt += `\n💸 قیمت فروش: ${convertPersianCurrency(buyPackMessage.sellPrice!)}`;
+      txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
+    }
+
+    if (child && child?.user?.id) {
+      txt += `\n${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true)}`;
+    }
+
+    return txt;
   }
 
   async buyRechargePackage(user: User, input: BuyRechargePackageInput): Promise<User> {
@@ -76,43 +157,51 @@ export class PaymentService {
 
     const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${
       user.fullname
-    }\n⚡مقدار شارژ: ${convertPersianCurrency(roundTo(rechargePack.amount, 0))}\n📞 موبایل: +98${user.phone}`;
+    }\n📞 موبایل: +98${user.phone}\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user.balance + rechargePack.amount || 0, 0))}`;
 
     const telegramUser =
       user?.parentId && (await this.prisma.telegramUser.findUnique({ where: { userId: user.parentId } }));
     const acceptData = { A_CHARGE: paymentId } as CallbackData;
     const rejectData = { R_CHARGE: paymentId } as CallbackData;
 
-    if (telegramUser && receiptBuffer) {
-      await this.bot.telegram.sendPhoto(
-        Number(telegramUser.id),
-        { source: receiptBuffer },
-        {
-          caption,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  callback_data: jsonToB64Url(rejectData as Record<string, string>),
-                  text: '❌ رد',
-                },
-                {
-                  callback_data: jsonToB64Url(acceptData as Record<string, string>),
-                  text: '✅ تایید',
-                },
-              ],
-            ],
-          },
-        },
-      );
+    const bot = this.telegramService.getBot(user.brandId as string);
+    const parents = await this.usersService.getAllParents(user.id);
+    const parentsDic = arrayToDic(parents);
+    const reportCaption = caption + (user?.parentId ? this.nestedParentsChargeTxt(user.parentId, parentsDic) : '');
 
-      const parent = await this.prisma.user.findUnique({ where: { id: user.parentId! } });
-      const reportCaption =
-        caption +
-        `\n\n👨 مارکتر: ${parent?.fullname}\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(parent?.balance || 0, 0))}`;
-      await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption: reportCaption });
+    if (telegramUser && receiptBuffer) {
+      try {
+        await bot.telegram.sendPhoto(
+          Number(telegramUser.chatId),
+          { source: receiptBuffer },
+          {
+            caption,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    callback_data: jsonToB64Url(rejectData as Record<string, string>),
+                    text: '❌ رد',
+                  },
+                  {
+                    callback_data: jsonToB64Url(acceptData as Record<string, string>),
+                    text: '✅ تایید',
+                  },
+                ],
+              ],
+            },
+          },
+        );
+      } catch (error) {
+        console.error(
+          `Couldn't send photo to parent (${parentsDic[user.parentId!].phone}) of user for buyRechargePackage\n\n`,
+          error,
+        );
+      }
+
+      await bot.telegram.sendPhoto(user.brand!.reportGroupId!, { source: receiptBuffer }, { caption: reportCaption });
     } else if (receiptBuffer) {
-      await this.bot.telegram.sendPhoto(this.reportGroupId, { source: receiptBuffer }, { caption });
+      await bot.telegram.sendPhoto(user.brand!.reportGroupId!, { source: receiptBuffer }, { caption: reportCaption });
     }
 
     return this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -151,93 +240,132 @@ export class PaymentService {
     `;
   }
 
-  async purchasePackagePayment(user: User, input: PackagePaymentInput) {
-    const key = input?.key || uuid();
-    const parents = await this.getAllParents(user.id);
-    const parentsDic = arrayToDic(parents);
-    const [_receiptBuffer, receiptImage] = input.receipt ? await this.uploadReceiptPermanently(key, input.receipt) : [];
+  async purchasePackagePayment(user: User, input: PackagePaymentInput): Promise<[Array<Prisma.PrismaPromise<any>>, TelegramMessage[]]> {
+    const users = [...(await this.getAllParents(user.id)), user];
+    const usersDic = arrayToDic(users);
+    const buyPackMessages: SendBuyPackMessage[] = [];
 
-    for (const parent of [...parents, user]) {
-      const buyPrice = input.package.price * (1 - (parent?.appliedDiscountPercent || 0));
-      const grandpa = parentsDic?.[parent?.parentId || ''];
-      const profitAmount =
-        (input.package.price *
-          (1 - pFrom100(grandpa?.appliedDiscountPercent)) *
-          (pFrom100(grandpa?.profitPercent) - pFrom100(parent?.initialDiscountPercent))) /
-        (1 - pFrom100(grandpa?.profitPercent));
+    const [receiptBuffer, receiptImage] = input.receipt
+      ? await this.uploadReceiptPermanently(input.userPackageId, input.receipt)
+      : [];
 
-      console.log('this.prisma.payment.create =>', {
-        data: {
-          phone: parent.phone,
-          key: input.key,
-          amount: buyPrice,
-          type: 'PACKAGE_PURCHASE',
-          payerId: user.id,
-          receiptImage,
-          profitAmount,
-        },
-      });
-      await this.prisma.payment.create({
-        data: {
-          key: input.key,
-          amount: buyPrice,
-          type: 'PACKAGE_PURCHASE',
-          payerId: user.id,
-          receiptImage,
-          profitAmount,
-        },
-      });
-    }
-  }
+    const financeTransactions: Array<Prisma.PrismaPromise<any>> = [];
 
-  async purchasePaymentRequest(user: User, input: PurchasePaymentRequestInput): Promise<PaymentReq> {
-    const id = input?.id || uuid();
-    let receiptBuffer: Buffer | undefined;
-    let receiptImage: string | undefined;
-    let parentProfit: number | undefined;
-    let profitAmount: number | undefined;
+    for (const currentUser of users) {
+      const parent = usersDic?.[currentUser?.parentId || ''];
+      const child = users.find((u) => u?.parentId === currentUser.id);
 
-    if (input?.receipt) {
-      [receiptBuffer, receiptImage] = await this.uploadReceiptPermanently(id, input.receipt);
-    }
+      const price = ceilTo(
+        input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent)),
+        0,
+      );
+      const discountedPrice = ceilTo(input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent)), 0);
+      const discountAmount = price - discountedPrice;
+      const sellPrice = child
+        ? ceilTo(input.package.price * (1 - pctToDec(child.appliedDiscountPercent)), 0)
+        : undefined;
+      const sellProfit = sellPrice ? sellPrice - discountedPrice : undefined;
 
-    if (!input.receipt) {
-      profitAmount = await this.purchasePackByBalance(user, input);
-    }
+      const finalProfit = sellPrice ? sellProfit : discountAmount;
+      const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
 
-    if (receiptImage && user.parentId) {
-      parentProfit = await this.updateParentBalanceByReceipt(user, input);
-    }
+      financeTransactions.push(
+        this.prisma.payment.create({
+          data: {
+            amount: discountedPrice,
+            type: 'PACKAGE_PURCHASE',
+            payerId: currentUser.id,
+            receiptImage,
+            userPackageId: input.userPackageId,
+            profitAmount,
+          },
+        }),
+      );
 
-    await this.prisma.payment.create({
-      data: {
-        id,
-        amount: input.amount,
-        type: 'PACKAGE_PURCHASE',
-        payerId: user.id,
-        receiptImage,
+      if (currentUser.id !== user.id) {
+        financeTransactions.push(
+          this.prisma.user.update({
+            where: {
+              id: currentUser.id,
+            },
+            data: {
+              balance: {
+                decrement: discountedPrice,
+              },
+            },
+          }),
+        );
+      }
+
+      buyPackMessages.push({
+        discountedPrice,
         profitAmount,
-        parentProfit,
+        receiptBuffer,
+        sellPrice,
+        inRenew: input.inRenew,
+        pack: input.package,
+        price,
+        user: currentUser,
+        userId: currentUser.id,
+        userPackageName: input.userPackageName,
+      });
+    }
+
+    const telegramUsers = await this.prisma.telegramUser.findMany({
+      where: {
+        userId: {
+          in: buyPackMessages.map(b => b.userId),
+        }
       },
     });
 
-    return { receiptBuffer, profitAmount, parentProfit };
+    const telegramMessages = await this.getBuyPackMessages({buyPackMessages, telegramUsers, userPackageId: input.userPackageId, receiptBuffer});
+
+    return [financeTransactions, telegramMessages];
   }
+
+  // async purchasePaymentRequest(user: User, input: PurchasePaymentRequestInput): Promise<PaymentReq> {
+  //   const id = input?.id || uuid();
+  //   let receiptBuffer: Buffer | undefined;
+  //   let receiptImage: string | undefined;
+  //   let parentProfit: number | undefined;
+  //   let profitAmount: number | undefined;
+
+  //   if (input?.receipt) {
+  //     [receiptBuffer, receiptImage] = await this.uploadReceiptPermanently(id, input.receipt);
+  //   }
+
+  //   if (!input.receipt) {
+  //     profitAmount = await this.purchasePackByBalance(user, input);
+  //   }
+
+  //   if (receiptImage && user.parentId) {
+  //     parentProfit = await this.updateParentBalanceByReceipt(user, input);
+  //   }
+
+  //   await this.prisma.payment.create({
+  //     data: {
+  //       id,
+  //       amount: input.amount,
+  //       type: 'PACKAGE_PURCHASE',
+  //       payerId: user.id,
+  //       receiptImage,
+  //       profitAmount,
+  //       parentProfit,
+  //     },
+  //   });
+
+  //   return { receiptBuffer, profitAmount, parentProfit };
+  // }
 
   async rechargePaymentRequest(user: User, input: RechargePaymentRequestInput): Promise<PaymentReq> {
     const id = input?.id || uuid();
     let receiptBuffer: Buffer | undefined;
     let receiptImage: string | undefined;
-    // let parentProfit: number | undefined;
-    // let profitAmount: number | undefined;
 
     if (input?.receipt) {
       [receiptBuffer, receiptImage] = await this.uploadReceiptPermanently(id, input.receipt);
     }
-
-    // if (receiptImage && user.parentId) {
-    //   parentProfit = await this.updateParentBalanceByReceipt(user, input);
-    // }
 
     if (!receiptImage) {
       throw new BadRequestException('Error in uploading receipt image.');
@@ -254,6 +382,19 @@ export class PaymentService {
       },
     });
 
+    if (user?.parentId) {
+      await this.prisma.user.update({
+        where: {
+          id: user.parentId,
+        },
+        data: {
+          balance: {
+            decrement: input.amount,
+          },
+        },
+      });
+    }
+
     await this.prisma.payment.create({
       data: {
         id,
@@ -261,8 +402,6 @@ export class PaymentService {
         type: 'WALLET_RECHARGE',
         payerId: user.id,
         receiptImage,
-        // profitAmount: profitAmount || input.profitAmount,
-        // parentProfit,
       },
     });
 
@@ -450,5 +589,57 @@ export class PaymentService {
     ]);
 
     return userModel;
+  }
+
+  async getBuyPackMessages(input: GetBuyPackMessages): Promise<TelegramMessage[]> {
+    const telegramMessages: TelegramMessage[] = [];
+    const telegramUsersDic = arrayToDic(input.telegramUsers, 'userId');
+    const buyPackMessagesDic = arrayToDic(input.buyPackMessages, 'userId');
+
+
+    for (const buyPackMessage of input.buyPackMessages) {
+      if (buyPackMessage.user.role !== 'ADMIN') {
+        continue;
+      }
+
+      const caption = this.nestedBuyPackageTxt(buyPackMessage.userId, buyPackMessagesDic);
+      const chatId = Number(telegramUsersDic[buyPackMessage.userId].chatId);
+      let source: Buffer | undefined;
+      let replyMarkup: TelegramReplyMarkup | undefined;
+    
+      if (input.receiptBuffer) {
+        source = input.receiptBuffer;
+        const rejectData = { R_PACK: input.userPackageId } as CallbackData;
+        const acceptData = { A_PACK: input.userPackageId } as CallbackData;
+
+        const child = buyPackMessagesDic?.[Object.keys(buyPackMessagesDic).find(userId => buyPackMessagesDic[userId].user.parentId === buyPackMessage.userId) || ''];
+
+        if (child?.user?.role !== 'ADMIN') {
+          replyMarkup = {
+            inline_keyboard: [
+              [
+                {
+                  callback_data: jsonToB64Url(rejectData as Record<string, string>),
+                  text: '❌ رد',
+                },
+                {
+                  callback_data: jsonToB64Url(acceptData as Record<string, string>),
+                  text: '✅ تایید',
+                },
+              ],
+            ],
+          }
+        }
+      }
+
+      if (!buyPackMessage.user.parentId) {
+        const brand =  await this.prisma.brand.findUniqueOrThrow({ where: { id: buyPackMessage.user.brandId }})
+        telegramMessages.push({caption, chatId: Number(brand.reportGroupId), source, brandId: buyPackMessage.user.brandId})
+      }
+
+      telegramMessages.push({caption, chatId, source, reply_markup: replyMarkup, brandId: buyPackMessage.user.brandId})
+    }
+
+    return telegramMessages;
   }
 }

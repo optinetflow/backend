@@ -18,31 +18,31 @@ enum Role {
 }
 
 model User {
-  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  phone                      String  
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  phone                      String
   password                   String // @db.VarChar(255)
-  fullname                   String  @db.VarChar(255)
-  balance                    Float    @default(0)
-  profitBalance              Float    @default(0)
-  totalProfit                Float    @default(0)
-  parentId                   String?  @db.Uuid
-  referId                    String?  @db.Uuid
-  brandId                    String?  @db.Uuid      
-  otp                        String?   
-  otpExpiration              DateTime? 
-  role                       Role     @default(USER)
-  isDisabled                 Boolean  @default(false)
-  isParentDisabled           Boolean  @default(false)
-  isVerified                 Boolean  @default(false)
+  fullname                   String    @db.VarChar(255)
+  balance                    Float     @default(0)
+  profitBalance              Float     @default(0)
+  totalProfit                Float     @default(0)
+  parentId                   String?   @db.Uuid
+  referId                    String?   @db.Uuid
+  brandId                    String   @db.Uuid
+  otp                        String?
+  otpExpiration              DateTime?
+  role                       Role      @default(USER)
+  isDisabled                 Boolean   @default(false)
+  isParentDisabled           Boolean   @default(false)
+  isVerified                 Boolean   @default(false)
   maxRechargeDiscountPercent Float?
-  profitPercent              Float    @default(0)
+  profitPercent              Float     @default(0)
   initialDiscountPercent     Float?
   appliedDiscountPercent     Float?
   description                String?
 
-  brand       Brand?         @relation(fields: [brandId], references: [id])
+  brand       Brand?        @relation(fields: [brandId], references: [id])
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children    User[]        @relation("UserParentRelation")
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
@@ -55,19 +55,19 @@ model User {
   promotion   Promotion[]
   userGift    UserGift[]
 
+  @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
   @@index([referId], name: "UserReferIdIndex")
-  @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
 }
 
 model TelegramUser {
-  chatId      BigInt?    
+  chatId      BigInt?
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String   @unique @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  phone       String?  
+  phone       String?
   firstname   String?  @db.VarChar(255)
   lastname    String?  @db.VarChar(255)
   username    String?  @db.VarChar(64)
@@ -76,8 +76,8 @@ model TelegramUser {
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([userId], name: "TelegramUserUserIdIndex")
   @@unique([chatId, userId], name: "TelegramChatIdUserIdUnique")
+  @@index([userId], name: "TelegramUserUserIdIndex")
 }
 
 model BankCard {
@@ -164,17 +164,16 @@ model Server {
   token        String // @db.VarChar(255)
   tunnelDomain String        @db.VarChar(255)
   stats        Json?
-  brandId      String?       @db.Uuid      
-  port         Int           @default(443)         
+  brandId      String?       @db.Uuid
+  port         Int           @default(443)
 
-  brand        Brand?  @relation(fields: [brandId], references: [id])
-  activeFor    Brand?  @relation("ActiveServer")
-  userPackage  UserPackage[]
-  Domain       Domain[]
-  clientStat   ClientStat[]   
-  
+  brand       Brand?        @relation(fields: [brandId], references: [id])
+  activeFor   Brand?        @relation("ActiveServer")
+  userPackage UserPackage[]
+  Domain      Domain[]
+  clientStat  ClientStat[]
+
   @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
-   
 }
 
 model Package {
@@ -213,17 +212,14 @@ model UserPackage {
   userId                 String    @db.Uuid
   serverId               String    @db.Uuid
   statId                 String    @db.Uuid
-  paymentId              String?   @db.Uuid
-  paymentKey             String?   @unique @db.Uuid
   thresholdWarningSentAt DateTime?
   orderN                 Int       @default(1)
 
-  payment       Payment?   @relation("UserPackagePaymentByIdRelation", fields: [paymentId], references: [id])
-  paymentsByKey Payment[]  @relation("UserPackagePaymentByKeyRelation")
-  package       Package    @relation(fields: [packageId], references: [id])
-  user          User       @relation(fields: [userId], references: [id])
-  server        Server     @relation(fields: [serverId], references: [id])
-  stat          ClientStat @relation(fields: [statId], references: [id])
+  package Package    @relation(fields: [packageId], references: [id])
+  user    User       @relation(fields: [userId], references: [id])
+  server  Server     @relation(fields: [serverId], references: [id])
+  stat    ClientStat @relation(fields: [statId], references: [id])
+  payments    Payment[]
 
   @@index([userId], name: "UserPackageUserIdIndex")
   @@index([orderN], name: "UserPackageOrderNIndex")
@@ -274,7 +270,6 @@ enum PaymentType {
 
 model Payment {
   id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key          String?      @db.Uuid
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   amount       Float
@@ -285,10 +280,14 @@ model Payment {
   profitAmount Float        @default(0)
   parentProfit Float        @default(0) // unusable field, should be deleted
   description  String?
+  userPackageId   String?        @db.Uuid
 
-  payer            User          @relation(fields: [payerId], references: [id])
-  userPackage      UserPackage[] @relation("UserPackagePaymentByIdRelation")
-  userPackageByKey UserPackage?  @relation("UserPackagePaymentByKeyRelation", fields: [key], references: [paymentKey])
+  payer         User         @relation(fields: [payerId], references: [id])
+  userPackage   UserPackage?  @relation(fields: [userPackageId], references: [id])
+
+
+  @@index([payerId], name: "PaymentUserIdIndex")
+  @@index([userPackageId], name: "PaymentUserPackageIdIndex")
 }
 
 // model Transation {
@@ -322,8 +321,8 @@ model Promotion {
   parentUserId  String    @db.Uuid
   giftPackageId String?   @db.Uuid
 
-  parentUser    User      @relation(fields: [parentUserId], references: [id])
-  giftPackage   Package?  @relation(fields: [giftPackageId], references: [id])
+  parentUser  User     @relation(fields: [parentUserId], references: [id])
+  giftPackage Package? @relation(fields: [giftPackageId], references: [id])
 
   @@index([code], name: "PromotionCodeIndex")
 }
@@ -346,22 +345,22 @@ model UserGift {
 }
 
 model Brand {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  domainName    String    @unique @db.VarChar(255)
-  title         String    @db.VarChar(255)
-  description   String    @db.VarChar(255)
-  botToken      String    @db.VarChar(255)
-  botUsername   String    @unique @db.VarChar(255)
-  reportGroupId String?   @db.VarChar(255)
-  backupGroupId String?   @db.VarChar(255)
-  activeServerId String?  @unique @db.Uuid
-  logo          Json?
-  Server Server[]
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  domainName     String    @unique @db.VarChar(255)
+  title          String    @db.VarChar(255)
+  description    String    @db.VarChar(255)
+  botToken       String    @db.VarChar(255)
+  botUsername    String    @unique @db.VarChar(255)
+  reportGroupId  String?   @db.VarChar(255)
+  backupGroupId  String?   @db.VarChar(255)
+  activeServerId String?   @unique @db.Uuid
+  logo           Json?
+  Server         Server[]
 
   User User[]
 
-  activeServer   Server?   @relation("ActiveServer", fields: [activeServerId], references: [id])
+  activeServer Server? @relation("ActiveServer", fields: [activeServerId], references: [id])
 }

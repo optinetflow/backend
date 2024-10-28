@@ -1,4 +1,4 @@
-import { Field, InputType, Int } from '@nestjs/graphql';
+import { Field, Float, InputType } from '@nestjs/graphql';
 import { Role } from '@prisma/client';
 import { IsOptional, Matches } from 'class-validator';
 
@@ -27,6 +27,6 @@ export class UpdateChildInput {
   @Field(() => String, { nullable: true })
   description?: string;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Float, { nullable: true })
   initialDiscountPercent: number;
 }

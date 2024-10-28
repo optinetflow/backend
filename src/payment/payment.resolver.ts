@@ -8,7 +8,7 @@ import { User } from '../users/models/user.model';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
 import { EnterCostInput } from './dto/enterCost.input';
 import { RechargePackage } from './models/rechargePackage.model';
-import { PaymentService } from './payment.service.c';
+import { PaymentService } from './payment.service';
 
 @Resolver()
 @UseGuards(GqlAuthGuard)

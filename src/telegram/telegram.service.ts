@@ -18,6 +18,21 @@ interface StartPayload {
   uid?: string;
 }
 
+export interface TelegramReplyMarkup {
+  inline_keyboard: {
+    callback_data: string;
+    text: string;
+  }[][];
+}
+
+export interface TelegramMessage {
+  brandId: string;
+  chatId: number;
+  caption: string;
+  source?: Buffer;
+  reply_markup?: TelegramReplyMarkup;
+}
+
 @Injectable()
 export class TelegramService {
   private bots: Map<string, Telegraf> = new Map<string, Telegraf>();
@@ -27,6 +42,7 @@ export class TelegramService {
     private readonly minioService: MinioClientService,
     private readonly brandService: BrandService,
     private readonly aggregatorService: AggregatorService,
+    private readonly configService: ConfigService,
   ) {
     void this.initiateBots();
   }
@@ -60,6 +76,7 @@ export class TelegramService {
           if (parsed?.R_PACK) {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n❌ رد شد';
             await ctx.editMessageCaption(caption);
+
             const userPack = await this.aggregatorService.rejectPurchasePack(parsed.R_PACK);
             const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: userPack.user.parentId! } });
             const text = `#ریجکتـبسته\n📦 ${userPack.package.traffic} گیگ - ${convertPersianCurrency(
@@ -67,18 +84,7 @@ export class TelegramService {
             )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
               userPack.user.fullname
             }\n👨 مارکتر: ${parent?.fullname}`;
-            await bot.telegram.sendMessage(userPack.user.brand?.reportGroupId as string, text, {
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: 'ورود به سایت',
-                      url: `https://${userPack.user.brand?.domainName}`,
-                    },
-                  ],
-                ],
-              },
-            });
+            await bot.telegram.sendMessage(userPack.user.brand?.reportGroupId as string, text);
           }
 
           if (parsed?.A_CHARGE) {
@@ -366,16 +372,17 @@ export class TelegramService {
 
   private createHomeScene(brand: Brand) {
     const homeScene = new Scenes.BaseScene<Scenes.SceneContext>(HOME_SCENE_ID);
+    const isDev = this.configService.get('env') === 'development';
 
     homeScene.enter(async (ctx) => {
       await ctx.reply('👌');
-      await ctx.reply(`${brand.title} (${brand.domainName})`, {
+      await ctx.reply(brand.title, {
         reply_markup: {
           inline_keyboard: [
             [
               {
                 text: 'ورود به سایت',
-                url: `https://${brand.domainName}`,
+                url: isDev ? 'https://google.com' : `https://${brand.domainName}`,
               },
             ],
           ],
@@ -384,6 +391,22 @@ export class TelegramService {
     });
 
     return homeScene;
+  }
+
+  async sendBulkMessage(telegramMessages: TelegramMessage[]) {
+    for (const telegramMessage of telegramMessages) {
+      const bot = this.getBot(telegramMessage.brandId);
+      if (telegramMessage.source) {
+        bot.telegram.sendPhoto(telegramMessage.chatId, { source: telegramMessage.source }, {
+          caption: telegramMessage.caption,
+          ...(telegramMessage?.reply_markup && {
+            reply_markup: telegramMessage.reply_markup,
+          }),
+        });
+        continue;
+      }
+      bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption)
+    }
   }
 
   // private createRegisterScene() {

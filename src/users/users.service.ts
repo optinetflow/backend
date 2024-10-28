@@ -1,10 +1,10 @@
 /* eslint-disable no-return-await */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ClientStat, UserPackage } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 
 import { PasswordService } from '../auth/password.service';
-import { isRecentlyConnected, prefixFile } from '../common/helpers';
+import { isRecentlyConnected, pctToDec, prefixFile, roundTo } from '../common/helpers';
 import { TelegramUser } from '../telegram/models/telegramUser.model';
 import { XuiService } from '../xui/xui.service';
 import { ChangePasswordInput } from './dto/change-password.input';
@@ -117,17 +117,17 @@ export class UsersService {
     return resolvedChildren;
   }
 
-  async updateUser(userId: string, data: UpdateUserInput) {
-    const { cardBandNumber, cardBandName, ...updatedData } = data;
+  async updateUser(user: User, input: UpdateUserInput) {
+    const { cardBandNumber, cardBandName, ...updatedData } = input;
 
     if (cardBandNumber && cardBandName) {
       const cardData = {
-        userId,
+        userId: user.id,
         name: cardBandName,
         number: cardBandNumber,
       };
 
-      const hasBankCard = await this.prisma.bankCard.findFirst({ where: { userId } });
+      const hasBankCard = await this.prisma.bankCard.findFirst({ where: { userId: user.id } });
 
       await (hasBankCard
         ? this.prisma.bankCard.update({
@@ -141,10 +141,31 @@ export class UsersService {
           }));
     }
 
+    if (typeof input.profitPercent === 'number' && input.profitPercent !== user.profitPercent) {
+      const children = await this.prisma.user.findMany({ where: { parentId: user.id } });
+
+      const maxChildDiscount = (input.profitPercent / (100 + input.profitPercent)) * 100;
+
+      children.forEach((child) => {
+        if ((child.initialDiscountPercent || 0) > maxChildDiscount) {
+          throw new NotAcceptableException(
+            `${child.fullname} تخفیف ${child.initialDiscountPercent}٪ دارد.\nبیشترین درصد تخفیف مشتری‌های شما ${roundTo(
+              maxChildDiscount,
+              2,
+            )}٪ می‌تواند باشد (بر اساس ${input.profitPercent}٪ سود).`,
+          );
+        }
+      });
+
+      for (const child of children) {
+        await this.nestedUpdateADiscount({ ...user, profitPercent: input.profitPercent }, child);
+      }
+    }
+
     return this.prisma.user.update({
       data: updatedData,
       where: {
-        id: userId,
+        id: user.id,
       },
     });
   }
@@ -183,9 +204,32 @@ export class UsersService {
     `;
   }
 
+  async nestedUpdateADiscount(parent: User, child: User): Promise<void> {
+    const parentDiscount = pctToDec(parent.appliedDiscountPercent || 0);
+    const parentProfit = pctToDec(parent.profitPercent || 0);
+    const childDiscount = pctToDec(child.initialDiscountPercent || 0);
+
+    const appliedDiscountPercent = 100 - (1 - parentDiscount) * (1 + parentProfit) * (1 - childDiscount) * 100;
+
+    const updatedChild = await this.prisma.user.update({
+      data: {
+        initialDiscountPercent: child.initialDiscountPercent || 0,
+        appliedDiscountPercent,
+      },
+      where: {
+        id: child.id,
+      },
+    });
+
+    const childrenOfChild = await this.prisma.user.findMany({ where: { parentId: child.id } });
+
+    for (const childOfChild of childrenOfChild) {
+      await this.nestedUpdateADiscount(updatedChild, childOfChild);
+    }
+  }
+
   async updateChild(user: User, input: UpdateChildInput) {
     const { childId, ...data } = input;
-    let appliedDiscountPercent: number | undefined;
 
     const child = await this.prisma.user.findUniqueOrThrow({ where: { id: childId } });
 
@@ -201,20 +245,25 @@ export class UsersService {
       await this.xuiService.toggleUserBlock(childId, input.isDisabled);
     }
 
-    if (input?.initialDiscountPercent) {
-      const parentDiscount = (user.appliedDiscountPercent || 0) / 100;
-      const parentProfit = user.profitPercent / 100;
-      const childDiscount = input?.initialDiscountPercent / 100;
+    if (
+      typeof input?.initialDiscountPercent === 'number' &&
+      child.initialDiscountPercent !== input.initialDiscountPercent
+    ) {
+      const maxChildDiscount = (user.profitPercent / (100 + user.profitPercent)) * 100;
 
-      appliedDiscountPercent =
-        ((childDiscount + parentDiscount - parentDiscount * childDiscount - parentProfit) * 100) / (1 - parentProfit);
+      if (maxChildDiscount < input.initialDiscountPercent) {
+        throw new NotAcceptableException(
+          `با این درصد تخفیف شما ضرر می‌کنید. بالاترین درصد تخفیف که ضرر نکنید ${roundTo(maxChildDiscount, 2)}٪ است.`,
+        );
+      }
+
+      await this.nestedUpdateADiscount(user, { ...child, initialDiscountPercent: input.initialDiscountPercent });
     }
 
     return this.prisma.user.update({
       data: {
         ...data,
         ...(data?.password && { password: await this.passwordService.hashPassword(data.password) }),
-        ...(appliedDiscountPercent && { appliedDiscountPercent }),
       },
       where: {
         parentId: user.id,

@@ -51,7 +51,7 @@ type Child {
   balance: Float!
   bankCard: [BankCard!]
   brand: Brand
-  brandId: String
+  brandId: String!
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -296,7 +296,7 @@ input UpdateChildInput {
   childId: String!
   description: String
   fullname: String
-  initialDiscountPercent: Int
+  initialDiscountPercent: Float
   isDisabled: Boolean
   password: String
   phone: String
@@ -314,7 +314,7 @@ input UpdateUserInput {
   fullname: String
   password: String
   phone: String
-  profitPercent: Int
+  profitPercent: Float
 }
 
 """The `Upload` scalar type represents a file upload."""
@@ -329,7 +329,7 @@ type User {
   balance: Float!
   bankCard: [BankCard!]
   brand: Brand
-  brandId: String
+  brandId: String!
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
