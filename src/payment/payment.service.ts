@@ -124,9 +124,13 @@ export class PaymentService {
 
     if (!child) {
       const profitPercent = (1 - (buyPackMessage.discountedPrice / buyPackMessage.price)) * 100;
-      txt += `\n💰 قیمت واقعی: ${convertPersianCurrency(buyPackMessage.price)}`;
-      txt += `\n🏷️ قیمت پس از تخفیف: ${convertPersianCurrency(buyPackMessage.discountedPrice)}`;
-      txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
+      if (buyPackMessage.profitAmount) {
+        txt += `\n💰 قیمت واقعی: ${convertPersianCurrency(buyPackMessage.price)}`;
+        txt += `\n🏷️ قیمت پس از تخفیف: ${convertPersianCurrency(buyPackMessage.discountedPrice)}`;
+        txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
+      } else {
+        txt += `\n💰 قیمت خرید: ${convertPersianCurrency(buyPackMessage.price)}`;
+      }
     }
 
     if (child) {
