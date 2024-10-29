@@ -386,19 +386,6 @@ export class PaymentService {
       },
     });
 
-    if (user?.parentId) {
-      await this.prisma.user.update({
-        where: {
-          id: user.parentId,
-        },
-        data: {
-          balance: {
-            decrement: input.amount,
-          },
-        },
-      });
-    }
-
     await this.prisma.payment.create({
       data: {
         id,
