@@ -115,6 +115,10 @@ export class PaymentService {
     }
 
     const child = buyPackMessagesDic?.[Object.keys(buyPackMessagesDic).find(userId => buyPackMessagesDic[userId].user.parentId === firstUserId) || ''];
+    if (child && child?.user?.id) {
+      txt += `${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true)}`;
+    }
+
     txt += `\n\n👤 ${buyPackMessage.user.fullname}`;
 
     if (buyPackMessage.user.role === 'ADMIN') {
@@ -140,9 +144,7 @@ export class PaymentService {
       txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
     }
 
-    if (child && child?.user?.id) {
-      txt += `\n${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true)}`;
-    }
+    
 
     return txt;
   }
