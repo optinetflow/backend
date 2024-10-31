@@ -24,7 +24,6 @@ import { TelegramService } from './../telegram/telegram.service';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
-import { Package } from './models/package.model';
 import { UserPackage } from './models/userPackage.model';
 import { CreatePackageInput } from './package.types';
 
@@ -94,12 +93,12 @@ export class PackageService {
       throw new BadRequestException('Your account is blocked!');
     }
 
-    const server = await this.getFreeServer(user);
     const pack = await this.prisma.package.findUniqueOrThrow({
       where: {
         id: input.packageId,
       },
     });
+    const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
@@ -415,10 +414,11 @@ export class PackageService {
   async getPackages(user: User, filters: GetPackageInput, id?: string): Promise<DiscountedPackage[]> {
     const {category, expirationDays} = filters
     const packages = await this.prisma.package.findMany({
-      where: { deletedAt: null, forRole: { has: user.role }, id },
-      orderBy: { order: 'asc' },
+      where: { deletedAt: null, forRole: { has: user.role }, id,
       category: category ? category : undefined,
-        expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined,
+      expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined
+     },
+      orderBy: { order: 'asc' },
     });
 
     const parent = user?.parentId ? await this.prisma.user.findUnique({ where: { id: user?.parentId } }) : null;
