@@ -288,7 +288,7 @@ export class PaymentService {
         }),
       );
 
-      if (currentUser.id !== user.id) {
+      if (currentUser.role === 'ADMIN') {
         financeTransactions.push(
           this.prisma.user.update({
             where: {
