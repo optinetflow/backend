@@ -176,7 +176,7 @@ model Server {
   userPackage UserPackage[]
   Domain      Domain[]
   clientStat  ClientStat[]
-  BrandServerCategory BrandServerCategory[]
+  ActiveServer ActiveServer[]
 
 
   @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
@@ -262,7 +262,7 @@ model ClientStat {
   @@index([up], name: "ClientStatUpIndex")
 }
 
-model BrandServerCategory {
+model ActiveServer {
   id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -383,5 +383,5 @@ model Brand {
 
   User User[]
 
-  BrandServerCategory BrandServerCategory[]
+  ActiveServer ActiveServer[]
 }

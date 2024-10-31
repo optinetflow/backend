@@ -128,7 +128,7 @@ Table Server {
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
-  BrandServerCategory BrandServerCategory [not null]
+  ActiveServer ActiveServer [not null]
 
   indexes {
     (domain, brandId) [unique]
@@ -201,7 +201,7 @@ Table ClientStat {
   Package UserPackage [not null]
 }
 
-Table BrandServerCategory {
+Table ActiveServer {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
@@ -273,7 +273,7 @@ Table Brand {
   logo Json
   Server Server [not null]
   User User [not null]
-  BrandServerCategory BrandServerCategory [not null]
+  ActiveServer ActiveServer [not null]
 }
 
 Enum Role {
@@ -339,9 +339,9 @@ Ref: UserPackage.statId > ClientStat.id
 
 Ref: ClientStat.serverId > Server.id
 
-Ref: BrandServerCategory.brandId > Brand.id
+Ref: ActiveServer.brandId > Brand.id
 
-Ref: BrandServerCategory.activeServerId > Server.id
+Ref: ActiveServer.activeServerId > Server.id
 
 Ref: Payment.payerId > User.id
 

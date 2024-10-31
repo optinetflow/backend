@@ -64,7 +64,7 @@ export class PackageService {
       throw new NotAcceptableException('Brand is not found for this user');
     }
 
-    const brandPackageServer = await this.prisma.brandServerCategory.findUnique({
+    const activeServer = await this.prisma.activeServer.findUnique({
       where: {
         BrandCategoryUnique: {
           brandId: user.brandId,
@@ -76,13 +76,13 @@ export class PackageService {
       },
     });
 
-    if (!brandPackageServer?.server) {
+    if (!activeServer?.server) {
       throw new NotAcceptableException(
         `No active server found for brand ${user.brandId} and category ${pack.category}`,
       );
     }
 
-    return brandPackageServer.server;
+    return activeServer.server;
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
