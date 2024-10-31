@@ -4,6 +4,7 @@ import { Field, ObjectType } from '@nestjs/graphql';
 
 import { BaseModel } from '../../common/models/base.model';
 import { BigNumberScalar } from '../../common/scalars/bigNumber';
+import { Package } from './package.model';
 
 @ObjectType()
 export class UserPackage extends BaseModel {
@@ -24,4 +25,7 @@ export class UserPackage extends BaseModel {
 
   @Field(() => Date, { nullable: true })
   lastConnectedAt?: Date | null;
+
+  @Field(() => Package)
+  package: Package;
 }

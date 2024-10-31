@@ -334,6 +334,7 @@ export class PackageService {
             brand: true,
           },
         },
+        package: true
       },
       where: {
         userId: user.id,
@@ -351,6 +352,7 @@ export class PackageService {
         createdAt: userPack.createdAt,
         updatedAt: userPack.updatedAt,
         name: userPack.name,
+        package: userPack.package,
         link: getVlessLink(
           userPack.statId,
           userPack.server.tunnelDomain,

@@ -384,6 +384,7 @@ type UserPackage {
   lastConnectedAt: DateTime
   link: String!
   name: String!
+  package: Package!
   remainingTraffic: BigNumber!
   totalTraffic: BigNumber!
 
