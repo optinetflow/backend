@@ -125,10 +125,10 @@ Table Server {
   brandId String
   port Int [not null, default: 443]
   brand Brand
-  activeFor Brand
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
+  ActiveServer ActiveServer [not null]
 
   indexes {
     (domain, brandId) [unique]
@@ -144,6 +144,7 @@ Table Package {
   expirationDays Float [not null]
   price Float [not null]
   userCount Int [not null]
+  category PackageCategory [not null, default: 'QUALITY']
   order Int
   forRole Role[] [not null]
   userPackage UserPackage [not null]
@@ -200,6 +201,21 @@ Table ClientStat {
   Package UserPackage [not null]
 }
 
+Table ActiveServer {
+  id String [pk]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  brandId String [not null]
+  category PackageCategory [not null]
+  activeServerId String [not null]
+  brand Brand [not null]
+  server Server [not null]
+
+  indexes {
+    (brandId, category) [unique]
+  }
+}
+
 Table Payment {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
@@ -254,16 +270,20 @@ Table Brand {
   botUsername String [unique, not null]
   reportGroupId String
   backupGroupId String
-  activeServerId String [unique]
   logo Json
   Server Server [not null]
   User User [not null]
-  activeServer Server
+  ActiveServer ActiveServer [not null]
 }
 
 Enum Role {
   ADMIN
   USER
+}
+
+Enum PackageCategory {
+  ECONOMIC
+  QUALITY
 }
 
 Enum DomainState {
@@ -319,6 +339,10 @@ Ref: UserPackage.statId > ClientStat.id
 
 Ref: ClientStat.serverId > Server.id
 
+Ref: ActiveServer.brandId > Brand.id
+
+Ref: ActiveServer.activeServerId > Server.id
+
 Ref: Payment.payerId > User.id
 
 Ref: Payment.userPackageId > UserPackage.id
@@ -330,5 +354,3 @@ Ref: Promotion.giftPackageId > Package.id
 Ref: UserGift.userId > User.id
 
 Ref: UserGift.giftPackageId > Package.id
-
-Ref: Brand.activeServerId - Server.id

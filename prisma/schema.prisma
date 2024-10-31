@@ -17,6 +17,11 @@ enum Role {
   USER
 }
 
+enum PackageCategory {
+  ECONOMIC
+  QUALITY
+}
+
 model User {
   id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt                  DateTime  @default(now())
@@ -161,17 +166,18 @@ model Server {
   type         ServerCountry
   domain       String        @db.VarChar(255)
   inboundId    Int           @default(1)
-  token        String // @db.VarChar(255)
+  token        String 
   tunnelDomain String        @db.VarChar(255)
   stats        Json?
   brandId      String?       @db.Uuid
   port         Int           @default(443)
 
   brand       Brand?        @relation(fields: [brandId], references: [id])
-  activeFor   Brand?        @relation("ActiveServer")
   userPackage UserPackage[]
   Domain      Domain[]
   clientStat  ClientStat[]
+  ActiveServer ActiveServer[]
+
 
   @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
 }
@@ -185,6 +191,7 @@ model Package {
   expirationDays Float
   price          Float
   userCount      Int
+  category       PackageCategory @default(QUALITY)
   order          Int?
   forRole        Role[]        @default([ADMIN, USER])
   userPackage    UserPackage[]
@@ -254,6 +261,21 @@ model ClientStat {
   @@index([down], name: "ClientStatDownIndex")
   @@index([up], name: "ClientStatUpIndex")
 }
+
+model ActiveServer {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  brandId     String          @db.Uuid
+  category    PackageCategory
+  activeServerId    String    @db.Uuid 
+
+  brand       Brand           @relation(fields: [brandId], references: [id])
+  server      Server          @relation(fields: [activeServerId], references: [id])
+
+  @@unique([brandId, category], name: "BrandCategoryUnique")
+}
+
 
 enum PaymentState {
   PENDING
@@ -345,22 +367,21 @@ model UserGift {
 }
 
 model Brand {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
-  domainName     String    @unique @db.VarChar(255)
-  title          String    @db.VarChar(255)
-  description    String    @db.VarChar(255)
-  botToken       String    @db.VarChar(255)
-  botUsername    String    @unique @db.VarChar(255)
-  reportGroupId  String?   @db.VarChar(255)
-  backupGroupId  String?   @db.VarChar(255)
-  activeServerId String?   @unique @db.Uuid
-  logo           Json?
-  Server         Server[]
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  domainName    String    @unique @db.VarChar(255)
+  title         String    @db.VarChar(255)
+  description   String    @db.VarChar(255)
+  botToken      String    @db.VarChar(255)
+  botUsername   String    @unique @db.VarChar(255)
+  reportGroupId String?   @db.VarChar(255)
+  backupGroupId String?   @db.VarChar(255)
+  logo          Json?
+  Server Server[]
 
   User User[]
 
-  activeServer Server? @relation("ActiveServer", fields: [activeServerId], references: [id])
+  ActiveServer ActiveServer[]
 }
