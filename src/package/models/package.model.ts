@@ -21,6 +21,9 @@ export class Package extends BaseModel {
   @Field(() => Int)
   price: number;
 
+  @Field(() => Int, { nullable: true })
+  discountedPrice?: number;
+
   @Field(() => Int)
   userCount: number;
 

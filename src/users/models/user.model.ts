@@ -82,8 +82,8 @@ export class User extends BaseModel {
   @Field(() => String, { nullable: true })
   parentId?: string | null;
 
-  @Field(() => String, { nullable: true })
-  brandId?: string | null;
+  @Field(() => String)
+  brandId: string;
 
   @Field(() => String, { nullable: true })
   referId?: string | null;

@@ -404,6 +404,7 @@ module.exports = {
     '@typescript-eslint/consistent-type-imports': 'off',
     '@typescript-eslint/no-unsafe-argument': 'off',
     'no-await-in-loop': 'off',
-    'import/no-unresolved': 'off'
+    'import/no-unresolved': 'off',
+    '@typescript-eslint/no-explicit-any': 'warning'
   },
 };

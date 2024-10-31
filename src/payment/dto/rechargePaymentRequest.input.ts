@@ -15,8 +15,8 @@ export class RechargePaymentRequestInput {
   @Field(() => Int)
   amount: number;
 
-  @Field(() => Int, { nullable: true })
-  profitAmount?: number;
+  // @Field(() => Int, { nullable: true })
+  // profitAmount?: number;
 
   @Field()
   @IsUUID()

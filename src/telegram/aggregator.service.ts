@@ -1,7 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Prisma, Server, UserPackage, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { AxiosRequestConfig } from 'axios';
 import * as Cookie from 'cookie';
 import https from 'https';
@@ -26,11 +26,10 @@ export class AggregatorService {
     private readonly httpService: HttpService,
   ) {}
 
-  async acceptPurchasePack(userPackId: string): Promise<void> {
-    const userPack = await this.prisma.userPackage.findUniqueOrThrow({ where: { id: userPackId } });
-    await this.prisma.payment.update({
+  async acceptPurchasePack(userPackageId: string): Promise<void> {
+    await this.prisma.payment.updateMany({
       where: {
-        id: userPack.paymentId!,
+        userPackageId,
       },
       data: {
         status: 'APPLIED',
@@ -38,9 +37,9 @@ export class AggregatorService {
     });
   }
 
-  async rejectPurchasePack(userPackId: string) {
+  async rejectPurchasePack(userPackageId: string) {
     const userPack = await this.prisma.userPackage.findUniqueOrThrow({
-      where: { id: userPackId },
+      where: { id: userPackageId },
       include: {
         user: {
           include: {
@@ -50,40 +49,56 @@ export class AggregatorService {
         package: true,
       },
     });
-    const payment = await this.prisma.payment.update({
+    const payments = await this.prisma.payment.findMany({
       where: {
-        id: userPack.paymentId!,
-      },
-      data: {
-        status: 'REJECTED',
+        userPackageId,
       },
     });
 
-    await this.prisma.user.update({
-      where: {
-        id: userPack.user.parentId!,
-      },
-      data: {
-        balance: {
-          increment: payment.amount,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const financeTransactions: Array<Prisma.PrismaPromise<any>> = [];
+    financeTransactions.push(
+      this.prisma.payment.updateMany({
+        where: {
+          userPackageId,
         },
-        profitBalance: {
-          increment: payment.parentProfit,
+        data: {
+          status: 'REJECTED',
         },
-        totalProfit: {
-          decrement: payment.parentProfit,
+      }),
+      this.prisma.userPackage.update({
+        where: { id: userPackageId },
+        data: {
+          deletedAt: new Date(),
         },
-      },
-    });
+      }),
+    );
 
-    await this.prisma.userPackage.update({
-      where: { id: userPackId },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
+    for (const payment of payments) {
+      if (userPack.user.id !== payment.payerId) {
+        financeTransactions.push(
+          this.prisma.user.update({
+            where: {
+              id: payment.payerId,
+            },
+            data: {
+              balance: {
+                increment: payment.amount,
+              },
+            },
+          }),
+        );
+      }
+    }
 
-    await this.deleteClient(userPack.statId);
+    await this.prisma.$transaction(financeTransactions);
+
+    const isDev = this.configService.get('env') === 'development';
+
+    if (!isDev) {
+      await this.deleteClient(userPack.statId);
+    }
+
     await this.toggleUserBlock(userPack.userId, true);
 
     return userPack;
@@ -101,52 +116,54 @@ export class AggregatorService {
   }
 
   async rejectRechargePack(paymentId: string): Promise<User> {
-    const payment = await this.prisma.payment.update({
+    const payment = await this.prisma.payment.findUniqueOrThrow({
       where: {
         id: paymentId,
-      },
-      data: {
-        status: 'REJECTED',
       },
     });
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: payment.payerId } });
 
-    await this.prisma.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        balance: {
-          decrement: payment.amount,
-        },
-        profitBalance: {
-          decrement: payment.profitAmount,
-        },
-      },
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const financeTransactions: Array<Prisma.PrismaPromise<any>> = [];
 
-    const realProfit = payment.parentProfit - (payment?.profitAmount || 0);
-    await this.prisma.user.update({
-      where: {
-        id: user.parentId!,
-      },
-      data: {
-        balance: {
-          increment: payment.amount,
+    financeTransactions.push(
+      this.prisma.payment.update({
+        where: {
+          id: paymentId,
         },
-        profitBalance: {
-          increment: payment.parentProfit,
+        data: {
+          status: 'REJECTED',
         },
-        totalProfit: {
-          decrement: realProfit,
+      }),
+      this.prisma.user.update({
+        where: {
+          id: user.id,
         },
-      },
-    });
+        data: {
+          balance: {
+            decrement: payment.amount,
+          },
+        },
+      }),
+      this.prisma.user.update({
+        where: {
+          id: user.parentId!,
+        },
+        data: {
+          balance: {
+            increment: payment.amount,
+          },
+        },
+      }),
+    );
+
+    await this.prisma.$transaction(financeTransactions);
 
     return user;
   }
 
   async toggleUserBlock(userId: string, isBlocked: boolean) {
+    const isDev = this.configService.get('env') === 'development';
     const userPacks = await this.prisma.userPackage.findMany({
       where: {
         userId,
@@ -182,7 +199,9 @@ export class AggregatorService {
 
     for (const [i, statId] of allStatIds.entries()) {
       await queue.add(async () => {
-        await this.toggleClientState(statId, !isBlocked);
+        if (!isDev) {
+          await this.toggleClientState(statId, !isBlocked);
+        }
       });
     }
 
@@ -217,6 +236,7 @@ export class AggregatorService {
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
+    const userPackageId = uuid();
 
     await this.addClient(user, {
       id,
@@ -232,7 +252,8 @@ export class AggregatorService {
       orderBy: { orderN: 'desc' },
     });
 
-    const userPack = await this.createPackage(user, {
+    const createPackageTransactions =this.createPackage(user, {
+      userPackageId,
       id,
       subId,
       email,
@@ -241,6 +262,10 @@ export class AggregatorService {
       package: pack,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
+
+    await this.prisma.$transaction(createPackageTransactions);
+
+    const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
 
     await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
 
@@ -286,7 +311,7 @@ export class AggregatorService {
     });
 
     if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw new BadRequestException(errors.xui.deleteClientError);
     }
   }
 
@@ -431,7 +456,7 @@ export class AggregatorService {
     }
   }
 
-  private async createPackage(user: User, input: CreatePackageInput): Promise<UserPackagePrisma> {
+  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<any>> {
     try {
       const clientStat = {
         id: input.id,
@@ -448,7 +473,7 @@ export class AggregatorService {
         email: input.email,
       };
 
-      const [_, userPackage] = await this.prisma.$transaction([
+      return [
         this.prisma.clientStat.upsert({
           where: {
             id: input.id,
@@ -458,18 +483,16 @@ export class AggregatorService {
         }),
         this.prisma.userPackage.create({
           data: {
+            id: input.userPackageId,
             packageId: input.package.id,
             serverId: input.server.id,
             userId: user.id,
             statId: input.id,
-            paymentId: input.paymentId,
             name: input.name,
             orderN: input.orderN,
           },
         }),
-      ]);
-
-      return userPackage;
+      ];
     } catch (error) {
       console.error(error);
 

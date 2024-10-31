@@ -23,31 +23,31 @@ enum PackageCategory {
 }
 
 model User {
-  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  phone                      String  
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  phone                      String
   password                   String // @db.VarChar(255)
-  fullname                   String  @db.VarChar(255)
-  balance                    Float    @default(0)
-  profitBalance              Float    @default(0)
-  totalProfit                Float    @default(0)
-  parentId                   String?  @db.Uuid
-  referId                    String?  @db.Uuid
-  brandId                    String?  @db.Uuid      
-  otp                        String?   
-  otpExpiration              DateTime? 
-  role                       Role     @default(USER)
-  isDisabled                 Boolean  @default(false)
-  isParentDisabled           Boolean  @default(false)
-  isVerified                 Boolean  @default(false)
+  fullname                   String    @db.VarChar(255)
+  balance                    Float     @default(0)
+  profitBalance              Float     @default(0)
+  totalProfit                Float     @default(0)
+  parentId                   String?   @db.Uuid
+  referId                    String?   @db.Uuid
+  brandId                    String   @db.Uuid
+  otp                        String?
+  otpExpiration              DateTime?
+  role                       Role      @default(USER)
+  isDisabled                 Boolean   @default(false)
+  isParentDisabled           Boolean   @default(false)
+  isVerified                 Boolean   @default(false)
   maxRechargeDiscountPercent Float?
-  profitPercent              Float    @default(0)
+  profitPercent              Float     @default(0)
   initialDiscountPercent     Float?
   appliedDiscountPercent     Float?
   description                String?
 
-  brand       Brand?         @relation(fields: [brandId], references: [id])
+  brand       Brand?        @relation(fields: [brandId], references: [id])
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children    User[]        @relation("UserParentRelation")
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
@@ -60,19 +60,19 @@ model User {
   promotion   Promotion[]
   userGift    UserGift[]
 
+  @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
   @@index([referId], name: "UserReferIdIndex")
-  @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
 }
 
 model TelegramUser {
-  chatId      BigInt?    
+  chatId      BigInt?
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String   @unique @db.Uuid
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  phone       String?  
+  phone       String?
   firstname   String?  @db.VarChar(255)
   lastname    String?  @db.VarChar(255)
   username    String?  @db.VarChar(64)
@@ -81,8 +81,8 @@ model TelegramUser {
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([userId], name: "TelegramUserUserIdIndex")
   @@unique([chatId, userId], name: "TelegramChatIdUserIdUnique")
+  @@index([userId], name: "TelegramUserUserIdIndex")
 }
 
 model BankCard {
@@ -104,7 +104,7 @@ model File {
   updatedAt DateTime @updatedAt
   userId    String   @db.Uuid
   name      String   @db.VarChar(255)
- 
+
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId], name: "FileUserIdIndex")
@@ -169,14 +169,15 @@ model Server {
   token        String 
   tunnelDomain String        @db.VarChar(255)
   stats        Json?
-  brandId      String?       @db.Uuid      
-  port         Int           @default(443)         
+  brandId      String?       @db.Uuid
+  port         Int           @default(443)
 
-  brand        Brand?  @relation(fields: [brandId], references: [id])
-  userPackage  UserPackage[]
-  Domain       Domain[]
-  clientStat   ClientStat[]   
+  brand       Brand?        @relation(fields: [brandId], references: [id])
+  userPackage UserPackage[]
+  Domain      Domain[]
+  clientStat  ClientStat[]
   BrandServerCategory BrandServerCategory[]
+
 
   @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
 }
@@ -218,15 +219,14 @@ model UserPackage {
   userId                 String    @db.Uuid
   serverId               String    @db.Uuid
   statId                 String    @db.Uuid
-  paymentId              String?   @db.Uuid
   thresholdWarningSentAt DateTime?
   orderN                 Int       @default(1)
 
-  payment Payment?   @relation(fields: [paymentId], references: [id])
   package Package    @relation(fields: [packageId], references: [id])
   user    User       @relation(fields: [userId], references: [id])
   server  Server     @relation(fields: [serverId], references: [id])
   stat    ClientStat @relation(fields: [statId], references: [id])
+  payments    Payment[]
 
   @@index([userId], name: "UserPackageUserIdIndex")
   @@index([orderN], name: "UserPackageOrderNIndex")
@@ -300,11 +300,16 @@ model Payment {
   receiptImage String?      @db.VarChar(255)
   payerId      String       @db.Uuid
   profitAmount Float        @default(0)
-  parentProfit Float        @default(0)
+  parentProfit Float        @default(0) // unusable field, should be deleted
   description  String?
+  userPackageId   String?        @db.Uuid
 
-  payer       User          @relation(fields: [payerId], references: [id])
-  userPackage UserPackage[]
+  payer         User         @relation(fields: [payerId], references: [id])
+  userPackage   UserPackage?  @relation(fields: [userPackageId], references: [id])
+
+
+  @@index([payerId], name: "PaymentUserIdIndex")
+  @@index([userPackageId], name: "PaymentUserPackageIdIndex")
 }
 
 // model Transation {
@@ -338,13 +343,11 @@ model Promotion {
   parentUserId  String    @db.Uuid
   giftPackageId String?   @db.Uuid
 
-  parentUser    User      @relation(fields: [parentUserId], references: [id])
-  giftPackage   Package?  @relation(fields: [giftPackageId], references: [id])
+  parentUser  User     @relation(fields: [parentUserId], references: [id])
+  giftPackage Package? @relation(fields: [giftPackageId], references: [id])
 
   @@index([code], name: "PromotionCodeIndex")
 }
-
-
 
 model UserGift {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

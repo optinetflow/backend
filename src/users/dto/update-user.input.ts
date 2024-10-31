@@ -1,4 +1,4 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, Float, InputType } from '@nestjs/graphql';
 import { IsOptional, Matches } from 'class-validator';
 
 @InputType()
@@ -19,4 +19,7 @@ export class UpdateUserInput {
 
   @Field(() => String, { nullable: true })
   cardBandName?: string;
+
+  @Field(() => Float, { nullable: true })
+  profitPercent?: number;
 }
