@@ -178,12 +178,15 @@ export class AuthService {
     brand: Brand,
     parentId: string | undefined,
   ) {
-    const reseller = parentId ? await this.prisma.user.findUnique({ where: { id: parentId } }) : null;
+    const reseller = parentId ? await this.prisma.user.findUnique({ where: { id: parentId }, include: {telegram:true} }) : null;
     const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
     const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname}${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
     const bot = this.telegramService.getBot(brand.id);
 
     await bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
+    if(reseller && reseller.telegram?.chatId) {  
+      await bot.telegram.sendMessage(Number(reseller.telegram.chatId), reportCaption);
+    }
   }
 
   private async assignGiftToUser(userId: string, promo: Promotion) {
