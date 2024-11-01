@@ -1,5 +1,4 @@
 import { UseGuards } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaService } from 'nestjs-prisma';
 
@@ -11,8 +10,8 @@ import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { Package } from './models/package.model';
-import { UserPackage } from './models/userPackage.model';
 import { PackageService } from './package.service';
+import { UserPackageOutput } from './dto/get-user-packages.output';
 
 @Resolver()
 export class PackageResolver {
@@ -25,8 +24,8 @@ export class PackageResolver {
   }
 
   @UseGuards(GqlAuthGuard)
-  @Query(() => [UserPackage])
-  userPackages(@UserEntity() user: User): Promise<UserPackage[]> {
+  @Query(() => [UserPackageOutput])
+  userPackages(@UserEntity() user: User): Promise<UserPackageOutput[]> {
     return this.packageService.getUserPackages(user);
   }
 

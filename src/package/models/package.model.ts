@@ -29,4 +29,7 @@ export class Package extends BaseModel {
 
   @Field(() => PackageCategory)
   category: PackageCategory;
+
+  @Field(() => String, {nullable: true})
+  categoryFa?: string;
 }

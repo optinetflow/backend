@@ -1,6 +1,5 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, Logger, NotAcceptableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Package, Prisma, User as UserPrisma, UserPackage, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
@@ -16,6 +15,7 @@ import { EnterCostInput } from './dto/enterCost.input';
 import { PurchasePaymentRequestInput } from './dto/purchasePaymentRequest.input';
 import { RechargePaymentRequestInput } from './dto/rechargePaymentRequest.input';
 import { RechargePackage } from './models/rechargePackage.model';
+import { I18nService } from '../common/i18/i18.service';
 
 interface RecursiveUser extends User {
   level: number;
@@ -62,10 +62,8 @@ export class PaymentService {
     private readonly telegramService: TelegramService,
     private readonly minioService: MinioClientService,
     private readonly usersService: UsersService,
-    private readonly configService: ConfigService,
+    private readonly i18: I18nService,
   ) {}
-
-  private readonly logger = new Logger(PaymentService.name);
 
   async getRechargePackages(user: User): Promise<RechargePackage[]> {
     return this.prisma.rechargePackage.findMany({
@@ -112,6 +110,7 @@ export class PaymentService {
       // Set header
       txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
+      txt += `\n🧩 نوع بسته: ${this.i18.__(`package.category.${buyPackMessage.pack.category}`)}`;
     }
 
     const child = buyPackMessagesDic?.[Object.keys(buyPackMessagesDic).find(userId => buyPackMessagesDic[userId].user.parentId === firstUserId) || ''];
