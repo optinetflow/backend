@@ -180,6 +180,7 @@ type Mutation {
 
 type Package {
   category: PackageCategory!
+  categoryFa: String
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
@@ -228,7 +229,7 @@ type Query {
   me: User!
   packages(data: GetPackageInput!): [Package!]!
   rechargePackages: [RechargePackage!]!
-  userPackages: [UserPackage!]!
+  userPackages: [UserPackageOutput!]!
 }
 
 type RechargePackage {
@@ -376,7 +377,10 @@ type UserGift {
   isGiftUsed: Boolean!
 }
 
-type UserPackage {
+type UserPackageOutput {
+  category: PackageCategory!
+  categoryFa: String
+
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
   expiryTime: BigNumber!
@@ -384,7 +388,6 @@ type UserPackage {
   lastConnectedAt: DateTime
   link: String!
   name: String!
-  package: Package!
   remainingTraffic: BigNumber!
   totalTraffic: BigNumber!
 

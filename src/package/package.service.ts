@@ -17,35 +17,19 @@ import {
   roundTo,
 } from '../common/helpers';
 import { PaymentService } from '../payment/payment.service';
-import { CallbackData } from '../telegram/telegram.constants';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
 import { TelegramService } from './../telegram/telegram.service';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
 import { RenewPackageInput } from './dto/renewPackage.input';
-import { UserPackage } from './models/userPackage.model';
 import { CreatePackageInput } from './package.types';
-
-const ENDPOINTS = (domain: string) => {
-  const url = `https://${domain}/v`;
-
-  return {
-    login: `${url}/login`,
-    inbounds: `${url}/panel/inbound/list`,
-    onlines: `${url}/panel/inbound/onlines`,
-    addInbound: `${url}/panel/inbound/add`,
-    addClient: `${url}/panel/inbound/addClient`,
-    updateClient: (id: string) => `${url}/panel/inbound/updateClient/${id}`,
-    resetClientTraffic: (email: string, inboundId: number) =>
-      `${url}/panel/inbound/${inboundId}/resetClientTraffic/${email}`,
-    delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
-    serverStatus: `${url}/server/status`,
-  };
-};
+import { I18nService } from '../common/i18/i18.service';
+import { UserPackageOutput } from './dto/get-user-packages.output';
 
 interface DiscountedPackage extends Package {
   discountedPrice?: number;
+  categoryFa?: string;
 }
 
 
@@ -57,6 +41,7 @@ export class PackageService {
     private readonly xuiService: XuiService,
     private readonly payment: PaymentService,
     private readonly configService: ConfigService,
+    private readonly i18: I18nService,
   ) {}
 
   async getFreeServer(user: User, pack: Package): Promise<Server> {
@@ -323,8 +308,8 @@ export class PackageService {
     return await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
   }
 
-  async getUserPackages(user: User): Promise<UserPackage[]> {
-    const userPackages: UserPackage[] = [];
+  async getUserPackages(user: User): Promise<UserPackageOutput[]> {
+    const userPackages: UserPackageOutput[] = [];
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
@@ -334,7 +319,11 @@ export class PackageService {
             brand: true,
           },
         },
-        package: true
+        package: {
+          select: {
+            category: true
+          }
+        }
       },
       where: {
         userId: user.id,
@@ -352,7 +341,8 @@ export class PackageService {
         createdAt: userPack.createdAt,
         updatedAt: userPack.updatedAt,
         name: userPack.name,
-        package: userPack.package,
+        category: userPack.package.category,
+        categoryFa: this.i18.__(`package.category.${userPack.package.category}`),
         link: getVlessLink(
           userPack.statId,
           userPack.server.tunnelDomain,
@@ -415,14 +405,19 @@ export class PackageService {
 
   async getPackages(user: User, filters: GetPackageInput, id?: string): Promise<DiscountedPackage[]> {
     const {category, expirationDays} = filters
-    const packages = await this.prisma.package.findMany({
+    let packages = await this.prisma.package.findMany({
       where: { deletedAt: null, forRole: { has: user.role }, id,
       category: category ? category : undefined,
       expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined
      },
       orderBy: { order: 'asc' },
     });
-
+    packages = packages.map(pack => {
+      return {
+        ...pack,
+        categoryFa: this.i18.__(`package.category.${pack.category}`),
+      }
+    })
     const parent = user?.parentId ? await this.prisma.user.findUnique({ where: { id: user?.parentId } }) : null;
 
     const hasParentDiscount = typeof parent?.appliedDiscountPercent === 'number';

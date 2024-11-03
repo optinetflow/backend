@@ -21,6 +21,7 @@ import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { XuiModule } from './xui/xui.module';
 import { SmsModule } from './sms/sms.module';
+import { I18Module } from './common/i18/i18.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { SmsModule } from './sms/sms.module';
       driver: ApolloDriver,
       useClass: GqlConfigService,
     }),
+    I18Module,
     ScheduleModule.forRoot(),
     MinioClientModule,
     AuthModule,
