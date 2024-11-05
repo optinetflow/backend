@@ -34,7 +34,8 @@ model User {
   totalProfit                Float     @default(0)
   parentId                   String?   @db.Uuid
   referId                    String?   @db.Uuid
-  brandId                    String   @db.Uuid
+  brandId                    String    @db.Uuid
+  freePackageId              String?   @db.Uuid
   otp                        String?
   otpExpiration              DateTime?
   role                       Role      @default(USER)
@@ -52,6 +53,7 @@ model User {
   children    User[]        @relation("UserParentRelation")
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
   referers    User[]        @relation("UserReferRelation")
+  freePackage Package?      @relation("UserPackageRelation", fields: [freePackageId], references: [id])
   userPackage UserPackage[]
   payment     Payment[]
   telegram    TelegramUser?
@@ -191,13 +193,14 @@ model Package {
   expirationDays Float
   price          Float
   userCount      Int
-  isFree         Boolean       @default(false)
   category       PackageCategory @default(QUALITY)
   order          Int?
   forRole        Role[]        @default([ADMIN, USER])
   userPackage    UserPackage[]
   Promotion      Promotion[]
   UserGift       UserGift[]
+
+  User User[] @relation("UserPackageRelation")
 }
 
 model RechargePackage {
@@ -218,6 +221,7 @@ model UserPackage {
   name                   String    @db.VarChar(255)
   packageId              String    @db.Uuid
   userId                 String    @db.Uuid
+  isFree                 Boolean   @default(false)
   serverId               String    @db.Uuid
   statId                 String    @db.Uuid
   thresholdWarningSentAt DateTime?

@@ -135,7 +135,11 @@ export class PackageService {
   }
 
   async getCurrentFreePackage(user: User): Promise<UserPackageOutput | null> {
-    const freePack = await this.prisma.package.findFirstOrThrow({where: {isFree: true}})
+    const parent = await this.prisma.user.findUniqueOrThrow({where: {id: user.parent?.id}})
+    if(!parent.freePackageId) {
+      throw new BadRequestException('There is no free package')
+    }
+    const freePack = await this.prisma.package.findFirstOrThrow({where: {id: parent.freePackageId}})
     const currentUserFreePack = await this.prisma.userPackage.findFirst({
       where: {
         userId: user.id, 
@@ -165,8 +169,11 @@ export class PackageService {
 
   async enableTodayFreePackage(user: User) {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-
-    const pack = await this.prisma.package.findFirstOrThrow({ where: {isFree: true} });
+    const parent = await this.prisma.user.findUniqueOrThrow({where: {id: user.parent?.id}})
+    if(!parent.freePackageId) {
+      throw new BadRequestException('There is no free package')
+    }
+    const pack = await this.prisma.package.findUniqueOrThrow({ where: {id: parent.freePackageId} });
     const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
@@ -192,6 +199,7 @@ export class PackageService {
       receipt: undefined,
       inRenew: false,
       userPackageName,
+      isFree: true
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -207,6 +215,7 @@ export class PackageService {
       server,
       name: userPackageName,
       package: pack,
+      isFree: true,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
     await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
@@ -413,7 +422,6 @@ export class PackageService {
   }
 
   async getUserPackages(user: User): Promise<UserPackageOutput[]> {
-    const userPackages: UserPackageOutput[] = [];
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
@@ -431,9 +439,7 @@ export class PackageService {
       },
       where: {
         userId: user.id,
-        package: {
-          isFree: false
-        },
+        isFree: false,
         deletedAt: null,
         OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }],
       },
@@ -479,6 +485,7 @@ export class PackageService {
             statId: input.id,
             name: input.name,
             orderN: input.orderN,
+            isFree: input.isFree || false
           },
         }),
       ];
@@ -495,7 +502,6 @@ export class PackageService {
       where: { deletedAt: null, forRole: { has: user.role }, id,
       category: category ? category : undefined,
       expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined,
-      isFree: false
      },
       orderBy: { order: 'asc' },
     });

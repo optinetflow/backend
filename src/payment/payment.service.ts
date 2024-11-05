@@ -30,6 +30,7 @@ interface PaymentReq {
 interface PackagePaymentInput {
   package: Package;
   receipt?: string;
+  isFree?: boolean;
   inRenew: boolean;
   userPackageId: string;
   userPackageName: string;
@@ -44,6 +45,7 @@ export interface SendBuyPackMessage {
   price: number;
   discountedPrice: number;
   sellPrice?: number;
+  isFree?: boolean;
   profitAmount: number;
   inRenew: boolean;
 }
@@ -108,7 +110,7 @@ export class PaymentService {
 
     if (!isNested) {
       // Set header
-      if(!buyPackMessage.pack.isFree) {
+      if(!buyPackMessage.isFree) {
         txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
       } else {
         txt = `#فعالسازی_بسته_رایگان_روزانه\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
@@ -314,6 +316,7 @@ export class PaymentService {
         inRenew: input.inRenew,
         pack: input.package,
         price,
+        isFree: input.isFree || false,
         user: currentUser,
         userId: currentUser.id,
         userPackageName: input.userPackageName,
