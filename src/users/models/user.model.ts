@@ -27,6 +27,11 @@ export class BankCard {
   @Field()
   number: string;
 }
+@ObjectType()
+export class PromotionCode {
+  @Field()
+  code: string;
+}
 
 @ObjectType()
 export class UserGift {
@@ -102,6 +107,9 @@ export class User extends BaseModel {
 
   @Field(() => Brand, { nullable: true })
   brand?: Brand | null;
+
+  @Field(() => [PromotionCode], { nullable: true })
+  promotion?: PromotionCode[] | null;
 
   @Field(() => Parent, { nullable: true })
   parent?: Parent | null;

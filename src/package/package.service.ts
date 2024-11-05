@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma, Package, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
+import moment from 'jalali-moment';
 import { v4 as uuid } from 'uuid';
 
 import { GraphqlConfig } from '../common/configs/config.interface';
@@ -12,7 +13,6 @@ import {
   ceilTo,
   convertPersianCurrency,
   getVlessLink,
-  jsonToB64Url,
   pctToDec,
   roundTo,
 } from '../common/helpers';
@@ -26,6 +26,7 @@ import { RenewPackageInput } from './dto/renewPackage.input';
 import { CreatePackageInput } from './package.types';
 import { I18nService } from '../common/i18/i18.service';
 import { UserPackageOutput } from './dto/get-user-packages.output';
+import { UserPackage } from './models/userPackage.model';
 
 interface DiscountedPackage extends Package {
   discountedPrice?: number;
@@ -131,6 +132,87 @@ export class PackageService {
     const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
 
     return userPack;
+  }
+
+  async getCurrentFreePackage(user: User): Promise<UserPackageOutput | null> {
+    const freePack = await this.prisma.package.findFirstOrThrow({where: {isFree: true}})
+    const currentUserFreePack = await this.prisma.userPackage.findFirst({
+      where: {
+        userId: user.id, 
+        packageId: freePack.id,
+        deletedAt: null,
+        finishedAt: null,
+      },
+      include: {
+        stat: true,
+        server: {
+          include: {
+            brand: true,
+          },
+        },
+        package: {
+          select: {
+            category: true
+          },
+        }
+      },
+    })
+    if(currentUserFreePack) {
+      return this.generateUserPackageOutput(currentUserFreePack)
+    }
+    return null
+  }
+
+  async enableTodayFreePackage(user: User) {
+    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+
+    const pack = await this.prisma.package.findFirstOrThrow({ where: {isFree: true} });
+    const server = await this.getFreeServer(user, pack);
+    const email = nanoid();
+    const id = uuid();
+    const subId = nanoid();
+    const userPackageId = uuid();
+    const userPackageName = `${moment().locale('fa').format('YYYY-MM-DD')} رایگان`
+    const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
+
+    if (!graphqlConfig?.debug) {
+      await this.xuiService.addClient(user, {
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: userPackageName
+      });
+    }
+
+    const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+      userPackageId,
+      package: pack,
+      receipt: undefined,
+      inRenew: false,
+      userPackageName,
+    });
+
+    const lastUserPack = await this.prisma.userPackage.findFirst({
+      where: { userId: user.id },
+      orderBy: { orderN: 'desc' },
+    });
+
+    const createPackageTransactions = this.createPackage(user, {
+      id,
+      userPackageId,
+      subId,
+      email,
+      server,
+      name: userPackageName,
+      package: pack,
+      orderN: (lastUserPack?.orderN || 0) + 1,
+    });
+    await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
+    await this.telegramService.sendBulkMessage(telegramMessages);
+
+    return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
   }
 
   async enableGift(user: User, userGiftId: string): Promise<void> {
@@ -308,6 +390,28 @@ export class PackageService {
     return await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
   }
 
+  private generateUserPackageOutput(userPack: UserPackage | UserPackagePrisma): UserPackageOutput {
+    const userPackage = userPack as UserPackage
+    return {
+      id: userPackage.id,
+      createdAt: userPackage.createdAt,
+      updatedAt: userPackage.updatedAt,
+      name: userPackage.name,
+      category: userPackage.package.category,
+      categoryFa: this.i18.__(`package.category.${userPackage.package.category}`),
+      link: getVlessLink(
+        userPack.statId,
+        userPackage.server.tunnelDomain,
+        `${userPack.name} | ${userPackage.server.brand?.domainName as string}`,
+        userPackage.server.port,
+      ),
+      remainingTraffic: userPackage.stat.total - (userPackage.stat.down + userPackage.stat.up),
+      totalTraffic: userPackage.stat.total,
+      expiryTime: userPackage.stat.expiryTime,
+      lastConnectedAt: userPackage.stat?.lastConnectedAt,
+    }
+  }
+
   async getUserPackages(user: User): Promise<UserPackageOutput[]> {
     const userPackages: UserPackageOutput[] = [];
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
@@ -322,11 +426,14 @@ export class PackageService {
         package: {
           select: {
             category: true
-          }
+          },
         }
       },
       where: {
         userId: user.id,
+        package: {
+          isFree: false
+        },
         deletedAt: null,
         OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }],
       },
@@ -335,28 +442,7 @@ export class PackageService {
       },
     });
 
-    for (const userPack of userPacks) {
-      userPackages.push({
-        id: userPack.id,
-        createdAt: userPack.createdAt,
-        updatedAt: userPack.updatedAt,
-        name: userPack.name,
-        category: userPack.package.category,
-        categoryFa: this.i18.__(`package.category.${userPack.package.category}`),
-        link: getVlessLink(
-          userPack.statId,
-          userPack.server.tunnelDomain,
-          `${userPack.name} | ${userPack.server.brand?.domainName as string}`,
-          userPack.server.port,
-        ),
-        remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
-        totalTraffic: userPack.stat.total,
-        expiryTime: userPack.stat.expiryTime,
-        lastConnectedAt: userPack.stat?.lastConnectedAt,
-      });
-    }
-
-    return userPackages;
+    return userPacks.map(this.generateUserPackageOutput);
   }
 
   createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<any>> {
@@ -408,7 +494,8 @@ export class PackageService {
     let packages = await this.prisma.package.findMany({
       where: { deletedAt: null, forRole: { has: user.role }, id,
       category: category ? category : undefined,
-      expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined
+      expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined,
+      isFree: false
      },
       orderBy: { order: 'asc' },
     });

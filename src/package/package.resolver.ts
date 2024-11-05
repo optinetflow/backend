@@ -47,6 +47,21 @@ export class PackageResolver {
   }
 
   @UseGuards(GqlAuthGuard)
+  @Mutation(() => UserPackageOutput, { nullable: true })
+  async enableTodayFreePackage(@UserEntity() user: User,): Promise<UserPackageOutput | null> {
+    const currentFreePack = await this.packageService.getCurrentFreePackage(user)
+    if(currentFreePack && currentFreePack.remainingTraffic > 0) {
+      return currentFreePack
+    }
+
+    if(currentFreePack && currentFreePack.remainingTraffic <= 0) {
+      return null
+    }
+    await this.packageService.enableTodayFreePackage(user);
+    return this.packageService.getCurrentFreePackage(user)
+  }
+
+  @UseGuards(GqlAuthGuard)
   @Mutation(() => String)
   async renewPackage(@UserEntity() user: User, @Args('input') input: RenewPackageInput): Promise<string> {
     const userPack = await this.packageService.renewPackage(user, input);

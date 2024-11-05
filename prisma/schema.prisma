@@ -191,6 +191,7 @@ model Package {
   expirationDays Float
   price          Float
   userCount      Int
+  isFree         Boolean       @default(false)
   category       PackageCategory @default(QUALITY)
   order          Int?
   forRole        Role[]        @default([ADMIN, USER])
@@ -311,28 +312,6 @@ model Payment {
   @@index([payerId], name: "PaymentUserIdIndex")
   @@index([userPackageId], name: "PaymentUserPackageIdIndex")
 }
-
-// model Transation {
-//   id        String   @id
-//   amount    Int
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   payerId   String
-
-//   payer User @relation(fields: [payerId], references: [id])
-// }
-
-// model Transfer {
-//   id         String   @id 
-//   amount     Int
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @updatedAt
-//   senderId   String
-//   receiverId String
-
-//   sender   User @relation("TransferSenderRelation", fields: [senderId], references: [id])
-//   receiver User @relation("TransferReceiverRelation", fields: [receiverId], references: [id])
-// }
 
 model Promotion {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

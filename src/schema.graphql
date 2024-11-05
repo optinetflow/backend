@@ -72,6 +72,7 @@ type Child {
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
+  promotion: [PromotionCode!]
   referId: String
   role: Role!
   telegram: TelegramUser
@@ -91,6 +92,7 @@ type ClientStat {
   enable: Boolean!
   expiryTime: BigNumber!
   id: ID!
+  lastConnectedAt: DateTime!
   total: BigNumber!
   up: BigNumber!
 
@@ -161,6 +163,7 @@ type Mutation {
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
   enableGift: Boolean!
+  enableTodayFreePackage: UserPackageOutput
   enterCost(input: EnterCostInput!): User!
   login(data: LoginInput!): Login!
   logout: Boolean!
@@ -217,6 +220,10 @@ enum PaymentType {
   IRAN_SERVER_COST
   PACKAGE_PURCHASE
   WALLET_RECHARGE
+}
+
+type PromotionCode {
+  code: String!
 }
 
 type Query {
@@ -361,6 +368,7 @@ type User {
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
+  promotion: [PromotionCode!]
   referId: String
   role: Role!
   telegram: TelegramUser

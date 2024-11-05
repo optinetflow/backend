@@ -4,6 +4,7 @@ import { Field, HideField, Int, ObjectType, registerEnumType } from '@nestjs/gra
 import { ServerCountry } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
+import { Brand } from '../../brand/models/brand.model';
 
 registerEnumType(ServerCountry, {
   name: 'ServerCountry',
@@ -18,11 +19,17 @@ export class Server extends BaseModel {
   @Field()
   ip: string;
 
+  @Field(() => Brand)
+  brand: Brand;
+
   @Field(() => ServerCountry)
   type: ServerCountry;
 
   @HideField()
   token: string;
+
+  @HideField()
+  tunnelDomain: string;
 
   @HideField()
   inboundId: number;

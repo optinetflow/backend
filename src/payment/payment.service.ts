@@ -108,7 +108,11 @@ export class PaymentService {
 
     if (!isNested) {
       // Set header
-      txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      if(!buyPackMessage.pack.isFree) {
+        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      } else {
+        txt = `#فعالسازی_بسته_رایگان_روزانه\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      }
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
       txt += `\n🧩 نوع بسته: ${this.i18.__(`package.category.${buyPackMessage.pack.category}`)}`;
     }

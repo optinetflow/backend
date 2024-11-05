@@ -144,6 +144,7 @@ Table Package {
   expirationDays Float [not null]
   price Float [not null]
   userCount Int [not null]
+  isFree Boolean [not null, default: false]
   category PackageCategory [not null, default: 'QUALITY']
   order Int
   forRole Role[] [not null]

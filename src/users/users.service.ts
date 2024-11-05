@@ -40,6 +40,7 @@ export class UsersService {
         userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } },
         parent: { include: { telegram: true, bankCard: true } },
         brand: true,
+        promotion: true
       },
     });
 

@@ -5,6 +5,8 @@ import { Field, ObjectType } from '@nestjs/graphql';
 import { BaseModel } from '../../common/models/base.model';
 import { BigNumberScalar } from '../../common/scalars/bigNumber';
 import { Package } from './package.model';
+import { ClientStat } from '../../xui/models/clientStat.model';
+import { Server } from '../../server/models/server.model';
 
 @ObjectType()
 export class UserPackage extends BaseModel {
@@ -28,4 +30,13 @@ export class UserPackage extends BaseModel {
 
   @Field(() => Package)
   package: Package;
+
+  @Field(() => ClientStat)
+  stat: ClientStat;
+
+  @Field(() => String)
+  statId: string;
+
+  @Field(() => Server)
+  server: Server;
 }
