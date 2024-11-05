@@ -92,7 +92,7 @@ type ClientStat {
   enable: Boolean!
   expiryTime: BigNumber!
   id: ID!
-  lastConnectedAt: DateTime!
+  lastConnectedAt: DateTime
   total: BigNumber!
   up: BigNumber!
 

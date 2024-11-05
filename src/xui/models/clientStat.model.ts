@@ -25,6 +25,6 @@ export class ClientStat extends BaseModel {
   @Field(() => BigNumberScalar)
   expiryTime: bigint;
 
-  @Field(() => Date)
-  lastConnectedAt: Date;
+  @Field(() => Date, { nullable: true })
+  lastConnectedAt: Date | null;
 }

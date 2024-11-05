@@ -626,11 +626,6 @@ export class XuiService {
               equals: filters.id,
             },
           }),
-          // ...(filters?.email && {
-          //   email: {
-          //     contains: filters.email,
-          //   },
-          // }),
         },
       });
     } catch {
