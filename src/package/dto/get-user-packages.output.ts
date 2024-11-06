@@ -1,10 +1,10 @@
 import 'reflect-metadata';
 
 import { Field, ObjectType } from '@nestjs/graphql';
+import { PackageCategory } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
 import { BigNumberScalar } from '../../common/scalars/bigNumber';
-import { PackageCategory } from '@prisma/client';
 
 @ObjectType()
 export class UserPackageOutput extends BaseModel {
@@ -29,6 +29,6 @@ export class UserPackageOutput extends BaseModel {
   @Field(() => PackageCategory)
   category: PackageCategory;
 
-  @Field(() => String, {nullable: true})
+  @Field(() => String, { nullable: true })
   categoryFa?: string;
 }

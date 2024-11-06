@@ -40,7 +40,7 @@ export class UsersService {
         userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } },
         parent: { include: { telegram: true, bankCard: true } },
         brand: true,
-        promotion: true
+        promotion: true,
       },
     });
 
@@ -260,6 +260,7 @@ export class UsersService {
 
       await this.nestedUpdateADiscount(user, { ...child, initialDiscountPercent: input.initialDiscountPercent });
     }
+
     const isPhoneChanged = input.phone && input.phone !== child.phone;
 
     return this.prisma.user.update({

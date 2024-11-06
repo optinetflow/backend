@@ -319,7 +319,7 @@ export class XuiService {
         continue;
       }
 
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
+      const bot = this.telegramService.getBot(userPack.user.brandId);
 
       const telegramId = userPack?.user?.telegram?.chatId ? Number(userPack.user.telegram.chatId) : undefined;
 
@@ -384,7 +384,7 @@ export class XuiService {
 
     for (const thresholdTrafficPack of thresholdTrafficPacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTrafficPack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
+      const bot = this.telegramService.getBot(userPack.user.brandId);
 
       if (!userPack) {
         continue;
@@ -410,7 +410,7 @@ export class XuiService {
 
     for (const thresholdTimePack of thresholdTimePacks.filter((i) => thresholdUserPackDic[i])) {
       const userPack = thresholdUserPackDic[thresholdTimePack];
-      const bot = this.telegramService.getBot(userPack.user.brandId as string);
+      const bot = this.telegramService.getBot(userPack.user.brandId);
 
       if (!userPack) {
         continue;

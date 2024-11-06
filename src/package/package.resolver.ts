@@ -8,10 +8,10 @@ import { getVlessLink } from '../common/helpers';
 import { User } from '../users/models/user.model';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
+import { UserPackageOutput } from './dto/get-user-packages.output';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { Package } from './models/package.model';
 import { PackageService } from './package.service';
-import { UserPackageOutput } from './dto/get-user-packages.output';
 
 @Resolver()
 export class PackageResolver {
@@ -57,16 +57,19 @@ export class PackageResolver {
   @UseGuards(GqlAuthGuard)
   @Mutation(() => UserPackageOutput, { nullable: true })
   async enableTodayFreePackage(@UserEntity() user: User): Promise<UserPackageOutput | null> {
-    const currentFreePack = await this.packageService.getCurrentFreePackage(user)
-    if(currentFreePack && currentFreePack.remainingTraffic > 0) {
-      return currentFreePack
+    const currentFreePack = await this.packageService.getCurrentFreePackage(user);
+
+    if (currentFreePack && currentFreePack.remainingTraffic > 0) {
+      return currentFreePack;
     }
 
-    if(currentFreePack && currentFreePack.remainingTraffic <= 0) {
-      return null
+    if (currentFreePack && currentFreePack.remainingTraffic <= 0) {
+      return null;
     }
+
     await this.packageService.enableTodayFreePackage(user);
-    return this.packageService.getCurrentFreePackage(user)
+
+    return this.packageService.getCurrentFreePackage(user);
   }
 
   @UseGuards(GqlAuthGuard)

@@ -252,7 +252,7 @@ export class AggregatorService {
       orderBy: { orderN: 'desc' },
     });
 
-    const createPackageTransactions =this.createPackage(user, {
+    const createPackageTransactions = this.createPackage(user, {
       userPackageId,
       id,
       subId,
@@ -265,7 +265,7 @@ export class AggregatorService {
 
     await this.prisma.$transaction(createPackageTransactions);
 
-    const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
+    const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
 
     await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
 
@@ -456,7 +456,7 @@ export class AggregatorService {
     }
   }
 
-  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<any>> {
+  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<unknown>> {
     try {
       const clientStat = {
         id: input.id,

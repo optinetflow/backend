@@ -9,5 +9,5 @@ export interface CreatePackageInput {
   name: string;
   package: Package;
   orderN: number;
-  isFree?: boolean
+  isFree?: boolean;
 }

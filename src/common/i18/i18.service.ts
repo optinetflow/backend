@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common'
-import * as i18n from 'i18n'
+import { Injectable } from '@nestjs/common';
+import * as i18n from 'i18n';
 
-import TranslateOptions = i18n.TranslateOptions
+import TranslateOptions = i18n.TranslateOptions;
 
-declare const __: any
+declare const _: unknown;
 
 @Injectable()
 export class I18nService {
@@ -12,11 +12,11 @@ export class I18nService {
       locales: ['en', 'fa'],
       defaultLocale: 'fa',
       directory: 'locales',
-      objectNotation: true
-    })
+      objectNotation: true,
+    });
   }
 
   __(phraseOrOptions: string | TranslateOptions, ...replace: string[]) {
-    return i18n.__(phraseOrOptions, ...replace)
+    return i18n.__(phraseOrOptions, ...replace);
   }
 }
