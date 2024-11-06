@@ -253,6 +253,7 @@ type Query {
   children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   getBrandInfo(input: GetBrandInfoInput!): Brand!
+  getGiftPackages: [Package!]!
   getPromotionCodes: [Promotion!]!
   hello(name: String!): String!
   helloWorld: String!

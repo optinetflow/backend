@@ -2,7 +2,7 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaService } from 'nestjs-prisma';
 
-import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { AdminGqlAuthGuard, GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { getVlessLink } from '../common/helpers';
 import { User } from '../users/models/user.model';
@@ -27,6 +27,12 @@ export class PackageResolver {
   @Query(() => [UserPackageOutput])
   userPackages(@UserEntity() user: User): Promise<UserPackageOutput[]> {
     return this.packageService.getUserPackages(user);
+  }
+
+  @UseGuards(AdminGqlAuthGuard)
+  @Query(() => [Package])
+  async getGiftPackages(): Promise<Package[]> {
+    return this.packageService.getGiftPackages();
   }
 
   @UseGuards(GqlAuthGuard)

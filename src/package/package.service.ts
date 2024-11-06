@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Package, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, PackageCategory, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import moment from 'jalali-moment';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
@@ -434,6 +434,10 @@ export class PackageService {
       lastConnectedAt: userPackage.stat?.lastConnectedAt,
     };
   }
+
+  async getGiftPackages(): Promise<Package[]> {
+    return this.prisma.package.findMany({where: {category: PackageCategory.QUALITY, traffic: {lt: 10}}})
+  } 
 
   async getUserPackages(user: User): Promise<UserPackageOutput[]> {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);

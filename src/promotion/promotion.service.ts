@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'nestjs-prisma';
 
+import { I18nService } from '../common/i18/i18.service';
 import { Package } from '../package/models/package.model';
 import { User } from '../users/models/user.model';
 import { CreatePromotionInput } from './dto/create-promotion.input';
@@ -8,7 +9,7 @@ import { Promotion } from './models/promotion.model';
 
 @Injectable()
 export class PromotionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly i18: I18nService) {}
 
   async createPromotion(user: User, data: CreatePromotionInput): Promise<Promotion> {
     const existingPromotion = await this.prisma.promotion.findUnique({
@@ -16,7 +17,7 @@ export class PromotionService {
     });
 
     if (existingPromotion) {
-      throw new ConflictException('Promotion code already exists.');
+      throw new ConflictException(this.i18.__('promotion.error.exists'));
     }
 
     let giftPackage: Package | null = null;
@@ -58,7 +59,7 @@ export class PromotionService {
     });
 
     if (!promotion) {
-      throw new NotFoundException('Promotion code not found.');
+      throw new NotFoundException(this.i18.__('promotion.error.not_found'));
     }
 
     await this.prisma.promotion.delete({
