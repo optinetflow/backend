@@ -50,14 +50,6 @@ export class UsersResolver {
     return this.usersService.changePassword(user.id, user.password, changePassword);
   }
 
-  @UseGuards(GqlAuthGuard)
-  @Mutation(() => Boolean)
-  async enableGift(@UserEntity() user: User) {
-    await this.telegramService.enableGift(user.id);
-
-    return true;
-  }
-
   @Mutation(() => Boolean)
   async notifOptinetflowCustomerInfoToUs(@Args('data') data: GetOptinetflowCustomerInfoInput) {
     const brand = await this.brandService.getBrandByDomainName('vaslshim.com');

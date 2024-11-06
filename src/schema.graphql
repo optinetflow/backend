@@ -206,6 +206,7 @@ enum PackageCategory {
 
 type Parent {
   bankCard: [BankCard!]
+  freePackageId: String
   id: String!
   telegram: ParentTelegram
 }

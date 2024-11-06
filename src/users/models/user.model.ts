@@ -52,6 +52,9 @@ export class Parent {
 
   @Field(() => [BankCard], { nullable: true })
   bankCard?: BankCard[] | null;
+
+  @Field(() => String, { nullable: true })
+  freePackageId?: string | null;
 }
 
 @ObjectType()

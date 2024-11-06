@@ -176,8 +176,6 @@ export class TelegramService {
         },
       });
 
-      // await this.enableGift(ctx);
-
       await ctx.scene.enter(HOME_SCENE_ID);
 
       const caption = `#ثبـنامـتلگرام\n👤 ${user.fullname} (@${updatedTelegramUser?.username})\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${parent?.fullname}`;
@@ -329,11 +327,6 @@ export class TelegramService {
       const bot = this.getBot(user.brandId as string);
 
       await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
-      // const traffic = userGift.giftPackage!.traffic;
-
-      // if (traffic) {
-      //   await ctx.reply(`${traffic} گیگ هدیه 🎁 برای شما در سایت فعال شد.`);
-      // }
     }
   }
 

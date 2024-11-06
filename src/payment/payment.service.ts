@@ -31,6 +31,7 @@ interface PackagePaymentInput {
   package: Package;
   receipt?: string;
   isFree?: boolean;
+  isGift?: boolean;
   inRenew: boolean;
   userPackageId: string;
   userPackageName: string;
@@ -46,6 +47,7 @@ export interface SendBuyPackMessage {
   discountedPrice: number;
   sellPrice?: number;
   isFree?: boolean;
+  isGift?: boolean;
   profitAmount: number;
   inRenew: boolean;
 }
@@ -110,10 +112,12 @@ export class PaymentService {
 
     if (!isNested) {
       // Set header
-      if(!buyPackMessage.isFree) {
-        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
-      } else {
+      if(buyPackMessage.isFree) {
         txt = `#فعالسازی_بسته_رایگان_روزانه\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      } else if (buyPackMessage.isGift) {
+        txt = `#فعالسازی_هدیه 🎁\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      } else {
+        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
       }
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
       txt += `\n🧩 نوع بسته: ${this.i18.__(`package.category.${buyPackMessage.pack.category}`)}`;
@@ -317,6 +321,7 @@ export class PaymentService {
         pack: input.package,
         price,
         isFree: input.isFree || false,
+        isGift: input.isGift || false,
         user: currentUser,
         userId: currentUser.id,
         userPackageName: input.userPackageName,

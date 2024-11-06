@@ -47,8 +47,16 @@ export class PackageResolver {
   }
 
   @UseGuards(GqlAuthGuard)
+  @Mutation(() => Boolean)
+  async enableGift(@UserEntity() user: User) {
+    await this.packageService.enableGift(user.id);
+
+    return true;
+  }
+
+  @UseGuards(GqlAuthGuard)
   @Mutation(() => UserPackageOutput, { nullable: true })
-  async enableTodayFreePackage(@UserEntity() user: User,): Promise<UserPackageOutput | null> {
+  async enableTodayFreePackage(@UserEntity() user: User): Promise<UserPackageOutput | null> {
     const currentFreePack = await this.packageService.getCurrentFreePackage(user)
     if(currentFreePack && currentFreePack.remainingTraffic > 0) {
       return currentFreePack

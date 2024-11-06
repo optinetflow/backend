@@ -371,14 +371,14 @@ export class AuthService {
   }
 
   validateUser(userId: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id: userId }, include: { brand: true } });
+    return this.prisma.user.findUnique({ where: { id: userId }, include: { brand: true, parent: true } });
   }
 
   getUserFromToken(token: string): Promise<User | null> {
     const decodedToken = this.jwtService.decode(token);
     const id = typeof decodedToken === 'object' && decodedToken !== null ? decodedToken?.userId : null;
 
-    return this.prisma.user.findUnique({ where: { id }, include: { brand: true } });
+    return this.prisma.user.findUnique({ where: { id }, include: { brand: true, parent: true } });
   }
 
   generateTokens(payload: { userId: string }): Token {

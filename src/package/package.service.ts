@@ -219,31 +219,48 @@ export class PackageService {
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
     await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
-    await this.telegramService.sendBulkMessage(telegramMessages);
-
-    return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
+    return this.telegramService.sendBulkMessage(telegramMessages);
   }
 
-  async enableGift(user: User, userGiftId: string): Promise<void> {
+  async enableGift(userId: string): Promise<void> {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+    const user = await this.prisma.user.findFirstOrThrow({
+      where: {
+        id: userId,
+      },
+      include: { brand: true, userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } } },
+    });
 
-    const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
+    const userGift = user?.userGift?.[0];
+    const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGift.id } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
     const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
     const userPackageId = uuid();
-
-    await this.xuiService.addClient(user, {
-      id,
-      subId,
-      email,
-      serverId: server.id,
+    const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
+    const userPackageName = 'هدیه 🎁'
+    if (!graphqlConfig?.debug) {
+      await this.xuiService.addClient(user, {
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: userPackageName,
+      });
+    }
+  
+    const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+      userPackageId,
       package: pack,
-      name: 'هدیه 🎁',
+      receipt: undefined,
+      inRenew: false,
+      userPackageName,
+      isFree: false,
+      isGift: true
     });
-
     const lastUserPack = await this.prisma.userPackage.findFirst({
       where: { userId: user.id },
       orderBy: { orderN: 'desc' },
@@ -261,22 +278,8 @@ export class PackageService {
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
 
-    await this.prisma.$transaction(createPackageTransactions);
-
-    const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
-
-
-
-    await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
-
-    const caption = `#فعالسازیـهدیه 🎁\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
-      pack.expirationDays
-    } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
-      user.phone
-    }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
-    const bot = this.telegramService.getBot(user.brandId as string);
-
-    await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
+    await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions, this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } })]);
+    return this.telegramService.sendBulkMessage(telegramMessages);
   }
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
@@ -448,7 +451,7 @@ export class PackageService {
       },
     });
 
-    return userPacks.map(this.generateUserPackageOutput);
+    return userPacks.map(userPack => this.generateUserPackageOutput(userPack));
   }
 
   createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<any>> {
