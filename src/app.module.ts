@@ -22,6 +22,7 @@ import { SmsModule } from './sms/sms.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { XuiModule } from './xui/xui.module';
+import { PromotionModule } from './promotion/promotion.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { XuiModule } from './xui/xui.module';
     BrandModule,
     PackageModule,
     SmsModule,
+    PromotionModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],

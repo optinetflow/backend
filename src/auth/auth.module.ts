@@ -12,7 +12,7 @@ import { UsersService } from '../users/users.service';
 import { XuiModule } from '../xui/xui.module';
 import { AuthResolver } from './auth.resolver';
 import { AuthService } from './auth.service';
-import { GqlAuthGuard } from './gql-auth.guard';
+import { AdminGqlAuthGuard, GqlAuthGuard } from './gql-auth.guard';
 import { JwtStrategy } from './jwt.strategy';
 import { PasswordService } from './password.service';
 
@@ -38,7 +38,7 @@ import { PasswordService } from './password.service';
     BrandModule,
     SmsModule,
   ],
-  providers: [AuthService, AuthResolver, JwtStrategy, GqlAuthGuard, PasswordService, UsersService],
-  exports: [GqlAuthGuard],
+  providers: [AuthService, AuthResolver, JwtStrategy, GqlAuthGuard, PasswordService, UsersService, AdminGqlAuthGuard],
+  exports: [GqlAuthGuard, AuthService],
 })
 export class AuthModule {}

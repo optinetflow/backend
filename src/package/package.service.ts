@@ -274,7 +274,6 @@ export class PackageService {
       package: pack,
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
-    console.log('test');
 
     await this.prisma.$transaction([
       ...createPackageTransactions,
