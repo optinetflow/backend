@@ -65,17 +65,21 @@ export class PackageResolver {
   async enableTodayFreePackage(@UserEntity() user: User): Promise<UserPackageOutput | null> {
     const currentFreePack = await this.packageService.getCurrentFreePackage(user);
 
-    if (currentFreePack && currentFreePack.remainingTraffic > 0) {
-      return currentFreePack;
+    if (currentFreePack && !currentFreePack.finishedAt) {
+      return this.packageService.generateUserPackageOutput(currentFreePack);
     }
 
-    if (currentFreePack && currentFreePack.remainingTraffic <= 0) {
-      return null;
+    const oneDaysAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+
+    if (!currentFreePack || currentFreePack?.createdAt.getTime() < oneDaysAgo.getTime()) {
+      await this.packageService.enableTodayFreePackage(user);
+
+      const newCurrentFreePackage = await this.packageService.getCurrentFreePackage(user);
+
+      return newCurrentFreePackage ? this.packageService.generateUserPackageOutput(newCurrentFreePackage) : null;
     }
 
-    await this.packageService.enableTodayFreePackage(user);
-
-    return this.packageService.getCurrentFreePackage(user);
+    return null;
   }
 
   @UseGuards(GqlAuthGuard)

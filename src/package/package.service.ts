@@ -124,20 +124,14 @@ export class PackageService {
     return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
   }
 
-  async getCurrentFreePackage(user: User): Promise<UserPackageOutput | null> {
-    const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parent?.id } });
-
-    if (!parent.freePackageId) {
-      throw new BadRequestException('There is no free package');
-    }
-
-    const freePack = await this.prisma.package.findFirstOrThrow({ where: { id: parent.freePackageId } });
-    const currentUserFreePack = await this.prisma.userPackage.findFirst({
+  async getCurrentFreePackage(user: User): Promise<UserPackagePrisma | null> {
+    return this.prisma.userPackage.findFirst({
       where: {
         userId: user.id,
-        packageId: freePack.id,
-        deletedAt: null,
-        finishedAt: null,
+        isFree: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
       include: {
         stat: true,
@@ -146,19 +140,9 @@ export class PackageService {
             brand: true,
           },
         },
-        package: {
-          select: {
-            category: true,
-          },
-        },
+        package: true,
       },
     });
-
-    if (currentUserFreePack) {
-      return this.generateUserPackageOutput(currentUserFreePack);
-    }
-
-    return null;
   }
 
   async enableTodayFreePackage(user: User) {
@@ -175,7 +159,7 @@ export class PackageService {
     const id = uuid();
     const subId = nanoid();
     const userPackageId = uuid();
-    const userPackageName = `${moment().locale('fa').format('YYYY-MM-DD')} رایگان`;
+    const userPackageName = `رایگان ${moment().locale('fa').format('dddd')}`;
     const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
 
     if (!graphqlConfig?.debug) {
@@ -412,7 +396,7 @@ export class PackageService {
     return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
   }
 
-  private generateUserPackageOutput(userPack: UserPackage | UserPackagePrisma): UserPackageOutput {
+  generateUserPackageOutput(userPack: UserPackage | UserPackagePrisma): UserPackageOutput {
     const userPackage = userPack as UserPackage;
 
     return {
@@ -436,8 +420,8 @@ export class PackageService {
   }
 
   async getGiftPackages(): Promise<Package[]> {
-    return this.prisma.package.findMany({where: {category: PackageCategory.QUALITY, traffic: {lt: 10}}})
-  } 
+    return this.prisma.package.findMany({ where: { category: PackageCategory.QUALITY, traffic: { lt: 10 } } });
+  }
 
   async getUserPackages(user: User): Promise<UserPackageOutput[]> {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
@@ -469,7 +453,7 @@ export class PackageService {
     return userPacks.map((userPack) => this.generateUserPackageOutput(userPack));
   }
 
-  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<any>> {
+  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<unknown>> {
     try {
       const clientStat = {
         id: input.id,
