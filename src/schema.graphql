@@ -72,6 +72,7 @@ type Child {
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
+  promotion: [PromotionCode!]
   referId: String
   role: Role!
   telegram: TelegramUser
@@ -91,6 +92,7 @@ type ClientStat {
   enable: Boolean!
   expiryTime: BigNumber!
   id: ID!
+  lastConnectedAt: DateTime
   total: BigNumber!
   up: BigNumber!
 
@@ -98,10 +100,19 @@ type ClientStat {
   updatedAt: DateTime!
 }
 
+input CreatePromotionInput {
+  code: String!
+  giftPackageId: ID
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input DeletePromotionInput {
+  promotionId: ID!
+}
 
 input EnterCostInput {
   amount: Int!
@@ -160,7 +171,10 @@ type Mutation {
   buyPackage(data: BuyPackageInput!): String!
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
+  createPromotionCode(data: CreatePromotionInput!): Promotion!
+  deletePromotionCode(data: DeletePromotionInput!): Boolean!
   enableGift: Boolean!
+  enableTodayFreePackage: UserPackageOutput
   enterCost(input: EnterCostInput!): User!
   login(data: LoginInput!): Login!
   logout: Boolean!
@@ -203,6 +217,7 @@ enum PackageCategory {
 
 type Parent {
   bankCard: [BankCard!]
+  freePackageId: String
   id: String!
   telegram: ParentTelegram
 }
@@ -219,11 +234,27 @@ enum PaymentType {
   WALLET_RECHARGE
 }
 
+type Promotion {
+  code: String!
+  createdAt: DateTime!
+  deletedAt: DateTime
+  giftPackage: Package
+  id: ID!
+  parentUser: User!
+  updatedAt: DateTime!
+}
+
+type PromotionCode {
+  code: String!
+}
+
 type Query {
   checkAuth: CheckAuth!
   children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   getBrandInfo(input: GetBrandInfoInput!): Brand!
+  getGiftPackages: [Package!]!
+  getPromotionCodes: [Promotion!]!
   hello(name: String!): String!
   helloWorld: String!
   me: User!
@@ -361,6 +392,7 @@ type User {
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
+  promotion: [PromotionCode!]
   referId: String
   role: Role!
   telegram: TelegramUser

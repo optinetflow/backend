@@ -1,13 +1,14 @@
 /* eslint-disable max-len */
-import { BadRequestException, Injectable, Logger, NotAcceptableException } from '@nestjs/common';
-import { Package, Prisma, User as UserPrisma, UserPackage, TelegramUser } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Package, Prisma, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
 import { arrayToDic, ceilTo, convertPersianCurrency, jsonToB64Url, pctToDec, roundTo } from '../common/helpers';
+import { I18nService } from '../common/i18/i18.service';
 import { MinioClientService } from '../minio/minio.service';
 import { CallbackData } from '../telegram/telegram.constants';
-import { TelegramService, TelegramMessage, TelegramReplyMarkup } from '../telegram/telegram.service';
+import { TelegramMessage, TelegramReplyMarkup, TelegramService } from '../telegram/telegram.service';
 import { User } from '../users/models/user.model';
 import { UsersService } from '../users/users.service';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
@@ -15,7 +16,6 @@ import { EnterCostInput } from './dto/enterCost.input';
 import { PurchasePaymentRequestInput } from './dto/purchasePaymentRequest.input';
 import { RechargePaymentRequestInput } from './dto/rechargePaymentRequest.input';
 import { RechargePackage } from './models/rechargePackage.model';
-import { I18nService } from '../common/i18/i18.service';
 
 interface RecursiveUser extends User {
   level: number;
@@ -30,6 +30,8 @@ interface PaymentReq {
 interface PackagePaymentInput {
   package: Package;
   receipt?: string;
+  isFree?: boolean;
+  isGift?: boolean;
   inRenew: boolean;
   userPackageId: string;
   userPackageName: string;
@@ -44,6 +46,8 @@ export interface SendBuyPackMessage {
   price: number;
   discountedPrice: number;
   sellPrice?: number;
+  isFree?: boolean;
+  isGift?: boolean;
   profitAmount: number;
   inRenew: boolean;
 }
@@ -97,8 +101,13 @@ export class PaymentService {
     return txt;
   }
 
-  nestedBuyPackageTxt(firstUserId: string, buyPackMessagesDic: Record<string, SendBuyPackMessage>, isNested = false): string {
-    let txt =  '';
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  nestedBuyPackageTxt(
+    firstUserId: string,
+    buyPackMessagesDic: Record<string, SendBuyPackMessage>,
+    isNested = false,
+  ): string {
+    let txt = '';
 
     const buyPackMessage = buyPackMessagesDic?.[firstUserId];
 
@@ -108,12 +117,26 @@ export class PaymentService {
 
     if (!isNested) {
       // Set header
-      txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      if (buyPackMessage.isFree) {
+        txt = `#فعالسازی_بسته_رایگان_روزانه\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      } else if (buyPackMessage.isGift) {
+        txt = `#فعالسازی_هدیه 🎁\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+      } else {
+        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${
+          buyPackMessage.pack.expirationDays
+        } روزه`;
+      }
+
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
-      txt += `\n🧩 نوع بسته: ${this.i18.__(`package.category.${buyPackMessage.pack.category}`)}`;
+      const packCategory = this.i18.__(`package.category.${buyPackMessage.pack.category}`);
+      txt += `\n🧩 نوع بسته: ${packCategory}`;
     }
 
-    const child = buyPackMessagesDic?.[Object.keys(buyPackMessagesDic).find(userId => buyPackMessagesDic[userId].user.parentId === firstUserId) || ''];
+    const child =
+      buyPackMessagesDic?.[
+        Object.keys(buyPackMessagesDic).find((userId) => buyPackMessagesDic[userId].user.parentId === firstUserId) || ''
+      ];
+
     if (child && child?.user?.id) {
       txt += `${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true)}`;
     }
@@ -121,12 +144,16 @@ export class PaymentService {
     txt += `\n\n👤 ${buyPackMessage.user.fullname}`;
 
     if (buyPackMessage.user.role === 'ADMIN') {
-      txt += `\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(buyPackMessage.user.balance - buyPackMessage.discountedPrice, 0))}`;
+      txt += `\n💵 شارژ حساب: ${convertPersianCurrency(
+        roundTo(buyPackMessage.user.balance - buyPackMessage.discountedPrice, 0),
+      )}`;
     }
+
     txt += `\n📱 موبایل: +98${buyPackMessage.user.phone}`;
 
     if (!child) {
-      const profitPercent = (1 - (buyPackMessage.discountedPrice / buyPackMessage.price)) * 100;
+      const profitPercent = (1 - buyPackMessage.discountedPrice / buyPackMessage.price) * 100;
+
       if (buyPackMessage.profitAmount) {
         txt += `\n💰 قیمت واقعی: ${convertPersianCurrency(buyPackMessage.price)}`;
         txt += `\n🏷️ قیمت پس از تخفیف: ${convertPersianCurrency(buyPackMessage.discountedPrice)}`;
@@ -142,8 +169,6 @@ export class PaymentService {
       txt += `\n💸 قیمت فروش: ${convertPersianCurrency(buyPackMessage.sellPrice!)}`;
       txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
     }
-
-    
 
     return txt;
   }
@@ -162,14 +187,16 @@ export class PaymentService {
 
     const caption = `#شارژـحساب  -  ${convertPersianCurrency(rechargePack.amount)}\n👤 ${
       user.fullname
-    }\n📞 موبایل: +98${user.phone}\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user.balance + rechargePack.amount || 0, 0))}`;
+    }\n📞 موبایل: +98${user.phone}\n💵 شارژ حساب: ${convertPersianCurrency(
+      roundTo(user.balance + rechargePack.amount || 0, 0),
+    )}`;
 
     const telegramUser =
       user?.parentId && (await this.prisma.telegramUser.findUnique({ where: { userId: user.parentId } }));
     const acceptData = { A_CHARGE: paymentId } as CallbackData;
     const rejectData = { R_CHARGE: paymentId } as CallbackData;
 
-    const bot = this.telegramService.getBot(user.brandId as string);
+    const bot = this.telegramService.getBot(user.brandId);
     const parents = await this.usersService.getAllParents(user.id);
     const parentsDic = arrayToDic(parents);
     const reportCaption = caption + (user?.parentId ? this.nestedParentsChargeTxt(user.parentId, parentsDic) : '');
@@ -245,7 +272,11 @@ export class PaymentService {
     `;
   }
 
-  async purchasePackagePayment(user: User, input: PackagePaymentInput): Promise<[Array<Prisma.PrismaPromise<any>>, TelegramMessage[]]> {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async purchasePackagePayment(
+    user: User,
+    input: PackagePaymentInput,
+  ): Promise<[Array<Prisma.PrismaPromise<unknown>>, TelegramMessage[]]> {
     const users = [...(await this.getAllParents(user.id)), user];
     const usersDic = arrayToDic(users);
     const buyPackMessages: SendBuyPackMessage[] = [];
@@ -254,7 +285,7 @@ export class PaymentService {
       ? await this.uploadReceiptPermanently(input.userPackageId, input.receipt)
       : [];
 
-    const financeTransactions: Array<Prisma.PrismaPromise<any>> = [];
+    const financeTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
 
     for (const currentUser of users) {
       const parent = usersDic?.[currentUser?.parentId || ''];
@@ -310,6 +341,8 @@ export class PaymentService {
         inRenew: input.inRenew,
         pack: input.package,
         price,
+        isFree: input.isFree || false,
+        isGift: input.isGift || false,
         user: currentUser,
         userId: currentUser.id,
         userPackageName: input.userPackageName,
@@ -319,12 +352,17 @@ export class PaymentService {
     const telegramUsers = await this.prisma.telegramUser.findMany({
       where: {
         userId: {
-          in: buyPackMessages.map(b => b.userId),
-        }
+          in: buyPackMessages.map((b) => b.userId),
+        },
       },
     });
 
-    const telegramMessages = await this.getBuyPackMessages({buyPackMessages, telegramUsers, userPackageId: input.userPackageId, receiptBuffer});
+    const telegramMessages = await this.getBuyPackMessages({
+      buyPackMessages,
+      telegramUsers,
+      userPackageId: input.userPackageId,
+      receiptBuffer,
+    });
 
     return [financeTransactions, telegramMessages];
   }
@@ -588,7 +626,6 @@ export class PaymentService {
     const telegramUsersDic = arrayToDic(input.telegramUsers, 'userId');
     const buyPackMessagesDic = arrayToDic(input.buyPackMessages, 'userId');
 
-
     for (const buyPackMessage of input.buyPackMessages) {
       if (buyPackMessage.user.role !== 'ADMIN') {
         continue;
@@ -598,13 +635,18 @@ export class PaymentService {
       const chatId = Number(telegramUsersDic[buyPackMessage.userId].chatId);
       let source: Buffer | undefined;
       let replyMarkup: TelegramReplyMarkup | undefined;
-    
+
       if (input.receiptBuffer) {
         source = input.receiptBuffer;
         const rejectData = { R_PACK: input.userPackageId } as CallbackData;
         const acceptData = { A_PACK: input.userPackageId } as CallbackData;
 
-        const child = buyPackMessagesDic?.[Object.keys(buyPackMessagesDic).find(userId => buyPackMessagesDic[userId].user.parentId === buyPackMessage.userId) || ''];
+        const child =
+          buyPackMessagesDic?.[
+            Object.keys(buyPackMessagesDic).find(
+              (userId) => buyPackMessagesDic[userId].user.parentId === buyPackMessage.userId,
+            ) || ''
+          ];
 
         if (child?.user?.role !== 'ADMIN') {
           replyMarkup = {
@@ -620,16 +662,27 @@ export class PaymentService {
                 },
               ],
             ],
-          }
+          };
         }
       }
 
       if (!buyPackMessage.user.parentId) {
-        const brand =  await this.prisma.brand.findUniqueOrThrow({ where: { id: buyPackMessage.user.brandId }})
-        telegramMessages.push({caption, chatId: Number(brand.reportGroupId), source, brandId: buyPackMessage.user.brandId})
+        const brand = await this.prisma.brand.findUniqueOrThrow({ where: { id: buyPackMessage.user.brandId } });
+        telegramMessages.push({
+          caption,
+          chatId: Number(brand.reportGroupId),
+          source,
+          brandId: buyPackMessage.user.brandId,
+        });
       }
 
-      telegramMessages.push({caption, chatId, source, reply_markup: replyMarkup, brandId: buyPackMessage.user.brandId})
+      telegramMessages.push({
+        caption,
+        chatId,
+        source,
+        reply_markup: replyMarkup,
+        brandId: buyPackMessage.user.brandId,
+      });
     }
 
     return telegramMessages;

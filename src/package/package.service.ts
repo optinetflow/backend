@@ -1,37 +1,30 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, Package, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, PackageCategory, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import moment from 'jalali-moment';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
 import { GraphqlConfig } from '../common/configs/config.interface';
-import {
-  bytesToGB,
-  ceilTo,
-  convertPersianCurrency,
-  getVlessLink,
-  jsonToB64Url,
-  pctToDec,
-  roundTo,
-} from '../common/helpers';
+import { bytesToGB, ceilTo, getVlessLink, pctToDec, roundTo } from '../common/helpers';
+import { I18nService } from '../common/i18/i18.service';
 import { PaymentService } from '../payment/payment.service';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
 import { TelegramService } from './../telegram/telegram.service';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
-import { RenewPackageInput } from './dto/renewPackage.input';
-import { CreatePackageInput } from './package.types';
-import { I18nService } from '../common/i18/i18.service';
 import { UserPackageOutput } from './dto/get-user-packages.output';
+import { RenewPackageInput } from './dto/renewPackage.input';
+import { UserPackage } from './models/userPackage.model';
+import { CreatePackageInput } from './package.types';
 
 interface DiscountedPackage extends Package {
   discountedPrice?: number;
   categoryFa?: string;
 }
-
 
 @Injectable()
 export class PackageService {
@@ -128,29 +121,65 @@ export class PackageService {
     await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
     await this.telegramService.sendBulkMessage(telegramMessages);
 
-    const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
-
-    return userPack;
+    return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
   }
 
-  async enableGift(user: User, userGiftId: string): Promise<void> {
-    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+  async getCurrentFreePackage(user: User): Promise<UserPackagePrisma | null> {
+    return this.prisma.userPackage.findFirst({
+      where: {
+        userId: user.id,
+        isFree: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        stat: true,
+        server: {
+          include: {
+            brand: true,
+          },
+        },
+        package: true,
+      },
+    });
+  }
 
-    const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
-    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
+  async enableTodayFreePackage(user: User) {
+    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+    const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parent?.id } });
+
+    if (!parent.freePackageId) {
+      throw new BadRequestException('There is no free package');
+    }
+
+    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: parent.freePackageId } });
     const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
     const userPackageId = uuid();
+    const userPackageName = `رایگان ${moment().locale('fa').format('dddd')}`;
+    const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
 
-    await this.xuiService.addClient(user, {
-      id,
-      subId,
-      email,
-      serverId: server.id,
+    if (!graphqlConfig?.debug) {
+      await this.xuiService.addClient(user, {
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: userPackageName,
+      });
+    }
+
+    const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+      userPackageId,
       package: pack,
-      name: 'هدیه 🎁',
+      receipt: undefined,
+      inRenew: false,
+      userPackageName,
+      isFree: true,
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -158,8 +187,68 @@ export class PackageService {
       orderBy: { orderN: 'desc' },
     });
 
+    const createPackageTransactions = this.createPackage(user, {
+      id,
+      userPackageId,
+      subId,
+      email,
+      server,
+      name: userPackageName,
+      package: pack,
+      isFree: true,
+      orderN: (lastUserPack?.orderN || 0) + 1,
+    });
+    await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
 
-    const createPackageTransactions =this.createPackage(user, {
+    return this.telegramService.sendBulkMessage(telegramMessages);
+  }
+
+  async enableGift(userId: string): Promise<void> {
+    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+    const user = await this.prisma.user.findFirstOrThrow({
+      where: {
+        id: userId,
+      },
+      include: { brand: true, userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } } },
+    });
+
+    const userGift = user?.userGift?.[0];
+    const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGift.id } });
+    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
+    const server = await this.getFreeServer(user, pack);
+    const email = nanoid();
+    const id = uuid();
+    const subId = nanoid();
+    const userPackageId = uuid();
+    const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
+    const userPackageName = 'هدیه 🎁';
+
+    if (!graphqlConfig?.debug) {
+      await this.xuiService.addClient(user, {
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: userPackageName,
+      });
+    }
+
+    const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+      userPackageId,
+      package: pack,
+      receipt: undefined,
+      inRenew: false,
+      userPackageName,
+      isFree: false,
+      isGift: true,
+    });
+    const lastUserPack = await this.prisma.userPackage.findFirst({
+      where: { userId: user.id },
+      orderBy: { orderN: 'desc' },
+    });
+
+    const createPackageTransactions = this.createPackage(user, {
       userPackageId,
       id,
       subId,
@@ -170,22 +259,13 @@ export class PackageService {
       orderN: (lastUserPack?.orderN || 0) + 1,
     });
 
-    await this.prisma.$transaction(createPackageTransactions);
+    await this.prisma.$transaction([
+      ...createPackageTransactions,
+      ...financeTransactions,
+      this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } }),
+    ]);
 
-    const userPack = await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
-
-
-
-    await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
-
-    const caption = `#فعالسازیـهدیه 🎁\n📦 ${pack.traffic} گیگ - ${convertPersianCurrency(pack.price)} - ${
-      pack.expirationDays
-    } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
-      user.phone
-    }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
-    const bot = this.telegramService.getBot(user.brandId as string);
-
-    await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
+    return this.telegramService.sendBulkMessage(telegramMessages);
   }
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
@@ -250,17 +330,21 @@ export class PackageService {
           orderN: userPack.orderN,
         });
 
-        await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions, this.prisma.userPackage.update({
-          where: {
-            id: userPack.id,
-          },
-          data: {
-            deletedAt: new Date(),
-          },
-        })]);
+        await this.prisma.$transaction([
+          ...createPackageTransactions,
+          ...financeTransactions,
+          this.prisma.userPackage.update({
+            where: {
+              id: userPack.id,
+            },
+            data: {
+              deletedAt: new Date(),
+            },
+          }),
+        ]);
         await this.telegramService.sendBulkMessage(telegramMessages);
 
-        return await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
+        return await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
       }
     } catch {
       // nothing
@@ -295,21 +379,51 @@ export class PackageService {
       orderN: userPack.orderN,
     });
 
-    await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions, this.prisma.userPackage.update({
-      where: {
-        id: userPack.id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    })]);
+    await this.prisma.$transaction([
+      ...createPackageTransactions,
+      ...financeTransactions,
+      this.prisma.userPackage.update({
+        where: {
+          id: userPack.id,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      }),
+    ]);
     await this.telegramService.sendBulkMessage(telegramMessages);
 
-    return await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId }});
+    return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
+  }
+
+  generateUserPackageOutput(userPack: UserPackage | UserPackagePrisma): UserPackageOutput {
+    const userPackage = userPack as UserPackage;
+
+    return {
+      id: userPackage.id,
+      createdAt: userPackage.createdAt,
+      updatedAt: userPackage.updatedAt,
+      name: userPackage.name,
+      category: userPackage.package.category,
+      categoryFa: this.i18.__(`package.category.${userPackage.package.category}`),
+      link: getVlessLink(
+        userPack.statId,
+        userPackage.server.tunnelDomain,
+        `${userPack.name} | ${userPackage.server.brand?.domainName}`,
+        userPackage.server.port,
+      ),
+      remainingTraffic: userPackage.stat.total - (userPackage.stat.down + userPackage.stat.up),
+      totalTraffic: userPackage.stat.total,
+      expiryTime: userPackage.stat.expiryTime,
+      lastConnectedAt: userPackage.stat?.lastConnectedAt,
+    };
+  }
+
+  async getGiftPackages(): Promise<Package[]> {
+    return this.prisma.package.findMany({ where: { category: PackageCategory.QUALITY, traffic: { lt: 10 } } });
   }
 
   async getUserPackages(user: User): Promise<UserPackageOutput[]> {
-    const userPackages: UserPackageOutput[] = [];
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
@@ -321,12 +435,13 @@ export class PackageService {
         },
         package: {
           select: {
-            category: true
-          }
-        }
+            category: true,
+          },
+        },
       },
       where: {
         userId: user.id,
+        isFree: false,
         deletedAt: null,
         OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }],
       },
@@ -335,31 +450,10 @@ export class PackageService {
       },
     });
 
-    for (const userPack of userPacks) {
-      userPackages.push({
-        id: userPack.id,
-        createdAt: userPack.createdAt,
-        updatedAt: userPack.updatedAt,
-        name: userPack.name,
-        category: userPack.package.category,
-        categoryFa: this.i18.__(`package.category.${userPack.package.category}`),
-        link: getVlessLink(
-          userPack.statId,
-          userPack.server.tunnelDomain,
-          `${userPack.name} | ${userPack.server.brand?.domainName as string}`,
-          userPack.server.port,
-        ),
-        remainingTraffic: userPack.stat.total - (userPack.stat.down + userPack.stat.up),
-        totalTraffic: userPack.stat.total,
-        expiryTime: userPack.stat.expiryTime,
-        lastConnectedAt: userPack.stat?.lastConnectedAt,
-      });
-    }
-
-    return userPackages;
+    return userPacks.map((userPack) => this.generateUserPackageOutput(userPack));
   }
 
-  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<any>> {
+  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<unknown>> {
     try {
       const clientStat = {
         id: input.id,
@@ -393,6 +487,7 @@ export class PackageService {
             statId: input.id,
             name: input.name,
             orderN: input.orderN,
+            isFree: input.isFree || false,
           },
         }),
       ];
@@ -404,20 +499,21 @@ export class PackageService {
   }
 
   async getPackages(user: User, filters: GetPackageInput, id?: string): Promise<DiscountedPackage[]> {
-    const {category, expirationDays} = filters
+    const { category, expirationDays } = filters;
     let packages = await this.prisma.package.findMany({
-      where: { deletedAt: null, forRole: { has: user.role }, id,
-      category: category ? category : undefined,
-      expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined
-     },
+      where: {
+        deletedAt: null,
+        forRole: { has: user.role },
+        id,
+        category: category ? category : undefined,
+        expirationDays: expirationDays && expirationDays > 0 ? expirationDays : undefined,
+      },
       orderBy: { order: 'asc' },
     });
-    packages = packages.map(pack => {
-      return {
-        ...pack,
-        categoryFa: this.i18.__(`package.category.${pack.category}`),
-      }
-    })
+    packages = packages.map((pack) => ({
+      ...pack,
+      categoryFa: this.i18.__(`package.category.${pack.category}`),
+    }));
     const parent = user?.parentId ? await this.prisma.user.findUnique({ where: { id: user?.parentId } }) : null;
 
     const hasParentDiscount = typeof parent?.appliedDiscountPercent === 'number';

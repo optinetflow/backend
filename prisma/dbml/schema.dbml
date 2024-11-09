@@ -15,6 +15,7 @@ Table User {
   parentId String
   referId String
   brandId String [not null]
+  freePackageId String
   otp String
   otpExpiration DateTime
   role Role [not null, default: 'USER']
@@ -31,6 +32,7 @@ Table User {
   children User [not null]
   refer User
   referers User [not null]
+  freePackage Package
   userPackage UserPackage [not null]
   payment Payment [not null]
   telegram TelegramUser
@@ -150,6 +152,7 @@ Table Package {
   userPackage UserPackage [not null]
   Promotion Promotion [not null]
   UserGift UserGift [not null]
+  User User [not null]
 }
 
 Table RechargePackage {
@@ -170,6 +173,7 @@ Table UserPackage {
   name String [not null]
   packageId String [not null]
   userId String [not null]
+  isFree Boolean [not null, default: false]
   serverId String [not null]
   statId String [not null]
   thresholdWarningSentAt DateTime
@@ -316,6 +320,8 @@ Ref: User.brandId > Brand.id
 Ref: User.parentId - User.id
 
 Ref: User.referId - User.id
+
+Ref: User.freePackageId > Package.id
 
 Ref: TelegramUser.userId - User.id
 

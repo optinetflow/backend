@@ -141,7 +141,7 @@ export class AuthService {
     otpDetails: { otp: string; otpExpiration: Date },
   ): Promise<User> {
     return this.prisma.user.update({
-      where: { UserPhoneBrandIdUnique: { phone: payload.phone, brandId: user.brandId as string } },
+      where: { UserPhoneBrandIdUnique: { phone: payload.phone, brandId: user.brandId } },
       data: {
         otp: otpDetails.otp,
         otpExpiration: otpDetails.otpExpiration,
@@ -178,13 +178,16 @@ export class AuthService {
     brand: Brand,
     parentId: string | undefined,
   ) {
-    const reseller = parentId ? await this.prisma.user.findUnique({ where: { id: parentId }, include: {telegram:true} }) : null;
+    const reseller = parentId
+      ? await this.prisma.user.findUnique({ where: { id: parentId }, include: { telegram: true } })
+      : null;
     const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
     const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname}${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
     const bot = this.telegramService.getBot(brand.id);
 
     await bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
-    if(reseller && reseller.telegram?.chatId) {  
+
+    if (reseller && reseller.telegram?.chatId) {
       await bot.telegram.sendMessage(Number(reseller.telegram.chatId), reportCaption);
     }
   }
@@ -233,7 +236,7 @@ export class AuthService {
       data: { otp: null, otpExpiration: null, isVerified: true },
     });
     const reportCaption = `#تایید_موبایل\n👤 ${user.fullname}\n📞 موبایل: +98${user.phone}\n\n🏷️ برند: ${user?.brand?.domainName}`;
-    const bot = this.telegramService.getBot(user.brandId as string);
+    const bot = this.telegramService.getBot(user.brandId);
 
     await bot.telegram.sendMessage(user?.brand?.reportGroupId as string, reportCaption);
 
@@ -272,7 +275,7 @@ export class AuthService {
       await prisma.user.deleteMany({
         where: {
           phone,
-          brandId: user.brandId as string,
+          brandId: user.brandId,
           isVerified: false, // Only delete unverified users
         },
       });
@@ -371,14 +374,14 @@ export class AuthService {
   }
 
   validateUser(userId: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id: userId }, include: { brand: true } });
+    return this.prisma.user.findUnique({ where: { id: userId }, include: { brand: true, parent: true } });
   }
 
   getUserFromToken(token: string): Promise<User | null> {
     const decodedToken = this.jwtService.decode(token);
     const id = typeof decodedToken === 'object' && decodedToken !== null ? decodedToken?.userId : null;
 
-    return this.prisma.user.findUnique({ where: { id }, include: { brand: true } });
+    return this.prisma.user.findUnique({ where: { id }, include: { brand: true, parent: true } });
   }
 
   generateTokens(payload: { userId: string }): Token {

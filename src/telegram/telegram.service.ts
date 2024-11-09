@@ -19,10 +19,12 @@ interface StartPayload {
 }
 
 export interface TelegramReplyMarkup {
-  inline_keyboard: {
-    callback_data: string;
-    text: string;
-  }[][];
+  inline_keyboard: Array<
+    Array<{
+      callback_data: string;
+      text: string;
+    }>
+  >;
 }
 
 export interface TelegramMessage {
@@ -176,12 +178,10 @@ export class TelegramService {
         },
       });
 
-      // await this.enableGift(ctx);
-
       await ctx.scene.enter(HOME_SCENE_ID);
 
       const caption = `#ثبـنامـتلگرام\n👤 ${user.fullname} (@${updatedTelegramUser?.username})\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${parent?.fullname}`;
-      const bot = this.getBot(user.brandId as string);
+      const bot = this.getBot(user.brandId);
 
       if (bigPhoto) {
         await bot?.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: bigPhoto }, { caption });
@@ -198,7 +198,7 @@ export class TelegramService {
     chatId: number,
     telegramUser?: TelegramUser,
   ): Promise<[TelegramUser, Buffer | undefined]> {
-    const bot = this.getBot(user.brandId as string);
+    const bot = this.getBot(user.brandId);
     const chat = await bot.telegram.getChat(chatId);
 
     let bigAvatar: string | undefined;
@@ -304,7 +304,7 @@ export class TelegramService {
     });
     await this.prisma.user.update({ where: { id: updatedTelegramUser.userId }, data: { isVerified: true } });
     const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
-    const bot = this.getBot(updatedTelegramUser.user.brandId as string);
+    const bot = this.getBot(updatedTelegramUser.user.brandId);
 
     return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
   }
@@ -326,14 +326,9 @@ export class TelegramService {
       } روزه\n🔤 نام بسته: ${userPack.name}\n👤 ${user.fullname}\n📞 موبایل: +98${
         user.phone
       }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
-      const bot = this.getBot(user.brandId as string);
+      const bot = this.getBot(user.brandId);
 
       await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
-      // const traffic = userGift.giftPackage!.traffic;
-
-      // if (traffic) {
-      //   await ctx.reply(`${traffic} گیگ هدیه 🎁 برای شما در سایت فعال شد.`);
-      // }
     }
   }
 
@@ -396,16 +391,22 @@ export class TelegramService {
   async sendBulkMessage(telegramMessages: TelegramMessage[]) {
     for (const telegramMessage of telegramMessages) {
       const bot = this.getBot(telegramMessage.brandId);
+
       if (telegramMessage.source) {
-        bot.telegram.sendPhoto(telegramMessage.chatId, { source: telegramMessage.source }, {
-          caption: telegramMessage.caption,
-          ...(telegramMessage?.reply_markup && {
-            reply_markup: telegramMessage.reply_markup,
-          }),
-        });
+        await bot.telegram.sendPhoto(
+          telegramMessage.chatId,
+          { source: telegramMessage.source },
+          {
+            caption: telegramMessage.caption,
+            ...(telegramMessage?.reply_markup && {
+              reply_markup: telegramMessage.reply_markup,
+            }),
+          },
+        );
         continue;
       }
-      bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption)
+
+      await bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption);
     }
   }
 

@@ -34,7 +34,8 @@ model User {
   totalProfit                Float     @default(0)
   parentId                   String?   @db.Uuid
   referId                    String?   @db.Uuid
-  brandId                    String   @db.Uuid
+  brandId                    String    @db.Uuid
+  freePackageId              String?   @db.Uuid
   otp                        String?
   otpExpiration              DateTime?
   role                       Role      @default(USER)
@@ -52,6 +53,7 @@ model User {
   children    User[]        @relation("UserParentRelation")
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
   referers    User[]        @relation("UserReferRelation")
+  freePackage Package?      @relation("UserPackageRelation", fields: [freePackageId], references: [id])
   userPackage UserPackage[]
   payment     Payment[]
   telegram    TelegramUser?
@@ -197,6 +199,8 @@ model Package {
   userPackage    UserPackage[]
   Promotion      Promotion[]
   UserGift       UserGift[]
+
+  User User[] @relation("UserPackageRelation")
 }
 
 model RechargePackage {
@@ -217,6 +221,7 @@ model UserPackage {
   name                   String    @db.VarChar(255)
   packageId              String    @db.Uuid
   userId                 String    @db.Uuid
+  isFree                 Boolean   @default(false)
   serverId               String    @db.Uuid
   statId                 String    @db.Uuid
   thresholdWarningSentAt DateTime?
@@ -311,28 +316,6 @@ model Payment {
   @@index([payerId], name: "PaymentUserIdIndex")
   @@index([userPackageId], name: "PaymentUserPackageIdIndex")
 }
-
-// model Transation {
-//   id        String   @id
-//   amount    Int
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   payerId   String
-
-//   payer User @relation(fields: [payerId], references: [id])
-// }
-
-// model Transfer {
-//   id         String   @id 
-//   amount     Int
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @updatedAt
-//   senderId   String
-//   receiverId String
-
-//   sender   User @relation("TransferSenderRelation", fields: [senderId], references: [id])
-//   receiver User @relation("TransferReceiverRelation", fields: [receiverId], references: [id])
-// }
 
 model Promotion {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

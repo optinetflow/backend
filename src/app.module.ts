@@ -12,16 +12,17 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { BrandModule } from './brand/brand.module';
 import config from './common/configs/config';
+import { I18Module } from './common/i18/i18.module';
 import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
 import { PackageModule } from './package/package.module';
 import { PaymentModule } from './payment/payment.module';
 import { ServerModule } from './server/server.module';
+import { SmsModule } from './sms/sms.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { XuiModule } from './xui/xui.module';
-import { SmsModule } from './sms/sms.module';
-import { I18Module } from './common/i18/i18.module';
+import { PromotionModule } from './promotion/promotion.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { I18Module } from './common/i18/i18.module';
     BrandModule,
     PackageModule,
     SmsModule,
+    PromotionModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],

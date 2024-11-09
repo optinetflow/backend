@@ -1,9 +1,8 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { AuthGuard } from '@nestjs/passport';
 
 import { AuthService } from './auth.service';
-import { JwtStrategy } from './jwt.strategy';
 
 @Injectable()
 export class GqlAuthGuard extends AuthGuard('jwt') {
@@ -16,7 +15,7 @@ export class GqlAuthGuard extends AuthGuard('jwt') {
 
 @Injectable()
 export class OptionalGqlAuthGuard extends AuthGuard('jwt') {
-  constructor(private readonly jwtService: JwtStrategy, private readonly authService: AuthService) {
+  constructor(private readonly authService: AuthService) {
     super();
   }
 
@@ -39,5 +38,31 @@ export class OptionalGqlAuthGuard extends AuthGuard('jwt') {
     const ctx = gqlContext.getContext();
 
     return ctx.req;
+  }
+}
+
+@Injectable()
+export class AdminGqlAuthGuard implements CanActivate {
+  constructor(private readonly authService: AuthService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const ctx = GqlExecutionContext.create(context);
+    const req = ctx.getContext().req;
+
+    const token = req?.cookies?.token && JSON.parse(req.cookies.token).accessT;
+
+    if (!token) {
+      throw new ForbiddenException('Access denied. No token provided.');
+    }
+
+    const user = await this.authService.getUserFromToken(token);
+
+    if (user && user.role === 'ADMIN') {
+      req.user = user;
+
+      return true;
+    }
+
+    throw new ForbiddenException('Access denied. Admins only.');
   }
 }
