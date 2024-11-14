@@ -67,6 +67,9 @@ export class AuthService {
 
       void this.smsService.sendOtp(payload.phone, otpDetails.otp);
 
+      const parent = user ? user : await this.prisma.user.findUniqueOrThrow({ where: { id: parentId } });
+      await this.userService.nestedUpdateADiscount(parent, newUser);
+
       return newUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

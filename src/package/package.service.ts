@@ -8,7 +8,7 @@ import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
 import { GraphqlConfig } from '../common/configs/config.interface';
-import { bytesToGB, ceilTo, getVlessLink, pctToDec, roundTo } from '../common/helpers';
+import { arrayToDic, bytesToGB, ceilTo, getVlessLink, pctToDec, roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { PaymentService } from '../payment/payment.service';
 import { User } from '../users/models/user.model';
@@ -82,9 +82,9 @@ export class PackageService {
     const subId = nanoid();
     const userPackageId = uuid();
     const userPackageName = input.name || 'No Name';
-    const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
+    const isDev = this.configService.get('env') === 'development';
 
-    if (!graphqlConfig?.debug) {
+    if (!isDev) {
       await this.xuiService.addClient(user, {
         id,
         subId,
@@ -519,6 +519,7 @@ export class PackageService {
     const hasParentDiscount = typeof parent?.appliedDiscountPercent === 'number';
     const hasParentProfit = typeof parent?.profitPercent === 'number';
 
+    const packagesDic = arrayToDic(packages);
     const appliedPackPrice =
       hasParentDiscount || hasParentProfit
         ? packages.map((pack) => {
@@ -535,8 +536,7 @@ export class PackageService {
 
     return typeof user?.appliedDiscountPercent === 'number'
       ? appliedPackPrice.map((pack) => {
-          const userDiscount = 1 - pctToDec(user.initialDiscountPercent);
-          const discountedPrice = ceilTo(pack.price * userDiscount, 0);
+          const discountedPrice = ceilTo(packagesDic[pack.id].price * (1 - pctToDec(user.appliedDiscountPercent)), 0);
 
           return {
             ...pack,

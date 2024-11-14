@@ -632,9 +632,13 @@ export class PaymentService {
       }
 
       const caption = this.nestedBuyPackageTxt(buyPackMessage.userId, buyPackMessagesDic);
-      const chatId = Number(telegramUsersDic[buyPackMessage.userId].chatId);
+      const chatId = Number(telegramUsersDic?.[buyPackMessage.userId]?.chatId);
       let source: Buffer | undefined;
       let replyMarkup: TelegramReplyMarkup | undefined;
+
+      if (!chatId) {
+        continue;
+      }
 
       if (input.receiptBuffer) {
         source = input.receiptBuffer;
