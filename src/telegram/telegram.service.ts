@@ -1,10 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { TelegramUser, User } from '@prisma/client';
+import { Brand as PrismaBrand, TelegramUser, User } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { Scenes, session, Telegraf } from 'telegraf';
-import { Contact } from 'telegraf/typings/core/types/typegram';
 
 import { Brand } from '../brand/models/brand.model';
 import { b64UrlToJson, convertPersianCurrency, extractFileName, getFileFromURL, roundTo } from '../common/helpers';
@@ -147,11 +146,43 @@ export class TelegramService {
     }
   }
 
+  private async isThisAccountAlreadyAssigned(
+    ctx: Context,
+    user: User & { parent?: (User & { telegram?: TelegramUser | null }) | null } & { brand?: PrismaBrand | null },
+  ) {
+    const telegramAccounts = await this.prisma.telegramUser.findMany({
+      where: { chatId: ctx.from!.id },
+      include: { user: true },
+    });
+
+    for (const telegramAccount of telegramAccounts) {
+      if (telegramAccount.user.brandId === user.brandId) {
+        const parentButton =
+          user.parentId && user.parent?.telegram && user.parent?.telegram.username
+            ? {
+                text: 'ارتباط با پشتیبانی',
+                url: `https://t.me/${user.parent?.telegram.username}`,
+              }
+            : null;
+        const inlineKeyboard = parentButton ? [[parentButton]] : [];
+        await ctx.reply(`این حساب تلگرام قبلا با این شماره ${telegramAccount.user.phone} عضو شده است ❌`, {
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        });
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   async handleStartPayload(ctx: Context, payload: StartPayload, telegramUser: TelegramUser | null): Promise<void> {
     if (payload?.uid && !telegramUser) {
       const user = await this.prisma.user.findUnique({
         where: { id: payload?.uid },
-        include: { telegram: true, brand: true },
+        include: { telegram: true, brand: true, parent: { include: { telegram: true } } },
       });
 
       if (!user) {
@@ -160,6 +191,12 @@ export class TelegramService {
 
       // already registered by another account!
       if (user?.telegram) {
+        return;
+      }
+
+      const isAlreadyAssigned = await this.isThisAccountAlreadyAssigned(ctx, user);
+
+      if (isAlreadyAssigned) {
         return;
       }
 
