@@ -94,6 +94,9 @@ export class User extends BaseModel {
   brandId: string;
 
   @Field(() => String, { nullable: true })
+  joinedPromotionCode?: string | null;
+
+  @Field(() => String, { nullable: true })
   referId?: string | null;
 
   @Field(() => Boolean, { nullable: true })

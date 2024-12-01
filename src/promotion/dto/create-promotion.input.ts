@@ -1,5 +1,5 @@
-import { Field, ID, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsUUID, Matches } from 'class-validator';
+import { Field, Float, ID, InputType } from '@nestjs/graphql';
+import { IsNotEmpty, IsOptional, IsUUID, Matches, Max, Min } from 'class-validator';
 
 @InputType()
 export class CreatePromotionInput {
@@ -14,4 +14,10 @@ export class CreatePromotionInput {
   @IsOptional()
   @IsUUID()
   giftPackageId?: string;
+
+  @Field(() => Float, { nullable: true })
+  @Max(100)
+  @Min(0)
+  @IsOptional()
+  initialDiscountPercent?: number;
 }

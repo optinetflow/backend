@@ -27,18 +27,21 @@ Table User {
   initialDiscountPercent Float
   appliedDiscountPercent Float
   description String
+  joinedPromotionId String
+  joinedPromotionCode String
   brand Brand
   parent User
   children User [not null]
   refer User
   referers User [not null]
   freePackage Package
+  joinedPromotion Promotion
+  promotion Promotion [not null]
   userPackage UserPackage [not null]
   payment Payment [not null]
   telegram TelegramUser
   bankCard BankCard [not null]
   file File [not null]
-  promotion Promotion [not null]
   userGift UserGift [not null]
 
   indexes {
@@ -245,8 +248,10 @@ Table Promotion {
   code String [unique, not null]
   parentUserId String [not null]
   giftPackageId String
+  initialDiscountPercent Float
   parentUser User [not null]
   giftPackage Package
+  joinedUsers User [not null]
 }
 
 Table UserGift {
@@ -323,6 +328,8 @@ Ref: User.referId - User.id
 
 Ref: User.freePackageId > Package.id
 
+Ref: User.joinedPromotionId - Promotion.id
+
 Ref: TelegramUser.userId - User.id
 
 Ref: BankCard.userId > User.id
@@ -353,7 +360,7 @@ Ref: Payment.payerId > User.id
 
 Ref: Payment.userPackageId > UserPackage.id
 
-Ref: Promotion.parentUserId > User.id
+Ref: Promotion.parentUserId - User.id
 
 Ref: Promotion.giftPackageId > Package.id
 
