@@ -103,6 +103,7 @@ type ClientStat {
 input CreatePromotionInput {
   code: String!
   giftPackageId: ID
+  initialDiscountPercent: Float
 }
 
 """
@@ -240,6 +241,7 @@ type Promotion {
   deletedAt: DateTime
   giftPackage: Package
   id: ID!
+  initialDiscountPercent: Float
   parentUser: User!
   updatedAt: DateTime!
 }
