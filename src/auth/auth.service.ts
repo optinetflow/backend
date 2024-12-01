@@ -54,9 +54,9 @@ export class AuthService {
 
     try {
       if (newUser && !newUser.isVerified) {
-        newUser = await this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails);
+        newUser = await this.updateExistingUser(newUser, payload, hashedPassword, parentId, otpDetails, promo);
       } else {
-        newUser = await this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails);
+        newUser = await this.createNewUser(payload, hashedPassword, parentId, brand.id, otpDetails, promo);
 
         if (promo && newUser) {
           await this.assignGiftToUser(newUser.id, promo);
@@ -66,8 +66,8 @@ export class AuthService {
       await this.sendRegistrationReport(newUser, promo, brand, parentId);
 
       void this.smsService.sendOtp(payload.phone, otpDetails.otp);
-
       const parent = user ? user : await this.prisma.user.findUniqueOrThrow({ where: { id: parentId } });
+
       await this.userService.nestedUpdateADiscount(parent, newUser);
 
       return newUser;
@@ -142,6 +142,7 @@ export class AuthService {
     hashedPassword: string,
     parentId: string | undefined,
     otpDetails: { otp: string; otpExpiration: Date },
+    promotionCode: Promotion | null,
   ): Promise<User> {
     return this.prisma.user.update({
       where: { UserPhoneBrandIdUnique: { phone: payload.phone, brandId: user.brandId } },
@@ -150,6 +151,9 @@ export class AuthService {
         otpExpiration: otpDetails.otpExpiration,
         fullname: payload.fullname.trim(),
         password: hashedPassword,
+        initialDiscountPercent: promotionCode?.initialDiscountPercent,
+        joinedPromotionId: promotionCode?.id,
+        joinedPromotionCode: promotionCode?.code,
         parentId,
       },
     });
@@ -161,6 +165,7 @@ export class AuthService {
     parentId: string | undefined,
     brandId: string,
     otpDetails: { otp: string; otpExpiration: Date },
+    promotionCode: Promotion | null,
   ): Promise<User> {
     return this.prisma.user.create({
       data: {
@@ -171,6 +176,9 @@ export class AuthService {
         brandId,
         otp: otpDetails.otp,
         otpExpiration: otpDetails.otpExpiration,
+        initialDiscountPercent: promotionCode?.initialDiscountPercent,
+        joinedPromotionId: promotionCode?.id,
+        joinedPromotionCode: promotionCode?.code,
       },
     });
   }

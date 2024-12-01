@@ -62,6 +62,7 @@ type Child {
   isDisabled: Boolean
   isParentDisabled: Boolean
   isVerified: Boolean!
+  joinedPromotionCode: String
   lastConnectedAt: DateTime
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
@@ -386,6 +387,7 @@ type User {
   isDisabled: Boolean
   isParentDisabled: Boolean
   isVerified: Boolean!
+  joinedPromotionCode: String
   maxRechargeDiscountPercent: Float
   otp: String
   otpExpiration: DateTime
