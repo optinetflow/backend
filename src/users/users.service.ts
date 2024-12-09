@@ -10,6 +10,7 @@ import { XuiService } from '../xui/xui.service';
 import { ChangePasswordInput } from './dto/change-password.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UpdateChildInput } from './dto/updateChild.input';
+import { UserSegment } from './enums/user-segment.enum';
 import { Child, User } from './models/user.model';
 
 interface RecursiveUser extends User {
@@ -49,7 +50,43 @@ export class UsersService {
     return fullUser;
   }
 
-  async getChildren(user: User): Promise<Child[]> {
+  private getUserSegment(
+    lastConnectedAt: Date | undefined,
+    activePackages: number,
+    lastPaymentAt: Date | undefined,
+    paymentCount: number,
+  ): UserSegment {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+    const hasActivePackage = activePackages > 0;
+    const hasNoPaymentHistory = paymentCount === 0;
+
+    if (hasActivePackage && lastConnectedAt && lastConnectedAt >= oneDayAgo) {
+      return UserSegment.ENGAGED_SUBSCRIBERS;
+    }
+
+    if (hasActivePackage && (!lastConnectedAt || lastConnectedAt < oneDayAgo)) {
+      return UserSegment.DORMANT_SUBSCRIBERS;
+    }
+
+    if (lastPaymentAt && lastPaymentAt < threeMonthsAgo) {
+      return UserSegment.LONG_LOST_CUSTOMERS;
+    }
+
+    if (!hasActivePackage && lastPaymentAt && lastPaymentAt >= threeMonthsAgo) {
+      return UserSegment.RECENTLY_LAPSED_CUSTOMERS;
+    }
+
+    if (hasNoPaymentHistory && !hasActivePackage) {
+      return UserSegment.NEW_PROSPECTS;
+    }
+
+    return UserSegment.UNCATEGORIZED;
+  }
+
+  async getChildren(user: User): Promise<Record<string, Child[]>> {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const children = await this.prisma.user.findMany({
       where: { parentId: user.id },
@@ -58,6 +95,13 @@ export class UsersService {
         userPackage: {
           where: { deletedAt: null, OR: [{ finishedAt: null }, { finishedAt: { gte: threeDaysAgo } }] },
           include: { stat: true },
+        },
+        payment: {
+          orderBy: { createdAt: 'desc' }, // Sort payments by creation date in descending order
+          take: 1, // Take only the most recent payment
+        },
+        _count: {
+          select: { payment: true }, // Count how many payments the user has in total
         },
         children: {
           include: {
@@ -78,8 +122,7 @@ export class UsersService {
       },
       orderBy: { createdAt: 'desc' },
     });
-
-    const resolvedChildren: Child[] = children.map((child) => {
+    const resolvedChildren = children.map((child) => {
       const allUserPackage = [
         ...child.userPackage,
         ...(child?.children?.reduce<Array<UserPackage & { stat: ClientStat }>>(
@@ -95,27 +138,54 @@ export class UsersService {
         ) || []),
       ];
 
+      const lastConnectedAt =
+        allUserPackage?.sort((a, b) => {
+          const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getTime() : Number.NEGATIVE_INFINITY;
+          const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getTime() : Number.NEGATIVE_INFINITY;
+
+          return dateB - dateA;
+        })?.[0]?.stat?.lastConnectedAt || undefined;
+
+      const activePackages = allUserPackage.length || 0;
+      const onlinePackages = allUserPackage.reduce<number>(
+        (onlines, pack) =>
+          pack.stat.lastConnectedAt && isRecentlyConnected(pack.stat.lastConnectedAt) ? onlines + 1 : onlines,
+        0,
+      );
+
+      // Extract lastPaymentAt if available
+      const lastPaymentAt = child.payment && child.payment.length > 0 ? child.payment[0].createdAt : undefined;
+      const paymentCount = child._count?.payment || 0;
+
+      // Determine segment
+      const segment = this.getUserSegment(lastConnectedAt, activePackages, lastPaymentAt, paymentCount);
+
       return {
         ...child,
-        lastConnectedAt:
-          allUserPackage?.sort((a, b) => {
-            const dateA = a.stat.lastConnectedAt ? a.stat.lastConnectedAt.getTime() : Number.NEGATIVE_INFINITY;
-            const dateB = b.stat.lastConnectedAt ? b.stat.lastConnectedAt.getTime() : Number.NEGATIVE_INFINITY;
-
-            return dateB - dateA;
-          })?.[0]?.stat?.lastConnectedAt || undefined,
-        activePackages: allUserPackage.length || 0,
-        onlinePackages: allUserPackage.reduce<number>(
-          (onlines, pack) =>
-            pack.stat.lastConnectedAt && isRecentlyConnected(pack.stat.lastConnectedAt) ? onlines + 1 : onlines,
-          0,
-        ),
+        lastConnectedAt,
+        segment,
+        activePackages,
+        onlinePackages,
       };
     });
 
     children.forEach((child) => prefixAvatar(child?.telegram));
 
-    return resolvedChildren;
+    const grouped: Record<UserSegment, Child[]> = {
+      [UserSegment.ENGAGED_SUBSCRIBERS]: [],
+      [UserSegment.DORMANT_SUBSCRIBERS]: [],
+      [UserSegment.LONG_LOST_CUSTOMERS]: [],
+      [UserSegment.RECENTLY_LAPSED_CUSTOMERS]: [],
+      [UserSegment.NEW_PROSPECTS]: [],
+      [UserSegment.UNCATEGORIZED]: [],
+    };
+
+    for (const c of resolvedChildren) {
+      const cat: UserSegment = c.segment || UserSegment.UNCATEGORIZED;
+      grouped[cat].push(c);
+    }
+
+    return grouped;
   }
 
   async updateUser(user: User, input: UpdateUserInput) {
