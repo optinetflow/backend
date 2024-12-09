@@ -6,6 +6,7 @@ import { BrandService } from '../brand/brand.service';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { TelegramService } from '../telegram/telegram.service';
 import { ChangePasswordInput } from './dto/change-password.input';
+import { GetChildrenBySegmentOutput } from './dto/get-children-by-segment.output';
 import { GetOptinetflowCustomerInfoInput } from './dto/get-optinetflow-customer-info.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UpdateChildInput } from './dto/updateChild.input';
@@ -27,9 +28,12 @@ export class UsersResolver {
   }
 
   @UseGuards(GqlAuthGuard)
-  @Query(() => [Child])
-  children(@UserEntity() user: Child) {
-    return this.usersService.getChildren(user);
+  @Query(() => GetChildrenBySegmentOutput)
+  async getChildrenBySegment(@UserEntity() user: Child) {
+    const res = await this.usersService.getChildren(user);
+    console.log({ res });
+
+    return res;
   }
 
   @UseGuards(GqlAuthGuard)

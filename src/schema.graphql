@@ -124,6 +124,15 @@ input GetBrandInfoInput {
   domainName: String!
 }
 
+type GetChildrenBySegmentOutput {
+  dormantSubscribers: [Child!]!
+  engagedSubscribers: [Child!]!
+  longLostCustomers: [Child!]!
+  newProspects: [Child!]!
+  recentlyLapsedCustomers: [Child!]!
+  uncategorized: [Child!]!
+}
+
 input GetClientStatsFiltersInput {
   id: String!
 }
@@ -250,9 +259,9 @@ type PromotionCode {
 
 type Query {
   checkAuth: CheckAuth!
-  children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   getBrandInfo(input: GetBrandInfoInput!): Brand!
+  getChildrenBySegment: GetChildrenBySegmentOutput!
   getGiftPackages: [Package!]!
   getPromotionCodes: [Promotion!]!
   hello(name: String!): String!
