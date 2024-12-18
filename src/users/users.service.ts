@@ -86,6 +86,7 @@ export class UsersService {
     return UserSegment.UNCATEGORIZED;
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async getChildren(user: User): Promise<Record<string, Child[]>> {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const children = await this.prisma.user.findMany({
