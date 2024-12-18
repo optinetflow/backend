@@ -17,12 +17,12 @@ import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
 import { PackageModule } from './package/package.module';
 import { PaymentModule } from './payment/payment.module';
+import { PromotionModule } from './promotion/promotion.module';
 import { ServerModule } from './server/server.module';
 import { SmsModule } from './sms/sms.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { UsersModule } from './users/users.module';
 import { XuiModule } from './xui/xui.module';
-import { PromotionModule } from './promotion/promotion.module';
 
 @Module({
   imports: [
