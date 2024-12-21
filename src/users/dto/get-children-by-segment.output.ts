@@ -21,4 +21,7 @@ export class GetChildrenBySegmentOutput {
 
   @Field(() => [Child])
   uncategorized?: Child[];
+
+  @Field(() => [Child])
+  trialExplorers?: Child[];
 }

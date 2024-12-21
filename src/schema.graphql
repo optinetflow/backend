@@ -69,6 +69,7 @@ type Child {
   otpExpiration: DateTime
   parent: Parent
   parentId: String
+  paymentCount: Int!
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
@@ -130,6 +131,7 @@ type GetChildrenBySegmentOutput {
   longLostCustomers: [Child!]!
   newProspects: [Child!]!
   recentlyLapsedCustomers: [Child!]!
+  trialExplorers: [Child!]!
   uncategorized: [Child!]!
 }
 

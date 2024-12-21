@@ -30,10 +30,7 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard)
   @Query(() => GetChildrenBySegmentOutput)
   async getChildrenBySegment(@UserEntity() user: Child) {
-    const res = await this.usersService.getChildren(user);
-    console.log({ res });
-
-    return res;
+    return this.usersService.getChildren(user);
   }
 
   @UseGuards(GqlAuthGuard)

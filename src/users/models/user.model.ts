@@ -149,4 +149,7 @@ export class Child extends User {
 
   @Field(() => Date, { nullable: true })
   lastConnectedAt?: Date | null;
+
+  @Field(() => Number)
+  paymentCount: number;
 }

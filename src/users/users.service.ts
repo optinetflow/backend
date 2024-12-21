@@ -54,35 +54,46 @@ export class UsersService {
     lastConnectedAt: Date | undefined,
     activePackages: number,
     lastPaymentAt: Date | undefined,
-    paymentCount: number,
+    paymentCount: number, // New parameter to indicate trial status
   ): UserSegment {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-
     const hasActivePackage = activePackages > 0;
     const hasNoPaymentHistory = paymentCount === 0;
 
-    if (hasActivePackage && lastConnectedAt && lastConnectedAt >= oneDayAgo) {
+    // **1. Trial Explorers**
+    if (hasActivePackage && hasNoPaymentHistory) {
+      return UserSegment.TRIAL_EXPLORERS;
+    }
+
+    // **2. Engaged Subscribers**
+    if (hasActivePackage && !hasNoPaymentHistory && lastConnectedAt && lastConnectedAt >= oneDayAgo) {
       return UserSegment.ENGAGED_SUBSCRIBERS;
     }
 
-    if (hasActivePackage && (!lastConnectedAt || lastConnectedAt < oneDayAgo)) {
+    // **3. Dormant Subscribers**
+    if (hasActivePackage && !hasNoPaymentHistory && (!lastConnectedAt || lastConnectedAt < oneDayAgo)) {
       return UserSegment.DORMANT_SUBSCRIBERS;
     }
 
-    if (lastPaymentAt && lastPaymentAt < threeMonthsAgo) {
+    // **4. Long-Lost Customers**
+
+    if (!hasActivePackage && lastPaymentAt && lastPaymentAt < threeMonthsAgo) {
       return UserSegment.LONG_LOST_CUSTOMERS;
     }
 
+    // **5. Recently Lapsed Customers**
     if (!hasActivePackage && lastPaymentAt && lastPaymentAt >= threeMonthsAgo) {
       return UserSegment.RECENTLY_LAPSED_CUSTOMERS;
     }
 
+    // **6. New Prospects**
     if (hasNoPaymentHistory && !hasActivePackage) {
       return UserSegment.NEW_PROSPECTS;
     }
 
+    // **7. Uncategorized**
     return UserSegment.UNCATEGORIZED;
   }
 
@@ -167,6 +178,7 @@ export class UsersService {
         segment,
         activePackages,
         onlinePackages,
+        paymentCount,
       };
     });
 
@@ -179,6 +191,7 @@ export class UsersService {
       [UserSegment.RECENTLY_LAPSED_CUSTOMERS]: [],
       [UserSegment.NEW_PROSPECTS]: [],
       [UserSegment.UNCATEGORIZED]: [],
+      [UserSegment.TRIAL_EXPLORERS]: [],
     };
 
     for (const c of resolvedChildren) {
