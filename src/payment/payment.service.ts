@@ -277,7 +277,10 @@ export class PaymentService {
     user: User,
     input: PackagePaymentInput,
   ): Promise<[Array<Prisma.PrismaPromise<unknown>>, TelegramMessage[]]> {
-    const users = [...(await this.getAllParents(user.id)), user];
+    const users = [
+      ...(await this.getAllParents(user.id)),
+      ...(input.isGift === true || input.isFree === true ? [] : [user]),
+    ];
     const usersDic = arrayToDic(users);
     const buyPackMessages: SendBuyPackMessage[] = [];
 

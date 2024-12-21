@@ -70,6 +70,7 @@ type Child {
   otpExpiration: DateTime
   parent: Parent
   parentId: String
+  paymentCount: Int!
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
@@ -124,6 +125,16 @@ input EnterCostInput {
 
 input GetBrandInfoInput {
   domainName: String!
+}
+
+type GetChildrenBySegmentOutput {
+  dormantSubscribers: [Child!]!
+  engagedSubscribers: [Child!]!
+  longLostCustomers: [Child!]!
+  newProspects: [Child!]!
+  recentlyLapsedCustomers: [Child!]!
+  trialExplorers: [Child!]!
+  uncategorized: [Child!]!
 }
 
 input GetClientStatsFiltersInput {
@@ -253,9 +264,9 @@ type PromotionCode {
 
 type Query {
   checkAuth: CheckAuth!
-  children: [Child!]!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   getBrandInfo(input: GetBrandInfoInput!): Brand!
+  getChildrenBySegment: GetChildrenBySegmentOutput!
   getGiftPackages: [Package!]!
   getPromotionCodes: [Promotion!]!
   hello(name: String!): String!
