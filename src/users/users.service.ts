@@ -202,6 +202,24 @@ export class UsersService {
     return grouped;
   }
 
+  private async checkPromotionsCodesDiscount(userId: string, maxChildDiscount: number, newProfitPercent: number) {
+    const userPromotionsCodes = await this.prisma.promotion.findMany({ where: { parentUserId: userId } });
+    userPromotionsCodes.forEach((promo) => {
+      if ((promo.initialDiscountPercent || 0) > maxChildDiscount) {
+        throw new NotAcceptableException(
+          `کد تبلیغاتی ${promo.code} که قبلا ثبت شده، ${
+            promo.initialDiscountPercent
+          }% تخفیف دارد. بیشترین درصد تخفیف برای یک کد معرف برای شما ${roundTo(
+            maxChildDiscount,
+            2,
+          )} درصد است. لطفا کد معرف ${
+            promo.code
+          } را حذف یا درصد تخفیفی که میخواهید اعمال کنید را تغییر دهید.(بر اساس ${newProfitPercent}% سود)`,
+        );
+      }
+    });
+  }
+
   async updateUser(user: User, input: UpdateUserInput) {
     const { cardBandNumber, cardBandName, ...updatedData } = input;
 
@@ -241,6 +259,7 @@ export class UsersService {
           );
         }
       });
+      await this.checkPromotionsCodesDiscount(user.id, maxChildDiscount, input.profitPercent);
 
       for (const child of children) {
         await this.nestedUpdateADiscount({ ...user, profitPercent: input.profitPercent }, child);

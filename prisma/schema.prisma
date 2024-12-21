@@ -47,6 +47,8 @@ model User {
   initialDiscountPercent     Float?
   appliedDiscountPercent     Float?
   description                String?
+  joinedPromotionId          String?   @db.Uuid
+  joinedPromotionCode        String?   @db.VarChar(255)
 
   brand       Brand?        @relation(fields: [brandId], references: [id])
   parent      User?         @relation("UserParentRelation", fields: [parentId], references: [id])
@@ -54,18 +56,20 @@ model User {
   refer       User?         @relation("UserReferRelation", fields: [referId], references: [id])
   referers    User[]        @relation("UserReferRelation")
   freePackage Package?      @relation("UserPackageRelation", fields: [freePackageId], references: [id])
+  joinedPromotion Promotion?   @relation("UserJoinedPromotionRelation", fields: [joinedPromotionId], references: [id])
+  promotion   Promotion[]   @relation("UserPromotionRelation") // A user can create multiple promotions.
   userPackage UserPackage[]
   payment     Payment[]
   telegram    TelegramUser?
   bankCard    BankCard[]
   file        File[]
-  promotion   Promotion[]
   userGift    UserGift[]
 
   @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
   @@index([referId], name: "UserReferIdIndex")
+  @@index([joinedPromotionId], name: "UserJoinedPromotionIndex")
 }
 
 model TelegramUser {
@@ -325,9 +329,12 @@ model Promotion {
   code          String    @unique @db.VarChar(255)
   parentUserId  String    @db.Uuid
   giftPackageId String?   @db.Uuid
+  initialDiscountPercent  Float?
 
-  parentUser  User     @relation(fields: [parentUserId], references: [id])
-  giftPackage Package? @relation(fields: [giftPackageId], references: [id])
+
+  parentUser    User       @relation("UserPromotionRelation", fields: [parentUserId], references: [id]) // User who created the promotion
+  giftPackage   Package?   @relation(fields: [giftPackageId], references: [id])
+  joinedUsers   User[]     @relation("UserJoinedPromotionRelation") // Users who joined using this promotion
 
   @@index([code], name: "PromotionCodeIndex")
 }

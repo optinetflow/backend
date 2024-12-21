@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, ObjectType } from '@nestjs/graphql';
 
 import { BaseModel } from '../../common/models/base.model';
 import { Package } from '../../package/models/package.model';
@@ -26,4 +26,7 @@ export class Promotion extends BaseModel {
 
   @Field(() => Package, { nullable: true })
   giftPackage?: Package | null;
+
+  @Field(() => Float, { nullable: true })
+  initialDiscountPercent?: number | null;
 }
