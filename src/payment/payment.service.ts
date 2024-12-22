@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Package, Prisma, TelegramUser } from '@prisma/client';
+import { Package, Prisma, Role, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
@@ -277,10 +277,7 @@ export class PaymentService {
     user: User,
     input: PackagePaymentInput,
   ): Promise<[Array<Prisma.PrismaPromise<unknown>>, TelegramMessage[]]> {
-    const users = [
-      ...(await this.getAllParents(user.id)),
-      ...(input.isGift === true || input.isFree === true ? [] : [user]),
-    ];
+    const users = [...(await this.getAllParents(user.id)), user];
     const usersDic = arrayToDic(users);
     const buyPackMessages: SendBuyPackMessage[] = [];
 
@@ -307,19 +304,22 @@ export class PaymentService {
 
       const finalProfit = sellPrice ? sellProfit : discountAmount;
       const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
+      const shouldSkipTransaction = (input.isFree || input.isGift) && currentUser.role !== Role.ADMIN;
 
-      financeTransactions.push(
-        this.prisma.payment.create({
-          data: {
-            amount: discountedPrice,
-            type: 'PACKAGE_PURCHASE',
-            payerId: currentUser.id,
-            receiptImage,
-            userPackageId: input.userPackageId,
-            profitAmount,
-          },
-        }),
-      );
+      if (!shouldSkipTransaction) {
+        financeTransactions.push(
+          this.prisma.payment.create({
+            data: {
+              amount: discountedPrice,
+              type: 'PACKAGE_PURCHASE',
+              payerId: currentUser.id,
+              receiptImage,
+              userPackageId: input.userPackageId,
+              profitAmount,
+            },
+          }),
+        );
+      }
 
       if (currentUser.role === 'ADMIN') {
         financeTransactions.push(
