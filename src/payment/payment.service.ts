@@ -286,8 +286,10 @@ export class PaymentService {
       : [];
 
     const financeTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
+    const usersLength = users.length;
 
-    for (const currentUser of users) {
+    for (let i = 0; i < usersLength; i++) {
+      const currentUser = users[i];
       const parent = usersDic?.[currentUser?.parentId || ''];
       const child = users.find((u) => u?.parentId === currentUser.id);
 
@@ -304,7 +306,8 @@ export class PaymentService {
 
       const finalProfit = sellPrice ? sellProfit : discountAmount;
       const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
-      const shouldSkipTransaction = (input.isFree || input.isGift) && currentUser.role !== Role.ADMIN;
+      const isUserWhoUseThePackage = i === usersLength - 1; // Check if the current user is the last
+      const shouldSkipTransaction = (input.isFree || input.isGift) && isUserWhoUseThePackage;
 
       if (!shouldSkipTransaction) {
         financeTransactions.push(
@@ -321,7 +324,7 @@ export class PaymentService {
         );
       }
 
-      if (currentUser.role === Role.ADMIN) {
+      if (currentUser.role === Role.ADMIN && !shouldSkipTransaction) {
         financeTransactions.push(
           this.prisma.user.update({
             where: {
