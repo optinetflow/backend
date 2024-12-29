@@ -8,7 +8,7 @@ import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
 import { GraphqlConfig } from '../common/configs/config.interface';
-import { arrayToDic, bytesToGB, ceilTo, getVlessLink, pctToDec, roundTo } from '../common/helpers';
+import { arrayToDic, bytesToGB, ceilIfNeeded, getVlessLink, pctToDec, roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { PaymentService } from '../payment/payment.service';
 import { User } from '../users/models/user.model';
@@ -525,7 +525,7 @@ export class PackageService {
         ? packages.map((pack) => {
             const parentDiscount = pctToDec(parent?.appliedDiscountPercent);
             const parentProfit = pctToDec(parent?.profitPercent);
-            const price = ceilTo(pack.price * ((1 - parentDiscount) * (1 + parentProfit)), 0);
+            const price = ceilIfNeeded(pack.price * ((1 - parentDiscount) * (1 + parentProfit)), 0);
 
             return {
               ...pack,
@@ -536,7 +536,10 @@ export class PackageService {
 
     return typeof user?.appliedDiscountPercent === 'number'
       ? appliedPackPrice.map((pack) => {
-          const discountedPrice = ceilTo(packagesDic[pack.id].price * (1 - pctToDec(user.appliedDiscountPercent)), 0);
+          const discountedPrice = ceilIfNeeded(
+            packagesDic[pack.id].price * (1 - pctToDec(user.appliedDiscountPercent)),
+            0,
+          );
 
           return {
             ...pack,

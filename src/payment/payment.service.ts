@@ -4,7 +4,7 @@ import { Package, Prisma, Role, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
-import { arrayToDic, ceilTo, convertPersianCurrency, jsonToB64Url, pctToDec, roundTo } from '../common/helpers';
+import { arrayToDic, ceilIfNeeded, convertPersianCurrency, jsonToB64Url, pctToDec, roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { MinioClientService } from '../minio/minio.service';
 import { CallbackData } from '../telegram/telegram.constants';
@@ -293,20 +293,44 @@ export class PaymentService {
       const parent = usersDic?.[currentUser?.parentId || ''];
       const child = users.find((u) => u?.parentId === currentUser.id);
 
-      const price = ceilTo(
-        input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent)),
-        0,
-      );
-      const discountedPrice = ceilTo(input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent)), 0);
-      const discountAmount = price - discountedPrice;
-      const sellPrice = child
-        ? ceilTo(input.package.price * (1 - pctToDec(child.appliedDiscountPercent)), 0)
-        : undefined;
-      const sellProfit = sellPrice ? sellPrice - discountedPrice : undefined;
+      // const price = ceilTo(
+      //   input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent)),
+      //   0,
+      // );
+      // const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
+      // const discountedPrice =
+      //   notRoundedDiscountedPrice <= 10 ? notRoundedDiscountedPrice : ceilTo(notRoundedDiscountedPrice, 0);
+      // const discountAmount = price - discountedPrice;
+      // const sellPrice = child
+      //   ? ceilTo(input.package.price * (1 - pctToDec(child.appliedDiscountPercent)), 0)
+      //   : undefined;
+      // const sellProfit = sellPrice ? sellPrice - discountedPrice : undefined;
 
-      const finalProfit = sellPrice ? sellProfit : discountAmount;
+      // const finalProfit = sellPrice ? sellProfit : discountAmount;
+      // const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
+
+      const rawPrice =
+        input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent));
+
+      const price = ceilIfNeeded(rawPrice, 0);
+
+      const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
+
+      const discountedPrice = ceilIfNeeded(notRoundedDiscountedPrice, 0);
+
+      const discountAmount = price - discountedPrice;
+
+      const rawSellPrice = child ? input.package.price * (1 - pctToDec(child.appliedDiscountPercent)) : undefined;
+
+      const sellPrice = rawSellPrice !== undefined ? ceilIfNeeded(rawSellPrice, 0) : undefined;
+
+      const sellProfit = sellPrice !== undefined ? sellPrice - discountedPrice : undefined;
+
+      const finalProfit = sellPrice !== undefined ? sellProfit : discountAmount;
+
       const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
-      const isUserWhoUseThePackage = i === usersLength - 1; // Check if the current user is the last
+
+      const isUserWhoUseThePackage = i === usersLength - 1;
       const shouldSkipTransaction = (input.isFree || input.isGift) && isUserWhoUseThePackage;
 
       if (!shouldSkipTransaction) {
