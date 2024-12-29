@@ -321,4 +321,12 @@ export function getDateTimeString() {
 // Percent from 100
 export const pctToDec = (number?: number | null): number => (typeof number === 'number' ? number / 100 : 0);
 
-export const ceilIfNeeded = (value: number, decimals: number) => (value >= 5 ? ceilTo(value, decimals) : value);
+export function ceilIfNeeded(value: number, decimals: number) {
+  let result = value;
+
+  if (value >= 5) {
+    result = ceilTo(value, decimals);
+  }
+
+  return Number.parseFloat(result.toFixed(3));
+}

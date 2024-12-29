@@ -525,7 +525,7 @@ export class PackageService {
         ? packages.map((pack) => {
             const parentDiscount = pctToDec(parent?.appliedDiscountPercent);
             const parentProfit = pctToDec(parent?.profitPercent);
-            const price = ceilIfNeeded(pack.price * ((1 - parentDiscount) * (1 + parentProfit)), 3);
+            const price = ceilIfNeeded(pack.price * ((1 - parentDiscount) * (1 + parentProfit)), 0);
 
             return {
               ...pack,
@@ -538,7 +538,7 @@ export class PackageService {
       ? appliedPackPrice.map((pack) => {
           const discountedPrice = ceilIfNeeded(
             packagesDic[pack.id].price * (1 - pctToDec(user.appliedDiscountPercent)),
-            3,
+            0,
           );
 
           return {
