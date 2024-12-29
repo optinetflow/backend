@@ -309,38 +309,28 @@ export class PaymentService {
       // const finalProfit = sellPrice ? sellProfit : discountAmount;
       // const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
 
-      // Calculate the raw price without rounding
       const rawPrice =
         input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent));
 
-      // Apply ceilTo only if rawPrice is >= 10
       const price = ceilIfNeeded(rawPrice, 0);
 
-      // Calculate the discounted price without rounding
       const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
 
-      // Apply ceilTo only if notRoundedDiscountedPrice is > 10
       const discountedPrice = ceilIfNeeded(notRoundedDiscountedPrice, 0);
 
-      // Calculate the discount amount
       const discountAmount = price - discountedPrice;
 
-      // Calculate the raw sell price without rounding
       const rawSellPrice = child ? input.package.price * (1 - pctToDec(child.appliedDiscountPercent)) : undefined;
 
-      // Apply ceilTo only if rawSellPrice is >= 10
       const sellPrice = rawSellPrice !== undefined ? ceilIfNeeded(rawSellPrice, 0) : undefined;
 
-      // Calculate the sell profit if sellPrice is defined
       const sellProfit = sellPrice !== undefined ? sellPrice - discountedPrice : undefined;
 
-      // Determine the final profit based on whether sellPrice is defined
       const finalProfit = sellPrice !== undefined ? sellProfit : discountAmount;
 
-      // Calculate the profit amount
       const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
 
-      const isUserWhoUseThePackage = i === usersLength - 1; // Check if the current user is the last
+      const isUserWhoUseThePackage = i === usersLength - 1;
       const shouldSkipTransaction = (input.isFree || input.isGift) && isUserWhoUseThePackage;
 
       if (!shouldSkipTransaction) {
