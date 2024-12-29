@@ -297,7 +297,9 @@ export class PaymentService {
         input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent)),
         0,
       );
-      const discountedPrice = ceilTo(input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent)), 0);
+      const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
+      const discountedPrice =
+        notRoundedDiscountedPrice <= 10 ? notRoundedDiscountedPrice : ceilTo(notRoundedDiscountedPrice, 0);
       const discountAmount = price - discountedPrice;
       const sellPrice = child
         ? ceilTo(input.package.price * (1 - pctToDec(child.appliedDiscountPercent)), 0)

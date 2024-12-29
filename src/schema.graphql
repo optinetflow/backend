@@ -211,10 +211,10 @@ type Package {
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!
-  discountedPrice: Int
+  discountedPrice: Float
   expirationDays: Int!
   id: ID!
-  price: Int!
+  price: Float!
   traffic: Float!
 
   """Identifies the date and time when the object was last updated."""

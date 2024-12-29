@@ -18,10 +18,10 @@ export class Package extends BaseModel {
   @Field(() => Int)
   expirationDays: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   price: number;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Float, { nullable: true })
   discountedPrice?: number;
 
   @Field(() => Int)
