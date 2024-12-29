@@ -312,17 +312,17 @@ export class PaymentService {
       const rawPrice =
         input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent));
 
-      const price = ceilIfNeeded(rawPrice, 3);
+      const price = ceilIfNeeded(rawPrice, 0);
 
       const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
 
-      const discountedPrice = ceilIfNeeded(notRoundedDiscountedPrice, 3);
+      const discountedPrice = ceilIfNeeded(notRoundedDiscountedPrice, 0);
 
       const discountAmount = price - discountedPrice;
 
       const rawSellPrice = child ? input.package.price * (1 - pctToDec(child.appliedDiscountPercent)) : undefined;
 
-      const sellPrice = rawSellPrice !== undefined ? ceilIfNeeded(rawSellPrice, 3) : undefined;
+      const sellPrice = rawSellPrice !== undefined ? ceilIfNeeded(rawSellPrice, 0) : undefined;
 
       const sellProfit = sellPrice !== undefined ? sellPrice - discountedPrice : undefined;
 

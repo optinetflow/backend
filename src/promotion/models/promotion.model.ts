@@ -29,4 +29,7 @@ export class Promotion extends BaseModel {
 
   @Field(() => Float, { nullable: true })
   initialDiscountPercent?: number | null;
+
+  @Field(() => Boolean)
+  isForFreePackageSharing: boolean;
 }

@@ -74,7 +74,6 @@ type Child {
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
-  promotion: [PromotionCode!]
   referId: String
   role: Role!
   telegram: TelegramUser
@@ -106,6 +105,7 @@ input CreatePromotionInput {
   code: String!
   giftPackageId: ID
   initialDiscountPercent: Float
+  isForFreePackageSharing: Boolean
 }
 
 """
@@ -232,6 +232,7 @@ type Parent {
   bankCard: [BankCard!]
   freePackageId: String
   id: String!
+  promotion: [PromotionCode!]
   telegram: ParentTelegram
 }
 
@@ -254,6 +255,7 @@ type Promotion {
   giftPackage: Package
   id: ID!
   initialDiscountPercent: Float
+  isForFreePackageSharing: Boolean!
   parentUser: User!
   updatedAt: DateTime!
 }
@@ -407,7 +409,6 @@ type User {
   phone: String!
   profitBalance: Float!
   profitPercent: Float!
-  promotion: [PromotionCode!]
   referId: String
   role: Role!
   telegram: TelegramUser
