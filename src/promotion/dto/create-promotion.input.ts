@@ -20,4 +20,8 @@ export class CreatePromotionInput {
   @Min(0)
   @IsOptional()
   initialDiscountPercent?: number;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  isForFreePackageSharing?: boolean;
 }

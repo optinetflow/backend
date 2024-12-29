@@ -39,9 +39,20 @@ export class UsersService {
         telegram: true,
         bankCard: true,
         userGift: { include: { giftPackage: true }, where: { isGiftUsed: false } },
-        parent: { include: { telegram: true, bankCard: true } },
+        parent: {
+          include: {
+            telegram: true,
+            bankCard: true,
+            promotion: {
+              orderBy: [
+                { isForFreePackageSharing: 'desc' }, // Prioritize true
+                { createdAt: 'desc' }, // Then latest
+              ],
+              take: 1, // Limit to one promotion
+            },
+          },
+        },
         brand: true,
-        promotion: true,
       },
     });
 

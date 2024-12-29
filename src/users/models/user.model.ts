@@ -55,6 +55,9 @@ export class Parent {
 
   @Field(() => String, { nullable: true })
   freePackageId?: string | null;
+
+  @Field(() => [PromotionCode], { nullable: true })
+  promotion?: PromotionCode[] | null;
 }
 
 @ObjectType()
@@ -113,9 +116,6 @@ export class User extends BaseModel {
 
   @Field(() => Brand, { nullable: true })
   brand?: Brand | null;
-
-  @Field(() => [PromotionCode], { nullable: true })
-  promotion?: PromotionCode[] | null;
 
   @Field(() => Parent, { nullable: true })
   parent?: Parent | null;

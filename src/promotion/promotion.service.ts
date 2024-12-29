@@ -5,17 +5,12 @@ import { roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { Package } from '../package/models/package.model';
 import { User } from '../users/models/user.model';
-import { UsersService } from '../users/users.service';
 import { CreatePromotionInput } from './dto/create-promotion.input';
 import { Promotion } from './models/promotion.model';
 
 @Injectable()
 export class PromotionService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly i18: I18nService,
-    private readonly userService: UsersService,
-  ) {}
+  constructor(private readonly prisma: PrismaService, private readonly i18: I18nService) {}
 
   async createPromotion(user: User, data: CreatePromotionInput): Promise<Promotion> {
     const existingPromotion = await this.prisma.promotion.findUnique({
@@ -40,12 +35,21 @@ export class PromotionService {
 
     if (data.initialDiscountPercent) {
       const maxDiscount = (user.profitPercent / (100 + user.profitPercent)) * 100;
-      console.log({ maxDiscount });
 
       if (maxDiscount < data.initialDiscountPercent) {
         throw new NotAcceptableException(
           `با این درصد تخفیف شما ضرر می‌کنید. بالاترین درصد تخفیف که ضرر نکنید ${roundTo(maxDiscount, 2)}٪ است.`,
         );
+      }
+    }
+
+    if (data.isForFreePackageSharing === true) {
+      const alreadyIsForFreePackageSharingExist = await this.prisma.promotion.findFirst({
+        where: { parentUserId: user.id, isForFreePackageSharing: true },
+      });
+
+      if (alreadyIsForFreePackageSharingExist) {
+        throw new ConflictException(this.i18.__('promotion.error.already_is_for_free_package_sharing'));
       }
     }
 
@@ -55,6 +59,7 @@ export class PromotionService {
         parentUserId: user.id,
         giftPackageId: data.giftPackageId,
         ...(data.initialDiscountPercent && { initialDiscountPercent: data.initialDiscountPercent }),
+        ...(data.isForFreePackageSharing && { isForFreePackageSharing: data.isForFreePackageSharing }),
       },
       include: {
         parentUser: true,
@@ -66,7 +71,7 @@ export class PromotionService {
   async getPromotionCodes(user: User) {
     return this.prisma.promotion.findMany({
       where: { parentUserId: user.id },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ isForFreePackageSharing: 'desc' }, { createdAt: 'desc' }],
       include: { giftPackage: true },
     });
   }

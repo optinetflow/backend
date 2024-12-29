@@ -330,6 +330,7 @@ model Promotion {
   parentUserId  String    @db.Uuid
   giftPackageId String?   @db.Uuid
   initialDiscountPercent  Float?
+  isForFreePackageSharing Boolean   @default(false)
 
 
   parentUser    User       @relation("UserPromotionRelation", fields: [parentUserId], references: [id]) // User who created the promotion
