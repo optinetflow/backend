@@ -328,7 +328,7 @@ export class PaymentService {
 
       const finalProfit = sellPrice !== undefined ? sellProfit : discountAmount;
 
-      const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
+      const profitAmount = ceilIfNeeded((parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number, 0);
 
       const isUserWhoUseThePackage = i === usersLength - 1;
       const shouldSkipTransaction = (input.isFree || input.isGift) && isUserWhoUseThePackage;
