@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Brand as PrismaBrand, TelegramUser, User } from '@prisma/client';
+import { Brand as PrismaBrand, Role, TelegramUser, User } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { Scenes, session, Telegraf } from 'telegraf';
 
@@ -400,6 +400,26 @@ export class TelegramService {
 
       skip += take;
     }
+  }
+
+  @Interval('negetiveAdminBalanceNotification', 43_200_000) // 12 hours in milliseconds
+  async negetiveAdminBalanceNotification() {
+    this.logger.debug('negetiveAdminBalanceNotification called every 12 hours');
+    const admins = await this.prisma.user.findMany({
+      where: { role: Role.ADMIN, balance: { lt: 0 } },
+      include: { brand: true, telegram: true, parent: { include: { telegram: true } } },
+    });
+    const sendWarningPromises = admins.map(async (admin) => {
+      const bot = this.getBot(admin.brandId);
+      const message = `سلام ${admin.fullname} عزیز! 🌟\n\nشارژ حساب شما منفی شده! ❌\nاگه زود شارژش نکنی، ممکنه حساب مشتریا و بسته‌هاشون بسته بشه. 🚫\n\nمنتظرتیم تا زودتر درستش کنی! 💳✨\nاگه سوالی داشتی، ما اینجاییم. 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
+
+      const parentMessage = `\nشارژ حساب ${admin.fullname} منفی شده! ❌\n📞: +98${admin.phone}\nلطفاً پیگیری کنید که زودتر شارژ بشه؛ چون ممکنه حساب مشتریا بسته بشه. 🚫\n\nاگه کمک خواستید، ما همیشه در دسترسیم! 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
+
+      await bot.telegram.sendMessage(admin.telegram?.chatId?.toString() as string, message);
+      await bot.telegram.sendMessage(admin.parent?.telegram?.chatId?.toString() as string, parentMessage);
+    });
+
+    return Promise.all(sendWarningPromises);
   }
 
   private createHomeScene(brand: Brand) {
