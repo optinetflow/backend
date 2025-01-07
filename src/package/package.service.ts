@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Package, PackageCategory, Prisma, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, PackageCategory, Prisma, Role, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
 import moment from 'jalali-moment';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
@@ -76,6 +76,13 @@ export class PackageService {
         id: input.packageId,
       },
     });
+    const role = user.role;
+    const discountedPrice = pack.price * (1 - pctToDec(user.appliedDiscountPercent));
+
+    if (role === Role.ADMIN && (discountedPrice < 0 || discountedPrice > user.balance)) {
+      throw new BadRequestException(this.i18.__('user.balance.not_enough'));
+    }
+
     const server = await this.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
@@ -279,6 +286,12 @@ export class PackageService {
       },
     });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
+    const role = user.role;
+    const discountedPrice = pack.price * (1 - pctToDec(user.appliedDiscountPercent));
+
+    if (role === Role.ADMIN && (discountedPrice < 0 || discountedPrice > user.balance)) {
+      throw new BadRequestException(this.i18.__('user.balance.not_enough'));
+    }
 
     const modifiedPack = { ...pack };
 
