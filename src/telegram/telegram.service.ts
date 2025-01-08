@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Brand as PrismaBrand, Role, TelegramUser, User } from '@prisma/client';
+import { Brand as PrismaBrand, Role, User } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
+import PQueue from 'p-queue';
+import { Parent } from 'src/users/models/user.model';
 import { Scenes, session, Telegraf } from 'telegraf';
 
 import { Brand } from '../brand/models/brand.model';
@@ -11,6 +13,7 @@ import { Context } from '../common/interfaces/context.interface';
 import { MinioClientService } from '../minio/minio.service';
 import { BrandService } from './../brand/brand.service';
 import { AggregatorService } from './aggregator.service';
+import { TelegramUser } from './models/telegramUser.model';
 import { CallbackData, HOME_SCENE_ID, REGISTER_SCENE_ID } from './telegram.constants';
 
 interface StartPayload {
@@ -402,24 +405,51 @@ export class TelegramService {
     }
   }
 
-  @Interval('negetiveAdminBalanceNotification', 43_200_000) // 12 hours in milliseconds
+  private async sendNotificationForNegetiveAdminBalance(
+    admin: User & {
+      brand: Brand | null;
+      telegram: TelegramUser | null;
+      parent: (Parent & { telegram: TelegramUser | null }) | null;
+    },
+  ) {
+    const bot = this.getBot(admin.brandId);
+    const message = `سلام ${admin.fullname} عزیز! 🌟\n\nشارژ حساب شما منفی شده! ❌\nاگه زود شارژش نکنی، ممکنه حساب مشتریا و بسته‌هاشون بسته بشه. 🚫\n\nمنتظرتیم تا زودتر درستش کنی! 💳✨\nاگه سوالی داشتی، ما اینجاییم. 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
+
+    const parentMessage = `\nشارژ حساب ${admin.fullname} منفی شده! ❌\n📞: +98${admin.phone}\nلطفاً پیگیری کنید که زودتر شارژ بشه؛ چون ممکنه حساب مشتریا بسته بشه. 🚫\n\nاگه کمک خواستید، ما همیشه در دسترسیم! 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
+
+    if (admin.telegram?.chatId) {
+      await bot.telegram.sendMessage(admin.telegram.chatId.toString(), message);
+    }
+
+    if (admin.parent?.telegram?.chatId) {
+      await bot.telegram.sendMessage(admin.parent.telegram.chatId.toString(), parentMessage);
+    }
+  }
+
+  @Interval('negetiveAdminBalanceNotification', 12 * 60 * 60 * 1000) // 12 hours in milliseconds
   async negetiveAdminBalanceNotification() {
     this.logger.debug('negetiveAdminBalanceNotification called every 12 hours');
+
     const admins = await this.prisma.user.findMany({
       where: { role: Role.ADMIN, balance: { lt: 0 } },
       include: { brand: true, telegram: true, parent: { include: { telegram: true } } },
     });
-    const sendWarningPromises = admins.map(async (admin) => {
-      const bot = this.getBot(admin.brandId);
-      const message = `سلام ${admin.fullname} عزیز! 🌟\n\nشارژ حساب شما منفی شده! ❌\nاگه زود شارژش نکنی، ممکنه حساب مشتریا و بسته‌هاشون بسته بشه. 🚫\n\nمنتظرتیم تا زودتر درستش کنی! 💳✨\nاگه سوالی داشتی، ما اینجاییم. 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
 
-      const parentMessage = `\nشارژ حساب ${admin.fullname} منفی شده! ❌\n📞: +98${admin.phone}\nلطفاً پیگیری کنید که زودتر شارژ بشه؛ چون ممکنه حساب مشتریا بسته بشه. 🚫\n\nاگه کمک خواستید، ما همیشه در دسترسیم! 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
+    if (admins.length === 0) {
+      return;
+    }
 
-      await bot.telegram.sendMessage(admin.telegram?.chatId?.toString() as string, message);
-      await bot.telegram.sendMessage(admin.parent?.telegram?.chatId?.toString() as string, parentMessage);
-    });
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    return Promise.all(sendWarningPromises);
+    for await (const admin of admins) {
+      await queue.add(() =>
+        this.sendNotificationForNegetiveAdminBalance(admin).catch((error) => {
+          console.error(`Failed to send notification to admin ${admin.fullname}:`, error);
+        }),
+      );
+    }
+
+    return queue.onIdle(); // Ensure all tasks are completed before function ends
   }
 
   private createHomeScene(brand: Brand) {
