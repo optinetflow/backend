@@ -2,10 +2,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 import fs from 'fs';
+import { PrismaService } from 'nestjs-prisma';
 
 import { PostgresConfig } from '../common/configs/config.interface';
 import { asyncShellExec } from '../common/helpers';
+import { I18nService } from '../common/i18/i18.service';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
 
@@ -15,6 +18,8 @@ export class ServerService {
     private readonly telegramService: TelegramService,
     private readonly brandService: BrandService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly i18: I18nService,
   ) {}
 
   private readonly logger = new Logger(ServerService.name);
@@ -285,8 +290,63 @@ export class ServerService {
     return postgresLogs;
   }
 
-  // @Interval('getPGBackup', 0.1 * 60 * 1000)
-  // async updateServerStat() {
+  @Interval('changeActiveServer', 1 * 60 * 1000)
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async changeActiveServer() {
+    this.logger.debug('changeActiveServer called every 1 min');
 
-  // }
+    const activeServers = await this.prisma.activeServer.findMany({ include: { brand: true, server: true } });
+
+    for (const activeServer of activeServers) {
+      const servers = await this.prisma.server.findMany({
+        where: { brandId: activeServer.brandId, category: activeServer.category },
+      });
+      let highestAverageScore = 0;
+      let updatedActiveServerId: string | null = null;
+
+      for (const server of servers) {
+        const stats = server.stats;
+
+        if (Array.isArray(stats)) {
+          const validStats = stats.filter(
+            (stat): stat is { score: number } =>
+              typeof stat === 'object' && stat !== null && 'score' in stat && typeof stat.score === 'number',
+          );
+
+          if (validStats.length > 0) {
+            const score = validStats.reduce((acc, stat) => acc + stat.score, 0) / validStats.length;
+            console.log('average score for server', server.domain, score);
+            console.log({ score, highestAverageScore });
+
+            if (highestAverageScore === 0) {
+              highestAverageScore = score;
+              updatedActiveServerId = server.id;
+            }
+
+            if (score < highestAverageScore) {
+              console.log('score is less than highestAverageScore');
+              highestAverageScore = Math.max(highestAverageScore, score);
+              updatedActiveServerId = server.id;
+            }
+          }
+
+          await this.prisma.server.update({ where: { id: server.id }, data: { stats: [] } });
+        }
+      }
+
+      if (updatedActiveServerId && activeServer.activeServerId !== updatedActiveServerId) {
+        await this.prisma.activeServer.update({
+          where: { id: activeServer.id },
+          data: { activeServerId: updatedActiveServerId },
+        });
+        const bot = this.telegramService.getBot(activeServer.brandId);
+        const newAciveServer = await this.prisma.server.findUnique({ where: { id: updatedActiveServerId } });
+        // eslint-disable-next-line sonarjs/no-nested-template-literals
+        const message = `سرور ${this.i18.__(`package.category.${activeServer.category}`)} فعال از سرور ${
+          activeServer.server.domain
+        } به سرور ${newAciveServer?.domain} تغییر یافت.`;
+        await bot.telegram.sendMessage(activeServer.brand.reportGroupId as string, message);
+      }
+    }
+  }
 }

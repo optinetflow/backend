@@ -35,6 +35,7 @@ import {
   InboundListRes,
   InboundSetting,
   OnlineInboundRes,
+  ServerStat,
   Stat,
   UpdateClientInput,
   UpdateClientReqInput,
@@ -693,23 +694,6 @@ export class XuiService {
     }
   }
 
-  // @Interval('getServerStatus', 0.25 * 60 * 1000)
-  async getServerStatus(): Promise<void> {
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
-
-    for (const server of servers) {
-      try {
-        const status = await this.authenticatedReq({
-          serverId: server.id,
-          url: (domain) => ENDPOINTS(domain).serverStatus,
-          method: 'post',
-        });
-      } catch (error) {
-        console.error(error);
-      }
-    }
-  }
-
   // async fixOrder() {
   //   this.logger.debug('fixOrder');
   //   const users = await this.prisma.user.findMany();
@@ -772,7 +756,6 @@ export class XuiService {
   }
 
   @Interval('syncClientStats', 1 * 60 * 1000)
-  // @Interval('syncClientStats', 0.25 * 60 * 1000)
   async syncClientStats() {
     const isDev = this.configService.get('env') === 'development';
 
@@ -795,5 +778,85 @@ export class XuiService {
         console.error(`Error syncing ClientStats for server: ${server.id}`, error);
       }
     }
+  }
+
+  @Interval('getServersStats', 0.1 * 60 * 1000)
+  async getServersStats() {
+    // const isDev = this.configService.get('env') === 'development';
+
+    // if (isDev) {
+    //   return;
+    // }
+
+    this.logger.debug('getServersStats called every 1 min');
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+
+    for (const server of servers) {
+      try {
+        const { data } = await this.authenticatedReq<{ obj: ServerStat }>({
+          serverId: server.id,
+          url: (domain) => ENDPOINTS(domain).serverStatus,
+          method: 'post',
+        });
+        const score = this.calculateScore(data.obj);
+        console.log('Server:', server.domain, 'Score:', score);
+        const serverStats: Prisma.JsonValue = {
+          score,
+          time: new Date().toISOString(),
+        };
+        const currentStats = Array.isArray(server.stats) ? server.stats : [];
+        const serverStatsArray = [serverStats];
+
+        const updatedStats = [...currentStats, ...serverStatsArray];
+
+        await this.prisma.server.update({
+          where: { id: server.id },
+          data: { stats: updatedStats },
+        });
+      } catch (error) {
+        console.error(`Error geting server stats for server: ${server.id}`, error);
+      }
+    }
+  }
+
+  private calculateScore(metrics: ServerStat): number {
+    // Define updated weights based on the revised criteria
+    const weights = {
+      cpu: 0.3, // 30%
+      memUsedRatio: 0.25, // 25%
+      diskUsageRatio: 0.15, // 15%
+      loads: 0.15, // 15%
+      netTraffic: 0.1, // 10%
+      uptime: 0.05, // 5%
+    };
+
+    // Calculate usage ratios
+    const memUsedRatio = metrics.mem.current / metrics.mem.total;
+    const diskUsageRatio = metrics.disk.current / metrics.disk.total;
+
+    // Calculate weighted load average
+    const load1m = metrics.loads[0];
+    const load5m = metrics.loads[1];
+    const load15m = metrics.loads[2];
+    const weightedLoad = load1m * 0.5 + load5m * 0.3 + load15m * 0.2;
+
+    // Calculate average network traffic in GB (sent and received)
+    const netTrafficSentGB = metrics.netTraffic.sent / 1024 ** 3; // Convert bytes to GB
+    const netTrafficRecvGB = metrics.netTraffic.recv / 1024 ** 3; // Convert bytes to GB
+    const averageNetTrafficGB = (netTrafficSentGB + netTrafficRecvGB) / 2;
+
+    // Normalize uptime to days
+    const uptimeDays = metrics.uptime / 86_400; // Convert seconds to days
+
+    // Score calculation based on weights
+    const score =
+      metrics.cpu * weights.cpu + // CPU usage
+      memUsedRatio * 100 * weights.memUsedRatio + // Memory usage ratio (percentage)
+      diskUsageRatio * 100 * weights.diskUsageRatio + // Disk usage ratio (percentage)
+      weightedLoad * weights.loads + // Weighted load average
+      averageNetTrafficGB * weights.netTraffic + // Average network traffic in GB
+      uptimeDays * weights.uptime; // Uptime in days
+
+    return Number.parseFloat(score.toFixed(2));
   }
 }
