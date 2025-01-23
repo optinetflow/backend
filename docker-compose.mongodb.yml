@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    command: >
+      mongod --bind_ip_all 
+             --auth 
+             --tlsMode requireTLS 
+             --tlsCertificateKeyFile /etc/ssl/mongodb.pem 
+             --tlsCAFile /etc/ssl/ca.pem
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./certs:/etc/ssl
+    networks:
+      - mongo-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/admin -u ${MONGO_INITDB_ROOT_USERNAME} -p ${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  mongo-data:
+    driver: local
+
+networks:
+  mongo-network:
+    driver: bridge
