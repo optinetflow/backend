@@ -125,6 +125,7 @@ Table Server {
   domain String [not null]
   inboundId Int [not null, default: 1]
   token String [not null]
+  category PackageCategory
   tunnelDomain String [not null]
   stats Json
   brandId String

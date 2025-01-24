@@ -173,6 +173,7 @@ model Server {
   domain       String        @db.VarChar(255)
   inboundId    Int           @default(1)
   token        String 
+  category     PackageCategory?
   tunnelDomain String        @db.VarChar(255)
   stats        Json?
   brandId      String?       @db.Uuid
