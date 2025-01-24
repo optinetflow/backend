@@ -1,8 +1,7 @@
 /* eslint-disable max-len */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Interval } from '@nestjs/schedule';
-import { Prisma } from '@prisma/client';
+import { Cron, Interval } from '@nestjs/schedule';
 import fs from 'fs';
 import { PrismaService } from 'nestjs-prisma';
 
@@ -290,10 +289,10 @@ export class ServerService {
     return postgresLogs;
   }
 
-  @Interval('changeActiveServer', 1 * 60 * 1000)
+  @Cron('0 0 * * *') // Cron expression for 00:00 every day
   // eslint-disable-next-line sonarjs/cognitive-complexity
   async changeActiveServer() {
-    this.logger.debug('changeActiveServer called every 1 min');
+    this.logger.debug('changeActiveServer 00:00 every day');
 
     const activeServers = await this.prisma.activeServer.findMany({ include: { brand: true, server: true } });
 
@@ -301,7 +300,7 @@ export class ServerService {
       const servers = await this.prisma.server.findMany({
         where: { brandId: activeServer.brandId, category: activeServer.category },
       });
-      let highestAverageScore = 0;
+      let lowestAverageScore = 0;
       let updatedActiveServerId: string | null = null;
 
       for (const server of servers) {
@@ -315,17 +314,14 @@ export class ServerService {
 
           if (validStats.length > 0) {
             const score = validStats.reduce((acc, stat) => acc + stat.score, 0) / validStats.length;
-            console.log('average score for server', server.domain, score);
-            console.log({ score, highestAverageScore });
 
-            if (highestAverageScore === 0) {
-              highestAverageScore = score;
+            if (lowestAverageScore === 0) {
+              lowestAverageScore = score;
               updatedActiveServerId = server.id;
             }
 
-            if (score < highestAverageScore) {
-              console.log('score is less than highestAverageScore');
-              highestAverageScore = Math.max(highestAverageScore, score);
+            if (score < lowestAverageScore) {
+              lowestAverageScore = score;
               updatedActiveServerId = server.id;
             }
           }
@@ -342,9 +338,10 @@ export class ServerService {
         const bot = this.telegramService.getBot(activeServer.brandId);
         const newAciveServer = await this.prisma.server.findUnique({ where: { id: updatedActiveServerId } });
         // eslint-disable-next-line sonarjs/no-nested-template-literals
-        const message = `سرور ${this.i18.__(`package.category.${activeServer.category}`)} فعال از سرور ${
+        const message = `🔄 سرور ${this.i18.__(`package.category.${activeServer.category}`)} فعال\n🌐 از سرور ${
           activeServer.server.domain
-        } به سرور ${newAciveServer?.domain} تغییر یافت.`;
+        }\n➡️ به سرور ${newAciveServer?.domain} تغییر یافت. 🚀`;
+
         await bot.telegram.sendMessage(activeServer.brand.reportGroupId as string, message);
       }
     }
