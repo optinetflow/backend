@@ -91,6 +91,10 @@ export class PackageService {
     const userPackageName = input.name || 'No Name';
     const isDev = this.configService.get('env') === 'development';
 
+    // to make up for lose user
+    const isOldUser = new Date(user.createdAt) < new Date('2025-01-29');
+    pack.traffic = pack.traffic * (isOldUser ? 1.2 : 1);
+
     if (!isDev) {
       await this.xuiService.addClient(user, {
         id,
@@ -286,6 +290,11 @@ export class PackageService {
       },
     });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
+
+    // to make up for lose user
+    const isOldUser = new Date(user.createdAt) < new Date('2025-01-29');
+    pack.traffic = pack.traffic * (isOldUser ? 1.2 : 1);
+
     const role = user.role;
     const discountedPrice = pack.price * (1 - pctToDec(user.appliedDiscountPercent));
 

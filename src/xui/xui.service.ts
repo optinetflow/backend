@@ -528,6 +528,7 @@ export class XuiService {
     const email = input?.email || nanoid();
     const id = input?.id || uuid();
     const subId = input?.subId || nanoid();
+
     const jsonData = {
       id: server.inboundId,
       settings: {
