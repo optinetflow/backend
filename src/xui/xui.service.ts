@@ -344,9 +344,7 @@ export class XuiService {
       .filter((stat) => stat.down + stat.up >= stat.total * 0.85)
       .map((pack) => pack.id);
 
-    const thresholdTimePacks = stats
-      .filter((stat) => stat.expiryTime > 0 && getRemainingDays(stat.expiryTime) <= 2)
-      .map((pack) => pack.id);
+    const thresholdTimePacks = stats.filter((stat) => getRemainingDays(stat.expiryTime) <= 2).map((pack) => pack.id);
 
     const allThresholdPacks = [...new Set([...thresholdTrafficPacks, ...thresholdTimePacks])];
 
