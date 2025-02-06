@@ -297,7 +297,7 @@ export function ceilTo(number: number, decimalPlaces: number) {
 }
 
 export function getRemainingDays(expiryTime: number): number {
-  const remainingTime = expiryTime - Date.now();
+  const remainingTime = expiryTime > 0 ? expiryTime - Date.now() : -Number(expiryTime);
   const millisecondsInDay = 24 * 60 * 60 * 1000;
 
   return roundTo(remainingTime / millisecondsInDay, 0);
