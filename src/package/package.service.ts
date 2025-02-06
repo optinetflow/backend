@@ -306,7 +306,8 @@ export class PackageService {
 
     try {
       if (!userPack.finishedAt) {
-        const remainingDays = (Number(userPack.stat.expiryTime) - Date.now()) / (1000 * 60 * 60 * 24);
+        const expiryTime = Number(userPack.stat.expiryTime);
+        const remainingDays = (expiryTime > 0 ? expiryTime - Date.now() : -Number(expiryTime)) / (1000 * 60 * 60 * 24);
         const remainingTraffic = bytesToGB(Number(userPack.stat.total - (userPack.stat.down + userPack.stat.up)));
 
         const maxTransformableExpirationDays =
