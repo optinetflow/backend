@@ -32,6 +32,9 @@ RUN corepack enable \
     && pnpm install \ 
     && pnpm build
 
+# Add a HEALTHCHECK instruction that reads the dynamic PORT.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD sh -c 'curl -f http://localhost:${PORT}/health || exit 1'
 
 # ------------- should be different from Dockerfile.dev
 

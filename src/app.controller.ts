@@ -11,6 +11,11 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Get('health')
+  healthCheck() {
+    return { status: 'ok' };
+  }
+
   @Get('hello/:name')
   getHelloName(@Param('name') name: string): string {
     return this.appService.getHelloName(name);
