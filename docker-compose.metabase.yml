@@ -1,7 +1,6 @@
 services:
   metabase:
     image: metabase/metabase:v0.48.0
-    platform: linux/arm64/v8
     ports:
       - "${METABASE_PORT}:3000"
     healthcheck:
