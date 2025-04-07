@@ -1,6 +1,8 @@
 services:
   metabase:
-    image: ghcr.io/metabase/metabase:arm64
+    build:
+      context: .
+      dockerfile: Dockerfile.metabase
     ports:
       - "${METABASE_PORT}:3000"
     healthcheck:
