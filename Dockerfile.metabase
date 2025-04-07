@@ -9,11 +9,12 @@ RUN apt-get update && apt-get install -y \
 
 # Clone Metabase repository
 WORKDIR /build
-RUN git clone https://github.com/metabase/metabase.git
+RUN git clone https://github.com/metabase/metabase.git && \
+    cd metabase && \
+    git checkout v0.48.0
 
 # Build Metabase
 WORKDIR /build/metabase
-RUN git checkout v0.48.0
 RUN mvn clean package -DskipTests -Dmaven.test.skip=true
 
 # Final stage
