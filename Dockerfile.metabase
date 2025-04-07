@@ -14,8 +14,7 @@ RUN git clone https://github.com/metabase/metabase.git
 # Build Metabase
 WORKDIR /build/metabase
 RUN git checkout v0.48.0
-RUN chmod +x ./bin/build
-RUN ./bin/build
+RUN mvn clean package -DskipTests
 
 # Final stage
 FROM eclipse-temurin:17-jre-jammy
