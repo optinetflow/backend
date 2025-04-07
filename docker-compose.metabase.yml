@@ -1,6 +1,6 @@
 services:
   metabase:
-    image: metabase/metabase:v0.48.0
+    image: ghcr.io/metabase/metabase:arm64
     ports:
       - "${METABASE_PORT}:3000"
     healthcheck:
