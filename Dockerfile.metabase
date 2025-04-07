@@ -1,5 +1,5 @@
 # Use multi-stage build to reduce final image size
-FROM --platform=linux/arm64 eclipse-temurin:17-jdk-jammy as builder
+FROM eclipse-temurin:17-jdk-jammy as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -14,10 +14,11 @@ RUN git clone https://github.com/metabase/metabase.git
 # Build Metabase
 WORKDIR /build/metabase
 RUN git checkout v0.48.0
+RUN chmod +x ./bin/build
 RUN ./bin/build
 
 # Final stage
-FROM --platform=linux/arm64 eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:17-jre-jammy
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
