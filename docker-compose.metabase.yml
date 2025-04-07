@@ -2,8 +2,7 @@ version: "3.8"
 
 services:
   metabase:
-    image: metabase/metabase:latest
-    platform: linux/amd64
+    image: metabase/metabase:v0.48.0
     ports:
       - "${METABASE_PORT}:3000"
     healthcheck:
