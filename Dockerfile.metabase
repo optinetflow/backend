@@ -9,4 +9,12 @@ RUN apt-get update && apt-get install -y curl && \
     curl -L https://downloads.metabase.com/${METABASE_VERSION}/metabase.jar -o metabase.jar && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Configure Metabase to use H2 database by default
+ENV MB_DB_TYPE=h2
+ENV MB_DB_FILE=/metabase-data/metabase.db
+VOLUME /metabase-data
+
+# Add more memory for JVM
+ENV JAVA_OPTS="-Xmx2g"
+
 CMD ["java", "--add-opens", "java.base/java.nio=ALL-UNNAMED", "-jar", "metabase.jar"]
