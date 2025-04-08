@@ -12,14 +12,13 @@ services:
       retries: 5
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    network_mode: "host"
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${POSTGRES_DB}
-      MB_DB_PORT: ${DB_PORT}
-      MB_DB_USER: ${POSTGRES_USER}
-      MB_DB_PASS: ${POSTGRES_PASSWORD}
-      MB_DB_HOST: host.docker.internal
+    # environment:
+    #   MB_DB_TYPE: postgres
+    #   MB_DB_DBNAME: ${POSTGRES_DB}
+    #   MB_DB_PORT: ${DB_PORT}
+    #   MB_DB_USER: ${POSTGRES_USER}
+    #   MB_DB_PASS: ${POSTGRES_PASSWORD}
+    #   MB_DB_HOST: host.docker.internal
     
     # volumes:
     #   - metabase-data:/metabase-data
