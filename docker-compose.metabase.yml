@@ -16,13 +16,13 @@ services:
       timeout: 5s
       retries: 5
 
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${POSTGRES_DB}
-      MB_DB_PORT: ${DB_PORT}
-      MB_DB_USER: ${POSTGRES_USER}
-      MB_DB_PASS: ${POSTGRES_PASSWORD}
-      MB_DB_HOST: postgres
+    # environment:
+    #   MB_DB_TYPE: postgres
+    #   MB_DB_DBNAME: ${POSTGRES_DB}
+    #   MB_DB_PORT: ${DB_PORT}
+    #   MB_DB_USER: ${POSTGRES_USER}
+    #   MB_DB_PASS: ${POSTGRES_PASSWORD}
+    #   MB_DB_HOST: postgres
     
     # volumes:
     #   - metabase-data:/metabase-data
