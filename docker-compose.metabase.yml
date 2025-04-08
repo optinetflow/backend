@@ -3,7 +3,7 @@ services:
   metabase:
     image: stephaneturquay/metabase-arm64:latest
     ports:
-      - "6000:${PORT:-3000}"
+      - "4040:${PORT:-3000}"
     environment:
       MB_JETTY_PORT: "${PORT:-3000}"
       MB_DB_TYPE: "${DB_TYPE:-postgres}"
