@@ -4,26 +4,26 @@ networks:
     name: ${NETWORK_NAME}
 
 services:
-  # metabase:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.metabase
-  #   ports:
-  #     - "${METABASE_PORT}:3000"
-  #   healthcheck:
-  #     test: curl --fail -I http://localhost:3000/api/health || exit 1
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #   depends_on:
-  #     - metabase_db
-  #   environment:
-  #     MB_DB_TYPE: postgres
-  #     MB_DB_HOST: metabase_db
-  #     MB_DB_PORT: 5432
-  #     MB_DB_USER: ${METABASE_DB_USER}
-  #     MB_DB_PASS: ${METABASE_DB_PASSWORD}
-  #     MB_DB_NAME: ${METABASE_DB_NAME}
+  metabase:
+    build:
+      context: .
+      dockerfile: Dockerfile.metabase
+    ports:
+      - "${METABASE_PORT}:3000"
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - metabase_db
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: metabase_db
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${METABASE_DB_NAME}
+      MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      MB_DB_NAME: ${METABASE_DB_NAME}
   
   metabase_db:
     image: postgres:15.3-alpine
