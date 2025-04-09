@@ -4,11 +4,6 @@ WORKDIR /usr/src/metabase
 
 # Default to 'latest' if not passed via --build-arg
 ARG METABASE_VERSION=latest
-ARG METABASE_DB_HOST=${MB_DB_HOST}
-ARG METABASE_DB_PORT=${MB_DB_PORT}
-ARG METABASE_DB_USER=${MB_DB_USER}
-ARG METABASE_DB_PASSWORD=${MB_DB_PASSWORD}
-ARG METABASE_DB_NAME=${MB_DB_NAME}
 
 RUN apt-get update && apt-get install -y curl && \
     curl -L https://downloads.metabase.com/${METABASE_VERSION}/metabase.jar -o metabase.jar && \
