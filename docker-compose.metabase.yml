@@ -23,7 +23,7 @@ services:
       MB_DB_PORT: 5432
       MB_DB_USER: ${METABASE_DB_NAME}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
-      MB_DB_NAME: ${METABASE_DB_NAME}
+      MB_DB_NAME: ${METABASE_DB_USER}
   
   metabase_db:
     image: postgres:15.3-alpine
