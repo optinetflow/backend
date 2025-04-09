@@ -15,22 +15,32 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    depends_on:
+      - metabase_db
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${METABASE_DB_NAME}
+      MB_DB_PORT: ${METABASE_DB_PORT}
+      MB_DB_USER: ${METABASE_DB_USER}
+      MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      MB_DB_HOST: metabase_db
+  
+  metabase_db:
+    image: postgres:15.3-alpine
+    restart: unless-stopped
+    volumes:
+      - metabase-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${METABASE_DB_USER}
+      POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
+      POSTGRES_DB: ${METABASE_DB_NAME}
+    ports:
+      - "127.0.0.1:${METABASE_DB_PORT}:5432"
 
-    # environment:
-    #   MB_DB_TYPE: postgres
-    #   MB_DB_DBNAME: ${POSTGRES_DB}
-    #   MB_DB_PORT: ${DB_PORT}
-    #   MB_DB_USER: ${POSTGRES_USER}
-    #   MB_DB_PASS: ${POSTGRES_PASSWORD}
-    #   MB_DB_HOST: postgres
-    
-    # volumes:
-    #   - metabase-data:/metabase-data
-
-# volumes:
-#   metabase-data:
-#     driver: local
-#     driver_opts:
-#       type: none
-#       device: ${METABASE_PERSIST_PATH}
-#       o: bind
+volumes:
+  metabase-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${METABASE_DB_PERSIST_PATH}
+      o: bind
