@@ -65,7 +65,7 @@ jobs:
           name: Deploy to Server
           command: |
             export TEMP_ENV_PATH=/home/ubuntu/temp-backend-env
-            echo "$ENV_FILE" > .env
+            echo "$ENV_FILE" | base64 --decode > .env
             ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin && mkdir -p $TEMP_ENV_PATH"
             ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1}"
             ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker container rm -f $CONTAINER_NAME || true"
