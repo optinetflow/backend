@@ -6,7 +6,7 @@ orbs:
 jobs:
   build-and-deploy:
     docker:
-      - image: cimg/base:stable
+      - image: cimg/node:18.0
     steps:
       - checkout
 
@@ -19,12 +19,8 @@ jobs:
             - "SHA256:4X9nkRG1kXfKre1B+w9dJhzMltIQni947mNoV+qyCpI"
 
       - run:
-          name: Install Node & pnpm
-          command: |
-            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-            sudo apt-get update
-            sudo apt-get install -y nodejs
-            sudo npm install -g pnpm@8.6.11
+          name: Install pnpm
+          command: npm install -g pnpm@8.6.11
 
       - run:
           name: Install Dependencies
