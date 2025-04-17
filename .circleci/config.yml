@@ -10,6 +10,9 @@ jobs:
     steps:
       - checkout
 
+      - setup_remote_docker:
+          version: 20.10.18
+
       - add_ssh_keys:
           fingerprints:
             - "SHA256:4X9nkRG1kXfKre1B+w9dJhzMltIQni947mNoV+qyCpI"
