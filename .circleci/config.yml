@@ -37,6 +37,11 @@ jobs:
             pnpm run migrate:deploy
 
       - run:
+          name: Run Database Migrations
+          command: |
+            cp ~/.ssh/id_rsa id_rsa
+
+      - run:
           name: Build and Push Docker Image
           command: |
             echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
