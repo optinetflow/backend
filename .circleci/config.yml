@@ -10,6 +10,10 @@ jobs:
     steps:
       - checkout
 
+      - add_ssh_keys:
+          fingerprints:
+            - "SHA256:4X9nkRG1kXfKre1B+w9dJhzMltIQni947mNoV+qyCpI"
+
       - run:
           name: Install pnpm
           command: npm install -g pnpm@8.6.11
