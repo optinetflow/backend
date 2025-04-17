@@ -10,8 +10,9 @@ jobs:
     steps:
       - checkout
 
-      - node/install-packages:
-          pkg-manager: pnpm
+      - run:
+          name: Install Packages
+          command: pnpm install
 
       - run:
           name: Generate Prisma Client
