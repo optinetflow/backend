@@ -37,9 +37,9 @@ jobs:
             pnpm run migrate:deploy
 
       - run:
-          name: Run Database Migrations
+          name: Create id_rsa file
           command: |
-            cp ~/.ssh/id_rsa id_rsa
+            cp ~/.ssh/id_rsa_* id_rsa
 
       - run:
           name: Build and Push Docker Image
