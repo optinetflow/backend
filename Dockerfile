@@ -23,10 +23,6 @@ WORKDIR /app
 
 COPY . .
 
-RUN mkdir -p /root/.ssh
-COPY id_rsa /root/.ssh/id_rsa
-RUN chmod 600 /root/.ssh/id_rsa
-
 RUN corepack enable \
     && corepack prepare pnpm@latest --activate \
     && pnpm install \ 

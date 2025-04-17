@@ -37,11 +37,6 @@ jobs:
             pnpm run migrate:deploy
 
       - run:
-          name: Create id_rsa file
-          command: |
-            cp ~/.ssh/id_rsa_* id_rsa
-
-      - run:
           name: Build and Push Docker Image
           command: |
             echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin

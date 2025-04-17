@@ -90,8 +90,8 @@ jobs:
           ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
           pnpm run migrate:deploy
 
-      - name: 'Create id_rsa file'
-        run: echo "${{ secrets.ID_RSA }}" > id_rsa
+      # - name: 'Create id_rsa file'
+      #   run: echo "${{ secrets.ID_RSA }}" > id_rsa
 
       - name: Build & Push Docker image
         env:
