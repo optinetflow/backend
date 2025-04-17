@@ -29,8 +29,14 @@ jobs:
       - run:
           name: Run Database Migrations
           command: |
-            ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
-            pnpm run migrate:deploy
+            # Set up SSH tunnel with explicit variable expansion
+            LOCAL_PORT=1111
+            REMOTE_PORT=$DB_PORT
+            ssh -fN -L ${LOCAL_PORT}:localhost:${REMOTE_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT
+            # Wait for tunnel to establish
+            sleep 5
+            # Run migrations
+            DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${LOCAL_PORT}/${POSTGRES_DB}" pnpm run migrate:deploy
           environment:
             DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:1111/${POSTGRES_DB}
             DB_PORT: ${DB_PORT}
