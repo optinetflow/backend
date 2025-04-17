@@ -78,4 +78,3 @@ workflows:
             branches:
               only:
                 - main
-                - dev
