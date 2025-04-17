@@ -12,7 +12,7 @@ jobs:
 
       - run:
           name: Install pnpm
-          command: npm install -g pnpm
+          command: npm install -g pnpm@8.6.11
 
       - run:
           name: Install Dependencies
