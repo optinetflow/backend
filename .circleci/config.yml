@@ -1,7 +1,6 @@
 version: 2.1
 
 orbs:
-  docker: circleci/docker@3.1.1
   node: circleci/node@5.1.0
 
 jobs:
@@ -11,8 +10,13 @@ jobs:
     steps:
       - checkout
 
-      - node/install-packages:
-          pkg-manager: pnpm
+      - run:
+          name: Install pnpm
+          command: npm install -g pnpm
+
+      - run:
+          name: Install Dependencies
+          command: pnpm install
 
       - run:
           name: Generate Prisma Client
@@ -62,4 +66,4 @@ workflows:
             branches:
               only:
                 - main
-                - dev 
+                - dev
