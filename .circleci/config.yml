@@ -53,7 +53,7 @@ jobs:
             echo "SERVER_USERNAME is set: $([[ ! -z $SERVER_USERNAME ]] && echo 'Yes' || echo 'No')"
             echo "SERVER_IP is set: $([[ ! -z $SERVER_IP ]] && echo 'Yes' || echo 'No')"
             echo "SERVER_PORT is set: $([[ ! -z $SERVER_PORT ]] && echo 'Yes' || echo 'No')"
-            ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
+            ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT
             pnpm run migrate:deploy
           environment:
             DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:1111/${POSTGRES_DB}
