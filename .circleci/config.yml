@@ -1,65 +1,64 @@
-# This config was automatically generated from your source code
-# Stacks detected: cicd:github-actions:.github/workflows,deps:node:.,test:jest:
 version: 2.1
+
 orbs:
-  node: circleci/node@5
+  node: circleci/node@5.1.0
+
 jobs:
-  test-node:
-    # Install node dependencies and run tests
-    executor: node/default
-    environment:
-      JEST_JUNIT_OUTPUT_DIR: ./test-results/
-    steps:
-      - checkout
-      - node/install-packages:
-          cache-path: ~/project/node_modules
-          override-ci-command: npm install
-      - run:
-          command: npm install jest-junit
-      - run:
-          name: Run tests
-          command: npm run test --ci --runInBand --reporters=default --reporters=jest-junit
-      - store_test_results:
-          path: ./test-results/
-  build-node:
-    # Build node project
-    executor: node/default
-    steps:
-      - checkout
-      - node/install-packages:
-          cache-path: ~/project/node_modules
-          override-ci-command: npm install
-      - run:
-          command: npm run build
-      - run:
-          name: Create the ~/artifacts directory if it doesn't exist
-          command: mkdir -p ~/artifacts
-      # Copy output to artifacts dir
-      - run:
-          name: Copy artifacts
-          command: cp -R build dist public .output .next .docusaurus ~/artifacts 2>/dev/null || true
-      - store_artifacts:
-          path: ~/artifacts
-          destination: node-build
-  deploy:
-    # This is an example deploy job, not actually used by the workflow
+  build-and-deploy:
     docker:
-      - image: cimg/base:stable
+      - image: cimg/node:18.0
     steps:
-      # Replace this with steps to deploy to users
+      - checkout
+
+      - node/install-packages:
+          pkg-manager: pnpm
+
       - run:
-          name: deploy
-          command: '#e.g. ./deploy.sh'
+          name: Generate Prisma Client
+          command: pnpm prisma generate
+
       - run:
-          name: found github actions config
-          command: ':'
+          name: Run Database Migrations
+          command: |
+            ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
+            pnpm run migrate:deploy
+          environment:
+            DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:1111/${POSTGRES_DB}
+            DB_PORT: ${DB_PORT}
+
+      - run:
+          name: Build and Push Docker Image
+          command: |
+            echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
+            docker build --platform=linux/arm64 -t ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1} -t ${DOCKERHUB_USERNAME}/optinetflow:latest --build-arg PORT=${PORT} .
+            docker push ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1}
+            docker push ${DOCKERHUB_USERNAME}/optinetflow:latest
+            docker logout
+          environment:
+            PORT: ${PORT}
+
+      - run:
+          name: Deploy to Server
+          command: |
+            echo "$ENV_FILE" > .env
+            ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin && mkdir -p $TEMP_ENV_PATH"
+            ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1}"
+            ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker container rm -f $CONTAINER_NAME || true"
+            scp -o StrictHostKeyChecking=no -P $SERVER_PORT .env $SERVER_USERNAME@$SERVER_IP:$TEMP_ENV_PATH
+            ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker run -d --name $CONTAINER_NAME --env-file $TEMP_ENV_PATH/.env --network=${NETWORK_NAME} --restart always ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1}"
+            ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker logout"
+          environment:
+            TEMP_ENV_PATH: /home/ubuntu/temp-backend-env
+            CONTAINER_NAME: ${CONTAINER_NAME}
+            NETWORK_NAME: ${NETWORK_NAME}
+
 workflows:
-  build-and-test:
+  version: 2
+  build-and-deploy:
     jobs:
-      - test-node
-      - build-node:
-          requires:
-            - test-node
-    # - deploy:
-    #     requires:
-    #       - build-node
+      - build-and-deploy:
+          filters:
+            branches:
+              only:
+                - main
+                - dev
