@@ -48,14 +48,13 @@ jobs:
           name: Run Database Migrations
           command: |
             set -x  # start tracing commands
+            export DB_PORT=5432
+            export DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:1111/${POSTGRES_DB}
             echo "Running SSH with:"
             echo "ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no ${SERVER_USERNAME}@${SERVER_IP} -p ${SERVER_PORT}"
             ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
             set +x  # stop tracing commands (optional)
             pnpm run migrate:deploy
-          environment:
-            DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:1111/${POSTGRES_DB}
-            DB_PORT: ${DB_PORT}
 
       - run:
           name: Build and Push Docker Image
