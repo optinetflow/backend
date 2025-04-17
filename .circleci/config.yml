@@ -6,20 +6,24 @@ orbs:
 jobs:
   build-and-deploy:
     docker:
-      - image: cimg/node:18.0
+      - image: cimg/base:stable
     steps:
       - checkout
 
       - setup_remote_docker:
           version: default
+          docker_layer_caching: true
 
       - add_ssh_keys:
           fingerprints:
             - "SHA256:4X9nkRG1kXfKre1B+w9dJhzMltIQni947mNoV+qyCpI"
 
       - run:
-          name: Install pnpm
-          command: npm install -g pnpm@8.6.11
+          name: Install Node & pnpm
+          command: |
+            curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+            apt-get install -y nodejs
+            npm install -g pnpm@8.6.11
 
       - run:
           name: Install Dependencies
@@ -37,12 +41,23 @@ jobs:
             pnpm run migrate:deploy
 
       - run:
+          name: Enable Buildx and QEMU for ARM builds
+          command: |
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+            docker buildx create --use --name multiarch-builder
+            docker buildx inspect --bootstrap
+
+      - run:
           name: Build and Push Docker Image
           command: |
             echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
-            docker build --platform=linux/arm64 -t ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1} -t ${DOCKERHUB_USERNAME}/optinetflow:latest --build-arg PORT=${PORT} .
-            docker push ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1}
-            docker push ${DOCKERHUB_USERNAME}/optinetflow:latest
+            docker buildx build \
+              --platform linux/arm64 \
+              --tag ${DOCKERHUB_USERNAME}/optinetflow:${CIRCLE_SHA1} \
+              --tag ${DOCKERHUB_USERNAME}/optinetflow:latest \
+              --build-arg PORT=${PORT} \
+              --push \
+              .
             docker logout
 
       - run:
