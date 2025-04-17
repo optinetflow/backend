@@ -47,13 +47,11 @@ jobs:
       - run:
           name: Run Database Migrations
           command: |
-            echo "Checking environment variables..."
-            echo "DB_PORT is set: $([[ ! -z $DB_PORT ]] && echo 'Yes' || echo 'No')"
-            echo "DATABASE_URL is set: $([[ ! -z $DATABASE_URL ]] && echo 'Yes' || echo 'No')"
-            echo "SERVER_USERNAME is set: $([[ ! -z $SERVER_USERNAME ]] && echo 'Yes' || echo 'No')"
-            echo "SERVER_IP is set: $([[ ! -z $SERVER_IP ]] && echo 'Yes' || echo 'No')"
-            echo "SERVER_PORT is set: $([[ ! -z $SERVER_PORT ]] && echo 'Yes' || echo 'No')"
-            ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT
+            set -x  # start tracing commands
+            echo "Running SSH with:"
+            echo "ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no ${SERVER_USERNAME}@${SERVER_IP} -p ${SERVER_PORT}"
+            ssh -fN -L 1111:localhost:${DB_PORT} -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT 2>&1
+            set +x  # stop tracing commands (optional)
             pnpm run migrate:deploy
           environment:
             DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:1111/${POSTGRES_DB}
