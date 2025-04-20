@@ -24,6 +24,7 @@ services:
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
       MB_DB_HOST: metabase_db
+      
 
   
   metabase_db:
@@ -35,6 +36,7 @@ services:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
       POSTGRES_DB: ${METABASE_DB_NAME}
+      POSTGRES_MAX_CONNECTIONS: 20
     ports:
       - "127.0.0.1:${METABASE_DB_PORT}:5432"
 
