@@ -3,7 +3,7 @@ FROM eclipse-temurin:21-jre
 WORKDIR /usr/src/metabase
 
 # Default to 'latest' if not passed via --build-arg
-ARG METABASE_VERSION=latest
+ARG METABASE_VERSION=0.54.3
 
 RUN apt-get update && apt-get install -y curl && \
     curl -L https://downloads.metabase.com/${METABASE_VERSION}/metabase.jar -o metabase.jar && \
