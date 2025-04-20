@@ -18,7 +18,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     command:
       - postgres
-      - -c config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
     ports:
       - "127.0.0.1:${DB_PORT}:5432"
   pgbouncer:
