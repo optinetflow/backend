@@ -18,18 +18,25 @@ services:
     command: >
       postgres
       -c shared_buffers=2GB
-      -c effective_cache_size=6GB
-      -c work_mem=16MB
-      -c maintenance_work_mem=1GB
-      -c max_connections=75
+      -c effective_cache_size=4GB
+      -c work_mem=128MB
+      -c maintenance_work_mem=512MB
+      -c max_connections=40
+      -c max_parallel_workers=4
+      -c max_parallel_workers_per_gather=2
+      -c random_page_cost=1.1
       -c wal_buffers=16MB
       -c checkpoint_completion_target=0.9
-      -c checkpoint_timeout=20min
+      -c checkpoint_timeout=30min
       -c autovacuum=on
-      -c autovacuum_naptime=1min
-      -c autovacuum_max_workers=3
-      -c autovacuum_vacuum_scale_factor=0.05
-      -c autovacuum_analyze_scale_factor=0.02
+      -c autovacuum_naptime=5min
+      -c autovacuum_max_workers=2
+      -c autovacuum_vacuum_scale_factor=0.1
+      -c autovacuum_analyze_scale_factor=0.05
+      -c statement_timeout=0
+      -c idle_in_transaction_session_timeout=10min
+      -c default_statistics_target=500
+      -c jit=on
     ports:
       - "127.0.0.1:${DB_PORT}:5432"
   pgbouncer:
