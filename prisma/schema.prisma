@@ -196,6 +196,7 @@ model Package {
   deletedAt      DateTime?
   traffic        Float
   expirationDays Float
+  basePrice      Float?
   price          Float
   userCount      Int
   category       PackageCategory @default(QUALITY)
@@ -204,6 +205,7 @@ model Package {
   userPackage    UserPackage[]
   Promotion      Promotion[]
   UserGift       UserGift[]
+  
 
   User User[] @relation("UserPackageRelation")
 }
