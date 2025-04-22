@@ -5,7 +5,7 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  // previewFeatures = []
+  previewFeatures = ["views"]
 }
 
 generator dbml {
@@ -376,4 +376,17 @@ model Brand {
   User User[]
 
   ActiveServer ActiveServer[]
+}
+
+view PersianCalendar {
+  date                    DateTime @id @db.Date
+  persian_year            Int
+  persian_month           Int
+  persian_day             Int
+  persian_month_name      String
+  persian_season          String
+  persian_season_number   Int
+  persian_week_start_date DateTime @db.Date
+
+  @@map("persian_calendar")  // map the model to your view
 }

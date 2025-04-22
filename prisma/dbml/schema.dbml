@@ -287,6 +287,17 @@ Table Brand {
   ActiveServer ActiveServer [not null]
 }
 
+Table persian_calendar {
+  date DateTime [pk]
+  persian_year Int [not null]
+  persian_month Int [not null]
+  persian_day Int [not null]
+  persian_month_name String [not null]
+  persian_season String [not null]
+  persian_season_number Int [not null]
+  persian_week_start_date DateTime [not null]
+}
+
 Enum Role {
   ADMIN
   USER
