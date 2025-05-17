@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     volumes:
       - /dev/urandom:/dev/random:ro
-      - metabase-data:/var/lib/postgresql/data
+      # - metabase-data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
@@ -50,10 +50,10 @@ services:
     ports:
       - "127.0.0.1:${METABASE_DB_PORT}:7432"
 
-volumes:
-  metabase-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${METABASE_DB_PERSIST_PATH}
-      o: bind
+# volumes:
+#   metabase-data:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       device: ${METABASE_DB_PERSIST_PATH}
+#       o: bind
