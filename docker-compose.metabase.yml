@@ -15,49 +15,49 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-    depends_on:
-      metabase_db:
-        condition: service_healthy
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${METABASE_DB_NAME}
-      MB_DB_PORT: 5432
-      MB_DB_USER: ${METABASE_DB_USER}
-      MB_DB_PASS: ${METABASE_DB_PASSWORD}
-      MB_DB_HOST: metabase_db
+    # depends_on:
+    #   metabase_db:
+    #     condition: service_healthy
+    # environment:
+    #   MB_DB_TYPE: postgres
+    #   MB_DB_DBNAME: ${METABASE_DB_NAME}
+    #   MB_DB_PORT: 5432
+    #   MB_DB_USER: ${METABASE_DB_USER}
+    #   MB_DB_PASS: ${METABASE_DB_PASSWORD}
+    #   MB_DB_HOST: metabase_db
       
 
   
-  metabase_db:
-    image: postgres:15.3
-    restart: unless-stopped
-    volumes:
-      - /dev/urandom:/dev/random:ro
-      - metabase-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: ${METABASE_DB_USER}
-      POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
-      POSTGRES_DB: ${METABASE_DB_NAME}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $METABASE_DB_USER"]
-      interval: 10s
-      retries: 5
-    command: >
-      postgres
-      -c shared_buffers=512MB
-      -c work_mem=32MB
-      -c maintenance_work_mem=128MB
-      -c max_connections=100
-      -c effective_cache_size=1GB
-      -c statement_timeout=60000
-      -c idle_in_transaction_session_timeout=60000
-    ports:
-      - "127.0.0.1:${METABASE_DB_PORT}:5432"
+#   metabase_db:
+#     image: postgres:15.3
+#     restart: unless-stopped
+#     volumes:
+#       - /dev/urandom:/dev/random:ro
+#       - metabase-data:/var/lib/postgresql/data
+#     environment:
+#       POSTGRES_USER: ${METABASE_DB_USER}
+#       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
+#       POSTGRES_DB: ${METABASE_DB_NAME}
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U $METABASE_DB_USER"]
+#       interval: 10s
+#       retries: 5
+#     command: >
+#       postgres
+#       -c shared_buffers=512MB
+#       -c work_mem=32MB
+#       -c maintenance_work_mem=128MB
+#       -c max_connections=100
+#       -c effective_cache_size=1GB
+#       -c statement_timeout=60000
+#       -c idle_in_transaction_session_timeout=60000
+#     ports:
+#       - "127.0.0.1:${METABASE_DB_PORT}:5432"
 
-volumes:
-  metabase-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${METABASE_DB_PERSIST_PATH}
-      o: bind
+# volumes:
+#   metabase-data:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       device: ${METABASE_DB_PERSIST_PATH}
+#       o: bind
