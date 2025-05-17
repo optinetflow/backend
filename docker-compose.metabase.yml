@@ -8,6 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.metabase
+    mem_limit: 6g
     ports:
       - "${METABASE_PORT}:3000"
     healthcheck:
