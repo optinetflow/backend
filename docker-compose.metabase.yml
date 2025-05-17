@@ -28,7 +28,7 @@ services:
 
   
   metabase_db:
-    image: postgres:17.4
+    image: postgres:15.3-alpine
     restart: unless-stopped
     volumes:
       - metabase-data:/var/lib/postgresql/data
@@ -36,6 +36,15 @@ services:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
       POSTGRES_DB: ${METABASE_DB_NAME}
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c work_mem=32MB
+      -c maintenance_work_mem=128MB
+      -c max_connections=100
+      -c effective_cache_size=1GB
+      -c statement_timeout=60000
+      -c idle_in_transaction_session_timeout=60000
     ports:
       - "127.0.0.1:${METABASE_DB_PORT}:5432"
 
