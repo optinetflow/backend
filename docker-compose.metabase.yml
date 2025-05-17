@@ -21,7 +21,7 @@ services:
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: ${METABASE_DB_NAME}
-      MB_DB_PORT: 5432
+      MB_DB_PORT: 7321
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
       MB_DB_HOST: metabase_db
@@ -38,6 +38,7 @@ services:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
       POSTGRES_DB: ${METABASE_DB_NAME}
+      POSTGRES_PORT: 7321
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $METABASE_DB_USER"]
       interval: 10s
@@ -52,7 +53,7 @@ services:
       -c statement_timeout=60000
       -c idle_in_transaction_session_timeout=60000
     ports:
-      - "127.0.0.1:${METABASE_DB_PORT}:5432"
+      - "127.0.0.1:${METABASE_DB_PORT}:7321"
 
 volumes:
   metabase-data:
