@@ -17,7 +17,8 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      - metabase_db
+      metabase_db:
+        condition: service_healthy
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: ${METABASE_DB_NAME}
@@ -29,14 +30,19 @@ services:
 
   
   metabase_db:
-    image: postgres:15.3-alpine
+    image: postgres:15.3
     restart: unless-stopped
     volumes:
+      - /dev/urandom:/dev/random:ro
       - metabase-data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
       POSTGRES_DB: ${METABASE_DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $METABASE_DB_USER"]
+      interval: 10s
+      retries: 5
     command: >
       postgres
       -c shared_buffers=512MB
