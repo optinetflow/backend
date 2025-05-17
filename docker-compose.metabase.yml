@@ -16,8 +16,7 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      metabase_db:
-        condition: service_healthy
+      - metabase_db
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: ${METABASE_DB_NAME}
@@ -38,10 +37,6 @@ services:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
       POSTGRES_DB: ${METABASE_DB_NAME}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $METABASE_DB_USER"]
-      interval: 10s
-      retries: 5
     command: >
       postgres
       -p 7432
