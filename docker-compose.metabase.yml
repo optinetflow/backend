@@ -20,9 +20,9 @@ services:
     depends_on:
       - metabase_db
     environment:
-      MB_DB_TYPE: postgres
+      MB_DB_TYPE: mysql
       MB_DB_DBNAME: ${METABASE_DB_NAME}
-      MB_DB_PORT: 5432
+      MB_DB_PORT: 3306
       MB_DB_HOST: metabase_db
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
@@ -33,14 +33,14 @@ services:
 
   
   metabase_db:
-    image: postgres:latest
+    image: mysql:8.0
     restart: unless-stopped
-    # volumes:
-    #   - metabase-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${METABASE_DB_USER}
-      POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
-      POSTGRES_DB: ${METABASE_DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${METABASE_DB_PASSWORD}
+      MYSQL_DATABASE: ${METABASE_DB_NAME}
+      MYSQL_USER: ${METABASE_DB_USER}
+      MYSQL_PASSWORD: ${METABASE_DB_PASSWORD}
+    command: --default-authentication-plugin=mysql_native_password
     # command: >
     #   postgres
     #   -p 7432
