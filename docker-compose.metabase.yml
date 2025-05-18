@@ -18,7 +18,8 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      - metabase_db
+      metabase_db:
+        condition: service_healthy
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: ${METABASE_DB_NAME}
@@ -26,8 +27,10 @@ services:
       MB_DB_HOST: metabase_db
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
-      # MB_DB_AUTOMIGRATE: false
-      # MB_DB_CONNECTION_URI: "jdbc:postgresql://metabase_db:7432/${METABASE_DB_NAME}?currentSchema=public"
+      MB_DB_AUTOMIGRATE: true
+      MB_DB_CONNECTION_URI: "jdbc:postgresql://metabase_db:7432/${METABASE_DB_NAME}?currentSchema=public"
+      MB_DB_CONNECTION_PROPERTIES: "user=${METABASE_DB_USER}&password=${METABASE_DB_PASSWORD}"
+      MB_DB_CONNECTION_URI_OPTIONS: "sslmode=disable"
       
       
 
@@ -43,6 +46,7 @@ services:
       POSTGRES_DB: ${METABASE_DB_NAME}
       LANG: en_US.utf8
       LC_ALL: en_US.utf8
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
     command: >
       postgres
       -p 7432
@@ -55,6 +59,7 @@ services:
       -c idle_in_transaction_session_timeout=60000
       -c client_encoding=UTF8
       -c timezone=UTC
+      -c log_statement=all
     ports:
       - "127.0.0.1:${METABASE_DB_PORT}:7432"
     healthcheck:
