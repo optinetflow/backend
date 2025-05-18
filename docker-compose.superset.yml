@@ -23,9 +23,9 @@ services:
 
   superset_db:
     env_file:
-      - path: docker/.env # default
+      - path: superset/docker/.env # default
         required: true
-      - path: docker/.env-local # optional override
+      - path: superset/docker/.env-local # optional override
         required: false
     image: postgres:16
     container_name: superset_db
@@ -36,9 +36,9 @@ services:
 
   superset:
     env_file:
-      - path: docker/.env # default
+      - path: superset/docker/.env # default
         required: true
-      - path: docker/.env-local # optional override
+      - path: superset/docker/.env-local # optional override
         required: false
     image: *superset-image
     container_name: superset_app
@@ -59,9 +59,9 @@ services:
     container_name: superset_init
     command: ["/app/docker/docker-init.sh"]
     env_file:
-      - path: docker/.env # default
+      - path: superset/docker/.env # default
         required: true
-      - path: docker/.env-local # optional override
+      - path: superset/docker/.env-local # optional override
         required: false
     depends_on:
       superset_db:
@@ -81,9 +81,9 @@ services:
     container_name: superset_worker
     command: ["/app/docker/docker-bootstrap.sh", "worker"]
     env_file:
-      - path: docker/.env # default
+      - path: superset/docker/.env # default
         required: true
-      - path: docker/.env-local # optional override
+      - path: superset/docker/.env-local # optional override
         required: false
     restart: unless-stopped
     depends_on:
@@ -105,9 +105,9 @@ services:
     container_name: superset_worker_beat
     command: ["/app/docker/docker-bootstrap.sh", "beat"]
     env_file:
-      - path: docker/.env # default
+      - path: superset/docker/.env # default
         required: true
-      - path: docker/.env-local # optional override
+      - path: superset/docker/.env-local # optional override
         required: false
     restart: unless-stopped
     depends_on:
