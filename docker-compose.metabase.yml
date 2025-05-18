@@ -59,7 +59,6 @@ services:
       -c idle_in_transaction_session_timeout=60000
       -c client_encoding=UTF8
       -c timezone=UTC
-      -c log_statement=all
     ports:
       - "127.0.0.1:${METABASE_DB_PORT}:7432"
     healthcheck:
