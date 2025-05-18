@@ -26,7 +26,7 @@ services:
       MB_DB_HOST: metabase_db
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
-      # MB_DB_AUTOMIGRATE: false
+      MB_DB_AUTOMIGRATE: false
       # MB_DB_CONNECTION_URI: "jdbc:postgresql://metabase_db:7432/${METABASE_DB_NAME}?currentSchema=public"
       
       
