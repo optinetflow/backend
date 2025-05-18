@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     volumes:
       - db_home:/var/lib/postgresql/data
-      - ./docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ./superset/docker/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
 
   superset:
     env_file:
