@@ -10,6 +10,8 @@ services:
       dockerfile: Dockerfile.metabase
     ports:
       - "${METABASE_PORT}:3000"
+    volumes:
+      - /dev/urandom:/dev/random:ro
     healthcheck:
       test: curl --fail -I http://localhost:3000/api/health || exit 1
       interval: 15s
@@ -19,39 +21,43 @@ services:
       - metabase_db
     environment:
       MB_DB_TYPE: postgres
-      MB_DB_CONNECTION_URI: "jdbc:postgresql://metabase_db:7432/${METABASE_DB_NAME}?currentSchema=public"
+      MB_DB_DBNAME: ${METABASE_DB_NAME}
+      MB_DB_PORT: 5432
+      MB_DB_HOST: metabase_db
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
+      # MB_DB_AUTOMIGRATE: false
+      # MB_DB_CONNECTION_URI: "jdbc:postgresql://metabase_db:7432/${METABASE_DB_NAME}?currentSchema=public"
+      
       
 
   
   metabase_db:
-    image: postgres:15.3
+    image: postgres:latest
     restart: unless-stopped
-    volumes:
-      - /dev/urandom:/dev/random:ro
-      - metabase-data:/var/lib/postgresql/data
+    # volumes:
+    #   - metabase-data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${METABASE_DB_USER}
       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
       POSTGRES_DB: ${METABASE_DB_NAME}
-    command: >
-      postgres
-      -p 7432
-      -c shared_buffers=512MB
-      -c work_mem=32MB
-      -c maintenance_work_mem=128MB
-      -c max_connections=100
-      -c effective_cache_size=1GB
-      -c statement_timeout=60000
-      -c idle_in_transaction_session_timeout=60000
-    ports:
-      - "127.0.0.1:${METABASE_DB_PORT}:7432"
+    # command: >
+    #   postgres
+    #   -p 7432
+    #   -c shared_buffers=512MB
+    #   -c work_mem=32MB
+    #   -c maintenance_work_mem=128MB
+    #   -c max_connections=100
+    #   -c effective_cache_size=1GB
+    #   -c statement_timeout=60000
+    #   -c idle_in_transaction_session_timeout=60000
+    # ports:
+    #   - "127.0.0.1:${METABASE_DB_PORT}:7432"
 
-volumes:
-  metabase-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${METABASE_DB_PERSIST_PATH}
-      o: bind
+# volumes:
+#   metabase-data:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       device: ${METABASE_DB_PERSIST_PATH}
+#       o: bind
