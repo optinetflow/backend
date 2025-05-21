@@ -24,7 +24,7 @@ services:
       timeout: 5s
       retries: 5
   metabase_db:
-    image: postgres:17.5
+    image: postgres:15
     restart: unless-stopped
     volumes:
       - metabase-data:/var/lib/postgresql/data
@@ -35,8 +35,8 @@ services:
     command: >
       postgres
       -p 7432
-    ports:
-      - "127.0.0.1:${METABASE_DB_PORT}:7432"
+    # ports:
+    #   - "127.0.0.1:${METABASE_DB_PORT}:7432"
 
 volumes:
   metabase-data:
