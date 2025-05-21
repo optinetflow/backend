@@ -5,44 +5,43 @@ networks:
 
 services:
   metabase:
-    image: metabase/metabase:v0.53.5.4
+    image: metabase/metabase:v0.54.9
     platform: linux/arm64
     volumes:
       - /dev/urandom:/dev/random:ro
     ports:
       - "${METABASE_PORT}:3000"
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${METABASE_DB_NAME}
-      MB_DB_PORT: 7432
-      MB_DB_USER: ${METABASE_DB_USER}
-      MB_DB_PASS: ${METABASE_DB_PASSWORD}
-      MB_DB_HOST: metabase_db
-      MB_JETTY_ASYNC_RESPONSE_TIMEOUT_MS: 300000
-      MB_DB_CONNECTION_POOL_SIZE: 25
-      MB_JETTY_MAXTHREADS: 200
-      MB_LOG_LEVEL: debug
-      MB_DB_SAMPLE: "false"
-      JAVA_OPTS: "-Xms2048m -Xmx4096m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:+UseContainerSupport -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags"
-  metabase_db:
-    image: postgres:15
-    restart: unless-stopped
-    volumes:
-      - metabase-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: ${METABASE_DB_USER}
-      POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
-      POSTGRES_DB: ${METABASE_DB_NAME}
-    command: >
-      postgres
-      -p 7432
-    # ports:
-    #   - "127.0.0.1:${METABASE_DB_PORT}:7432"
+    # environment:
+    #   MB_DB_TYPE: postgres
+    #   MB_DB_DBNAME: ${METABASE_DB_NAME}
+    #   MB_DB_PORT: 7432
+    #   MB_DB_USER: ${METABASE_DB_USER}
+    #   MB_DB_PASS: ${METABASE_DB_PASSWORD}
+    #   MB_DB_HOST: metabase_db
+    #   MB_JETTY_ASYNC_RESPONSE_TIMEOUT_MS: 300000
+    #   MB_DB_CONNECTION_POOL_SIZE: 25
+    #   MB_JETTY_MAXTHREADS: 200
+    #   MB_LOG_LEVEL: debug
+    #   JAVA_OPTS: "-Xms2048m -Xmx4096m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:+UseContainerSupport -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags"
+#   metabase_db:
+#     image: postgres:15
+#     restart: unless-stopped
+#     volumes:
+#       - metabase-data:/var/lib/postgresql/data
+#     environment:
+#       POSTGRES_USER: ${METABASE_DB_USER}
+#       POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD}
+#       POSTGRES_DB: ${METABASE_DB_NAME}
+#     command: >
+#       postgres
+#       -p 7432
+#     # ports:
+#     #   - "127.0.0.1:${METABASE_DB_PORT}:7432"
 
-volumes:
-  metabase-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${METABASE_DB_PERSIST_PATH}
-      o: bind
+# volumes:
+#   metabase-data:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       device: ${METABASE_DB_PERSIST_PATH}
+#       o: bind
