@@ -18,15 +18,7 @@ services:
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
       MB_DB_HOST: metabase_db
-      JAVA_OPTS: >
-        -Xms1024m -Xmx2048m
-        -XX:+UseG1GC
-        -XX:MaxGCPauseMillis=100
-        -XX:+AlwaysPreTouch
-        -XX:+UseStringDeduplication
-        -XX:+UnlockExperimentalVMOptions
-        -XX:+UseContainerSupport
-        -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags
+      JAVA_OPTS: "-Xms1024m -Xmx2048m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:+UseContainerSupport -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags"
   metabase_db:
     image: postgres:15
     restart: unless-stopped
