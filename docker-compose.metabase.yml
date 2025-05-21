@@ -5,7 +5,7 @@ networks:
 
 services:
   metabase:
-    image: metabase/metabase:v0.54.9
+    image: metabase/metabase:v0.53.5.4
     platform: linux/arm64
     volumes:
       - /dev/urandom:/dev/random:ro
@@ -22,6 +22,7 @@ services:
       MB_DB_CONNECTION_POOL_SIZE: 25
       MB_JETTY_MAXTHREADS: 200
       MB_LOG_LEVEL: debug
+      MB_DB_SAMPLE: "false"
       JAVA_OPTS: "-Xms2048m -Xmx4096m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:+UseContainerSupport -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags"
   metabase_db:
     image: postgres:15
