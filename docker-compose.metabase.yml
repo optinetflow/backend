@@ -18,6 +18,10 @@ services:
       MB_DB_USER: ${METABASE_DB_USER}
       MB_DB_PASS: ${METABASE_DB_PASSWORD}
       MB_DB_HOST: metabase_db
+      MB_JETTY_ASYNC_RESPONSE_TIMEOUT_MS: 300000
+      MB_DB_CONNECTION_POOL_SIZE: 25
+      MB_JETTY_MAXTHREADS: 200
+      MB_LOG_LEVEL: debug
       JAVA_OPTS: "-Xms2048m -Xmx4096m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:+UnlockExperimentalVMOptions -XX:+UseContainerSupport -Xlog:gc*:file=/tmp/gc.log:time,uptime,level,tags"
   metabase_db:
     image: postgres:15
