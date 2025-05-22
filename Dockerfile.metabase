@@ -13,6 +13,5 @@ RUN apt-get update && apt-get install -y curl && \
 
 # Add more memory for JVM
 ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=100 -server"
-ENV MB_SAMPLE_DATA="false"
 
 CMD ["sh", "-c", "exec java $JAVA_OPTS --add-opens java.base/java.nio=ALL-UNNAMED -jar metabase.jar"]
