@@ -5,7 +5,7 @@ FROM azul/zulu-openjdk:21-jre
 WORKDIR /usr/src/metabase
 
 # Allow build-time override of Metabase version
-ARG METABASE_VERSION=v0.53.15
+ARG METABASE_VERSION=v0.54.9
 
 # Install curl and download Metabase JAR with retry and fail-safe
 RUN apt-get update && \
