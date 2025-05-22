@@ -1,17 +1,38 @@
-FROM eclipse-temurin:21-jre
+# Use Eclipse Temurin JRE 21 base image (multi-arch support)
+FROM azul/zulu-openjdk:21-jre
 
+# Set working directory
 WORKDIR /usr/src/metabase
 
-# Default to 'latest' if not passed via --build-arg
-# ARG METABASE_VERSION=latest
+# Allow build-time override of Metabase version
 ARG METABASE_VERSION=v0.53.15
 
-RUN apt-get update && apt-get install -y curl && \
-    curl -L https://downloads.metabase.com/${METABASE_VERSION}/metabase.jar -o metabase.jar && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install curl and download Metabase JAR with retry and fail-safe
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    curl --fail --retry 3 -L https://downloads.metabase.com/${METABASE_VERSION}/metabase.jar -o metabase.jar && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
+# JVM tuning for 8GB RAM / 4 cores ARM64
+# Adjust heap size and GC behavior accordingly
+ENV JAVA_OPTS="\
+-XX:+UseG1GC \
+-XX:MaxGCPauseMillis=200 \
+-XX:+UnlockExperimentalVMOptions \
+-XX:+UseContainerSupport \
+-XX:MaxRAMPercentage=75.0 \
+-XX:InitialRAMPercentage=50.0 \
+-XX:ParallelGCThreads=4 \
+-XX:ConcGCThreads=2 \
+-server"
 
-# Add more memory for JVM
-ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxGCPauseMillis=100 -server"
+# Expose default Metabase port
+EXPOSE 3000
 
+# Add a Docker healthcheck (optional but recommended)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Run Metabase
 CMD ["sh", "-c", "exec java $JAVA_OPTS --add-opens java.base/java.nio=ALL-UNNAMED -jar metabase.jar"]
