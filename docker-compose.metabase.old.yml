@@ -18,9 +18,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-    depends_on:
-      metabase_db:
-        condition: service_healthy
+    # depends_on:
+    #   metabase_db:
+    #     condition: service_healthy
     # environment:
     #   MB_DB_CONNECTION_URI: "jdbc:postgresql://metabase_db:7432/${METABASE_DB_NAME}?currentSchema=public&user=${METABASE_DB_USER}&password=${METABASE_DB_PASSWORD}"
       # MB_DB_TYPE: postgres
