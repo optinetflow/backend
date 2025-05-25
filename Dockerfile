@@ -27,7 +27,7 @@ RUN corepack enable \
     && corepack prepare pnpm@latest --activate \
     && pnpm install \
     && pnpm build \
-    && pnpm add global pm2 # Install PM2 globally
+    && npm install pm2 -g # Install PM2 globally
 
 # Add a HEALTHCHECK instruction that reads the dynamic PORT.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
