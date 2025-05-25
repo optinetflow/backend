@@ -41,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # For example, if "start": "node dist/main.js", PM2 will run that.
 # The `--no-daemon` option is crucial for Docker to keep the container running.
 # Replace 'your-app-name' with a suitable name for your application process.
-CMD [ "pm2-runtime", "pnpm", "--", "start", "--name", "optinetflow" ]
+CMD [ "pm2-runtime", "--name", "optinetflow", "pnpm", "--", "start"]
