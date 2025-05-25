@@ -25,8 +25,9 @@ COPY . .
 
 RUN corepack enable \
     && corepack prepare pnpm@latest --activate \
-    && pnpm install \ 
-    && pnpm build
+    && pnpm install \
+    && pnpm build \
+    && pnpm add global pm2 # Install PM2 globally
 
 # Add a HEALTHCHECK instruction that reads the dynamic PORT.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -34,5 +35,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # ------------- should be different from Dockerfile.dev
 
-
-CMD [ "pnpm", "start"]
+# Start the application using PM2
+# Make sure your `pnpm start` script in package.json does NOT use PM2 itself.
+# PM2 will run the script defined in your package.json's "start"
+# For example, if "start": "node dist/main.js", PM2 will run that.
+# The `--no-daemon` option is crucial for Docker to keep the container running.
+# Replace 'your-app-name' with a suitable name for your application process.
+CMD [ "pm2-runtime", "pnpm", "--", "start", "--name", "optinetflow" ]
