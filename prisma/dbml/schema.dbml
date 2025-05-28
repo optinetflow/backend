@@ -148,6 +148,7 @@ Table Package {
   deletedAt DateTime
   traffic Float [not null]
   expirationDays Float [not null]
+  basePrice Float
   price Float [not null]
   userCount Int [not null]
   category PackageCategory [not null, default: 'QUALITY']
