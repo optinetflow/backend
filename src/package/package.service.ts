@@ -447,7 +447,7 @@ export class PackageService {
   }
 
   async getUserPackages(user: User): Promise<UserPackageOutput[]> {
-    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
         stat: true,
