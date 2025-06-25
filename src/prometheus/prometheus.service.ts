@@ -97,7 +97,7 @@ export class PrometheusService {
     }
   }
 
-  @Interval('get95thBandwidth', 1000 * 60 * 0.5)
+  // @Interval('get95thBandwidth', 1000 * 60 * 0.5)
   async get95thBandwidth() {
     this.logger.debug('get95thBandwidth call every 1 min');
     const query = `
