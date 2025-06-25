@@ -16,6 +16,7 @@ export interface Config {
   telegraf: Telegraf;
   xui: XUI;
   gcp: GCP;
+  prometheus: Prometheus;
 }
 
 export interface NestConfig {
@@ -80,4 +81,11 @@ export interface XUI {
 
 export interface GCP {
   credential: string;
+}
+
+export interface Prometheus {
+  port: number;
+  host: string;
+  username: string;
+  password: string;
 }

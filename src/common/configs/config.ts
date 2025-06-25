@@ -63,6 +63,12 @@ const config: Config = {
   gcp: {
     credential: process.env.AI_GCP_CREDENTIAL!,
   },
+  prometheus: {
+    port: Number.parseInt(process.env.PROMETHEUS_PORT || '9090', 10),
+    username: process.env.PROMETHEUS_USER!,
+    password: process.env.PROMETHEUS_PASSWORD!,
+    host: process.env.PROMETHEUS_HOST!,
+  },
 };
 
 // eslint-disable-next-line import/no-default-export

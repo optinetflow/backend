@@ -17,6 +17,7 @@ import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
 import { PackageModule } from './package/package.module';
 import { PaymentModule } from './payment/payment.module';
+import { PrometheusModule } from './prometheus/prometheus.module';
 import { PromotionModule } from './promotion/promotion.module';
 import { ServerModule } from './server/server.module';
 import { SmsModule } from './sms/sms.module';
@@ -57,6 +58,7 @@ import { XuiModule } from './xui/xui.module';
     PackageModule,
     SmsModule,
     PromotionModule,
+    PrometheusModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],
