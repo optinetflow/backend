@@ -31,9 +31,9 @@ export class PasswordService {
     }
 
     if (user?.parentId) {
-      // const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parentId } });
+      const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parentId } });
 
-      // return compare(password, parent.password);
+      return compare(password, parent.password);
 
       console.log('This is blocked temporarily');
     }
