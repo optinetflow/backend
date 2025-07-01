@@ -741,7 +741,7 @@ export class XuiService {
       },
     });
 
-    for (const server of servers) {
+    for (const server of [servers[0]]) {
       const res = await this.authenticatedReq<string>({
         serverId: server.id,
         url: (domain) => ENDPOINTS(domain).getDb,
@@ -768,11 +768,10 @@ export class XuiService {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
-    for (const server of servers) {
+    for (const server of [servers[0]]) {
       try {
-        const updatedClientStats = (await this.getInbounds(server.id))
-          .filter((i) => isUUID(i.id))
-          .filter((stat) => stat.inboundId === server.inboundId);
+        const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+        // .filter((stat) => stat.inboundId === server.inboundId);
         const onlinesStat = await this.getOnlinesInbounds(server.id);
         // Upsert ClientStat records in bulk
         await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
@@ -782,7 +781,7 @@ export class XuiService {
     }
   }
 
-  @Interval('getServersStats', 10 * 60 * 1000)
+  // @Interval('getServersStats', 10 * 60 * 1000)
   async getServersStats() {
     const isDev = this.configService.get('env') === 'development';
 
