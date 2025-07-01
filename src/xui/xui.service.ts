@@ -42,7 +42,8 @@ import {
 } from './xui.types';
 
 const ENDPOINTS = (domain: string) => {
-  const url = `https://${domain}/v`;
+  // const url = `https://${domain}/v`;
+  const url = `${domain}/v`;
 
   return {
     login: `${url}/login`,
