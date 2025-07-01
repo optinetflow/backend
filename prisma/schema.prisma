@@ -186,7 +186,7 @@ model Server {
   ActiveServer ActiveServer[]
 
 
-  @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
+  // @@unique([domain, brandId], name: "ServerDomainBrandIdUnique")
 }
 
 model Package {
