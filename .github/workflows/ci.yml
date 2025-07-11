@@ -98,13 +98,10 @@ jobs:
           PORT: ${{ secrets.PORT }}
         run: |
           echo $DOCKERHUB_TOKEN | docker login --username $DOCKERHUB_USERNAME --password-stdin
-          echo "==============================> PRINT ID_RSA"
-          cat id_rsa
           docker build --platform=linux/arm64 -t $TAG_COMMIT -t $TAG_LATEST --build-arg PORT=$PORT .
           docker push $TAG_COMMIT
           docker push $TAG_LATEST
           docker logout
-          rm id_rsa
 
       - name: 'Create env file'
         run: echo "${{ vars.ENV_FILE }}" > .env
