@@ -282,12 +282,10 @@ model ActiveServer {
   id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  category       PackageCategory
+  category       PackageCategory @unique
   activeServerId String          @db.Uuid
 
   server Server @relation(fields: [activeServerId], references: [id])
-
-  @@unique([category, activeServerId], name: "ActiveServerCategoryActiveServerIdUnique")
 }
 
 enum PaymentState {
