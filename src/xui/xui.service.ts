@@ -785,7 +785,7 @@ export class XuiService {
     }
   }
 
-  // @Interval('getServersStats', 10 * 60 * 1000)
+  @Interval('getServersStats', 60 * 60 * 1000)
   async getServersStats() {
     const isDev = this.configService.get('env') === 'development';
 
@@ -793,32 +793,40 @@ export class XuiService {
       return;
     }
 
-    this.logger.debug('getServersStats called every 10 min');
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+    this.logger.debug('getServersStats called every hour');
+
+    const servers = await this.prisma.server.findMany({
+      where: { deletedAt: null },
+    });
 
     for (const server of servers) {
       try {
+        // fetch the latest stat
         const { data } = await this.authenticatedReq<{ obj: ServerStat }>({
           serverId: server.id,
           url: (domain) => ENDPOINTS(domain).serverStatus,
           method: 'post',
         });
-        const score = this.calculateScore(data.obj);
-        const serverStats: Prisma.JsonValue = {
-          score,
-          time: new Date().toISOString(),
+
+        // build new stat entry (add a timestamp if you'd like)
+        const newStat: Prisma.JsonValue = {
+          netTraffic: data.obj.netTraffic,
+          timestamp: new Date().toISOString(),
         };
+
+        // get existing stats array
         const currentStats = Array.isArray(server.stats) ? server.stats : [];
-        const serverStatsArray = [serverStats];
 
-        const updatedStats = [...currentStats, ...serverStatsArray];
+        // append and trim to last 168 entries
+        const updatedStats = [...currentStats, newStat].slice(-168);
 
+        // persist back
         await this.prisma.server.update({
           where: { id: server.id },
           data: { stats: updatedStats },
         });
       } catch (error) {
-        console.error(`Error geting server stats for server: ${server.id}`, error);
+        this.logger.error(`Error getting server stats for ${server.id}`, error);
       }
     }
   }
