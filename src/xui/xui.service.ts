@@ -738,7 +738,7 @@ export class XuiService {
 
     this.logger.debug('BackupDB call every 1 min');
     const servers = await this.prisma.server.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, category: { not: null } },
     });
 
     for (const server of servers) {
@@ -795,7 +795,7 @@ export class XuiService {
     this.logger.debug('getServersStats called every hour');
 
     const servers = await this.prisma.server.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, category: { not: null } },
     });
 
     for (const server of servers) {
@@ -841,7 +841,7 @@ export class XuiService {
     this.logger.debug('setActiveServers called every 2 hours');
 
     const categories: Record<string, Server[]> = {};
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null, category: { not: null } } });
 
     for (const server of servers) {
       if (!server.category) {
