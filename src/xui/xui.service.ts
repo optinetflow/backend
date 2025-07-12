@@ -769,13 +769,12 @@ export class XuiService {
     }
 
     this.logger.debug('SyncClientStats called every 1 min');
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null, category: { not: null } } });
 
     for (const server of servers) {
       try {
-        const updatedClientStats = (await this.getInbounds(server.id))
-          .filter((i) => isUUID(i.id))
-          .filter((stat) => stat.inboundId === server.inboundId);
+        const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+        // .filter((stat) => stat.inboundId === server.inboundId);
         const onlinesStat = await this.getOnlinesInbounds(server.id);
         // Upsert ClientStat records in bulk
         await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
