@@ -43,12 +43,11 @@ export class PackageResolver {
       where: { id: userPack.serverId },
     });
 
-    return getVlessLink(
-      userPack.statId,
-      server.tunnelDomain,
-      `${userPack.name} | ${user.brand?.domainName as string}`,
-      server.port,
-    );
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: { id: user.brandId },
+    });
+
+    return getVlessLink(userPack.statId, server.tunnelDomain, `${userPack.name} | ${brand.domainName}`, server.port);
   }
 
   @UseGuards(GqlAuthGuard)
@@ -64,8 +63,12 @@ export class PackageResolver {
   async enableTodayFreePackage(@UserEntity() user: User): Promise<UserPackageOutput | null> {
     const currentFreePack = await this.packageService.getCurrentFreePackage(user);
 
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: { id: user.brandId },
+    });
+
     if (currentFreePack && !currentFreePack.finishedAt) {
-      return this.packageService.generateUserPackageOutput(currentFreePack);
+      return this.packageService.generateUserPackageOutput(currentFreePack, brand.domainName);
     }
 
     const oneDaysAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
@@ -75,7 +78,9 @@ export class PackageResolver {
 
       const newCurrentFreePackage = await this.packageService.getCurrentFreePackage(user);
 
-      return newCurrentFreePackage ? this.packageService.generateUserPackageOutput(newCurrentFreePackage) : null;
+      return newCurrentFreePackage
+        ? this.packageService.generateUserPackageOutput(newCurrentFreePackage, brand.domainName)
+        : null;
     }
 
     return null;
@@ -89,11 +94,10 @@ export class PackageResolver {
       where: { id: userPack.serverId },
     });
 
-    return getVlessLink(
-      userPack.statId,
-      server.tunnelDomain,
-      `${userPack.name} | ${user.brand?.domainName as string}`,
-      server.port,
-    );
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: { id: user.brandId },
+    });
+
+    return getVlessLink(userPack.statId, server.tunnelDomain, `${userPack.name} | ${brand.domainName}`, server.port);
   }
 }

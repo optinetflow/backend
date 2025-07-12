@@ -413,7 +413,7 @@ export class PackageService {
     return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
   }
 
-  generateUserPackageOutput(userPack: UserPackage | UserPackagePrisma): UserPackageOutput {
+  generateUserPackageOutput(userPack: UserPackage | UserPackagePrisma, brandName: string): UserPackageOutput {
     const userPackage = userPack as UserPackage;
 
     return {
@@ -426,7 +426,7 @@ export class PackageService {
       link: getVlessLink(
         userPack.statId,
         userPackage.server.tunnelDomain,
-        `${userPack.name} | ${userPackage.server.brand?.domainName}`,
+        `${userPack.name} | ${brandName}`,
         userPackage.server.port,
       ),
       remainingTraffic: userPackage.stat.total - (userPackage.stat.down + userPackage.stat.up),
@@ -463,7 +463,11 @@ export class PackageService {
       },
     });
 
-    return userPacks.map((userPack) => this.generateUserPackageOutput(userPack));
+    const brand = await this.prisma.brand.findUniqueOrThrow({
+      where: { id: user.brandId },
+    });
+
+    return userPacks.map((userPack) => this.generateUserPackageOutput(userPack, brand.domainName));
   }
 
   createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<unknown>> {
