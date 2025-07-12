@@ -330,3 +330,9 @@ export function ceilIfNeeded(value: number, decimals: number) {
 
   return Number.parseFloat(result.toFixed(3));
 }
+
+export function extractSubdomain(urlOrDomain: string): string | null {
+  const match = urlOrDomain.match(/^(?:https?:\/\/)?([^./]+)\./i);
+
+  return match ? match[1] : null;
+}

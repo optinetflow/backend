@@ -112,6 +112,7 @@ export class PackageService {
       receipt: input.receipt,
       inRenew: false,
       userPackageName,
+      server,
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -191,6 +192,7 @@ export class PackageService {
       inRenew: false,
       userPackageName,
       isFree: true,
+      server,
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -253,6 +255,7 @@ export class PackageService {
       userPackageName,
       isFree: false,
       isGift: true,
+      server,
     });
     const lastUserPack = await this.prisma.userPackage.findFirst({
       where: { userId: user.id },
@@ -340,6 +343,7 @@ export class PackageService {
           receipt: input.receipt,
           inRenew: true,
           userPackageName: userPack.name,
+          server: userPack.server,
         });
 
         const createPackageTransactions = this.createPackage(user, {
@@ -389,6 +393,7 @@ export class PackageService {
       receipt: input.receipt,
       inRenew: true,
       userPackageName: userPack.name,
+      server: userPack.server,
     });
 
     const createPackageTransactions = this.createPackage(user, {

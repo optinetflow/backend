@@ -1,10 +1,18 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Package, Prisma, Role, TelegramUser } from '@prisma/client';
+import { Package, Prisma, Role, Server, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
-import { arrayToDic, ceilIfNeeded, convertPersianCurrency, jsonToB64Url, pctToDec, roundTo } from '../common/helpers';
+import {
+  arrayToDic,
+  ceilIfNeeded,
+  convertPersianCurrency,
+  extractSubdomain,
+  jsonToB64Url,
+  pctToDec,
+  roundTo,
+} from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { MinioClientService } from '../minio/minio.service';
 import { CallbackData } from '../telegram/telegram.constants';
@@ -35,6 +43,7 @@ interface PackagePaymentInput {
   inRenew: boolean;
   userPackageId: string;
   userPackageName: string;
+  server: Server;
 }
 
 export interface SendBuyPackMessage {
@@ -57,6 +66,7 @@ interface GetBuyPackMessages {
   buyPackMessages: SendBuyPackMessage[];
   receiptBuffer?: Buffer;
   userPackageId: string;
+  server: Server;
 }
 
 @Injectable()
@@ -106,6 +116,7 @@ export class PaymentService {
     firstUserId: string,
     buyPackMessagesDic: Record<string, SendBuyPackMessage>,
     isNested = false,
+    server: Server,
   ): string {
     let txt = '';
 
@@ -129,7 +140,7 @@ export class PaymentService {
 
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
       const packCategory = this.i18.__(`package.category.${buyPackMessage.pack.category}`);
-      txt += `\n🧩 نوع بسته: ${packCategory}`;
+      txt += `\n🧩 نوع بسته: ${packCategory} | ${extractSubdomain(server.domain)}`;
     }
 
     const child =
@@ -138,7 +149,7 @@ export class PaymentService {
       ];
 
     if (child && child?.user?.id) {
-      txt += `${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true)}`;
+      txt += `${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true, server)}`;
     }
 
     txt += `\n\n👤 ${buyPackMessage.user.fullname}`;
@@ -293,22 +304,6 @@ export class PaymentService {
       const parent = usersDic?.[currentUser?.parentId || ''];
       const child = users.find((u) => u?.parentId === currentUser.id);
 
-      // const price = ceilTo(
-      //   input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent)),
-      //   0,
-      // );
-      // const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
-      // const discountedPrice =
-      //   notRoundedDiscountedPrice <= 10 ? notRoundedDiscountedPrice : ceilTo(notRoundedDiscountedPrice, 0);
-      // const discountAmount = price - discountedPrice;
-      // const sellPrice = child
-      //   ? ceilTo(input.package.price * (1 - pctToDec(child.appliedDiscountPercent)), 0)
-      //   : undefined;
-      // const sellProfit = sellPrice ? sellPrice - discountedPrice : undefined;
-
-      // const finalProfit = sellPrice ? sellProfit : discountAmount;
-      // const profitAmount = (parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number;
-
       const rawPrice =
         input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent));
 
@@ -392,6 +387,7 @@ export class PaymentService {
       telegramUsers,
       userPackageId: input.userPackageId,
       receiptBuffer,
+      server: input.server,
     });
 
     return [financeTransactions, telegramMessages];
@@ -661,7 +657,7 @@ export class PaymentService {
         continue;
       }
 
-      const caption = this.nestedBuyPackageTxt(buyPackMessage.userId, buyPackMessagesDic);
+      const caption = this.nestedBuyPackageTxt(buyPackMessage.userId, buyPackMessagesDic, false, input.server);
       const chatId = Number(telegramUsersDic?.[buyPackMessage.userId]?.chatId);
       let source: Buffer | undefined;
       let replyMarkup: TelegramReplyMarkup | undefined;

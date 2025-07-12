@@ -135,10 +135,6 @@ Table Server {
   Domain Domain [not null]
   clientStat ClientStat [not null]
   ActiveServer ActiveServer [not null]
-
-  indexes {
-    (domain, brandId) [unique]
-  }
 }
 
 Table Package {
