@@ -3,3 +3,4 @@ export * from './shell';
 export * from './nsRecord';
 export * from './minio';
 export * from './time';
+export * from './traffic';

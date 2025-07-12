@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Prisma, Server } from '@prisma/client';
+import { PackageCategory, Prisma, Server } from '@prisma/client';
 import { AxiosRequestConfig } from 'axios';
 import * as Cookie from 'cookie';
 import https from 'https';
@@ -16,13 +16,18 @@ import { v4 as uuid } from 'uuid';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
+  estimateTraffic,
   excludeFromArr,
+  extractSubdomain,
   getDateTimeString,
   getRemainingDays,
   isSessionExpired,
   isUUID,
   jsonObjectToQueryString,
+  NetStatSample,
+  Period,
   roundTo,
+  suggestWeights,
 } from '../common/helpers';
 import { User } from '../users/models/user.model';
 import { BrandService } from './../brand/brand.service';
@@ -826,38 +831,67 @@ export class XuiService {
     }
   }
 
-  private calculateScore(metrics: ServerStat): number {
-    const weights = {
-      cpu: 0.3,
-      memUsedRatio: 0.25,
-      diskUsageRatio: 0.15,
-      loads: 0.15,
-      netTraffic: 0.1,
-      uptime: 0.05,
-    };
+  @Interval('setActiveServers', 120 * 60 * 1000)
+  async setActiveServers() {
+    const isDev = this.configService.get('env') === 'development';
 
-    const memUsedRatio = metrics.mem.current / metrics.mem.total;
-    const diskUsageRatio = metrics.disk.current / metrics.disk.total;
+    if (isDev) {
+      return;
+    }
 
-    const load1m = metrics.loads[0];
-    const load5m = metrics.loads[1];
-    const load15m = metrics.loads[2];
-    const weightedLoad = load1m * 0.5 + load5m * 0.3 + load15m * 0.2;
+    this.logger.debug('setActiveServers called every 2 hours');
 
-    const netTrafficSentGB = metrics.netTraffic.sent / 1024 ** 3;
-    const netTrafficRecvGB = metrics.netTraffic.recv / 1024 ** 3;
-    const averageNetTrafficGB = (netTrafficSentGB + netTrafficRecvGB) / 2;
+    const categories: Record<string, Server[]> = {};
+    const servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
 
-    const uptimeDays = metrics.uptime / 86_400;
+    for (const server of servers) {
+      if (!server.category) {
+        continue;
+      }
 
-    const score =
-      metrics.cpu * weights.cpu +
-      memUsedRatio * 100 * weights.memUsedRatio +
-      diskUsageRatio * 100 * weights.diskUsageRatio +
-      weightedLoad * weights.loads +
-      averageNetTrafficGB * weights.netTraffic +
-      uptimeDays * weights.uptime;
+      if (!categories[server.category]) {
+        categories[server.category] = [];
+      }
 
-    return Number.parseFloat(score.toFixed(2));
+      categories[server.category].push(server);
+    }
+
+    let message = '#STATS Last 24 hours\n';
+
+    for (const category of Object.keys(categories)) {
+      const currentServers = categories[category];
+      const serverDic = arrayToDic(currentServers);
+
+      const allServers = currentServers
+        .filter((s) => Boolean(s.category))
+        .map((server) => ({
+          id: server.id,
+          server,
+          samples: server.stats as unknown as NetStatSample[],
+        }));
+
+      const weights = suggestWeights(allServers, '24h');
+
+      await this.prisma.activeServer.update({
+        where: { category: category as PackageCategory },
+        data: { activeServerId: weights[0].id },
+      });
+
+      if (message !== '#STATS Last 24 hours\n') {
+        message += '\n\n';
+      }
+
+      message += `${category}:\n`;
+
+      weights.forEach((w) => {
+        message += `${extractSubdomain(serverDic[w.id].domain)} => ${(w.usage / 1e9).toFixed(0)}GB\n`;
+      });
+    }
+
+    const brandId = 'da99bcd1-4a96-416f-bc38-90c5b363573e';
+    const reportGroupId = (await this.prisma.brand.findUniqueOrThrow({ where: { id: brandId } })).reportGroupId!;
+
+    const bot = this.telegramService.getBot(brandId);
+    await bot.telegram.sendMessage(reportGroupId, message);
   }
 }
