@@ -128,9 +128,7 @@ Table Server {
   category PackageCategory
   tunnelDomain String [not null]
   stats Json
-  brandId String
   port Int [not null, default: 443]
-  brand Brand
   userPackage UserPackage [not null]
   Domain Domain [not null]
   clientStat ClientStat [not null]
@@ -210,15 +208,9 @@ Table ActiveServer {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  brandId String [not null]
-  category PackageCategory [not null]
+  category PackageCategory [unique, not null]
   activeServerId String [not null]
-  brand Brand [not null]
   server Server [not null]
-
-  indexes {
-    (brandId, category) [unique]
-  }
 }
 
 Table Payment {
@@ -279,9 +271,7 @@ Table Brand {
   reportGroupId String
   backupGroupId String
   logo Json
-  Server Server [not null]
   User User [not null]
-  ActiveServer ActiveServer [not null]
 }
 
 Table persian_calendar {
@@ -350,8 +340,6 @@ Ref: Domain.arvanId > Arvan.id
 
 Ref: Domain.serverId > Server.id
 
-Ref: Server.brandId > Brand.id
-
 Ref: UserPackage.packageId > Package.id
 
 Ref: UserPackage.userId > User.id
@@ -361,8 +349,6 @@ Ref: UserPackage.serverId > Server.id
 Ref: UserPackage.statId > ClientStat.id
 
 Ref: ClientStat.serverId > Server.id
-
-Ref: ActiveServer.brandId > Brand.id
 
 Ref: ActiveServer.activeServerId > Server.id
 

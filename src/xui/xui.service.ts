@@ -734,14 +734,6 @@ export class XuiService {
     this.logger.debug('BackupDB call every 1 min');
     const servers = await this.prisma.server.findMany({
       where: { deletedAt: null },
-      include: {
-        brand: {
-          select: {
-            id: true,
-            backupGroupId: true,
-          },
-        },
-      },
     });
 
     for (const server of servers) {
@@ -752,8 +744,11 @@ export class XuiService {
         isBuffer: true,
       });
 
-      const bot = this.telegramService.getBot(server?.brand?.id as string);
-      await bot.telegram.sendDocument(server.brand?.backupGroupId as string, {
+      const brandId = 'da99bcd1-4a96-416f-bc38-90c5b363573e';
+      const backupGroupId = (await this.prisma.brand.findUniqueOrThrow({ where: { id: brandId } })).backupGroupId!;
+
+      const bot = this.telegramService.getBot(brandId);
+      await bot.telegram.sendDocument(backupGroupId, {
         source: res.data,
         filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
       });

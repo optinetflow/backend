@@ -140,11 +140,7 @@ export class PackageService {
       },
       include: {
         stat: true,
-        server: {
-          include: {
-            brand: true,
-          },
-        },
+        server: true,
         package: true,
       },
     });
@@ -449,11 +445,7 @@ export class PackageService {
     const userPacks = await this.prisma.userPackage.findMany({
       include: {
         stat: true,
-        server: {
-          include: {
-            brand: true,
-          },
-        },
+        server: true,
         package: {
           select: {
             category: true,

@@ -41,13 +41,12 @@ export class PackageResolver {
     const userPack = await this.packageService.buyPackage(user, data);
     const server = await this.prisma.server.findUniqueOrThrow({
       where: { id: userPack.serverId },
-      include: { brand: true },
     });
 
     return getVlessLink(
       userPack.statId,
       server.tunnelDomain,
-      `${userPack.name} | ${server.brand?.domainName as string}`,
+      `${userPack.name} | ${user.brand?.domainName as string}`,
       server.port,
     );
   }
@@ -88,13 +87,12 @@ export class PackageResolver {
     const userPack = await this.packageService.renewPackage(user, input);
     const server = await this.prisma.server.findUniqueOrThrow({
       where: { id: userPack.serverId },
-      include: { brand: true },
     });
 
     return getVlessLink(
       userPack.statId,
       server.tunnelDomain,
-      `${userPack.name} | ${server.brand?.domainName as string}`,
+      `${userPack.name} | ${user.brand?.domainName as string}`,
       server.port,
     );
   }
