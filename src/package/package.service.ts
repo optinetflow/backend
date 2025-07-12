@@ -38,16 +38,9 @@ export class PackageService {
   ) {}
 
   async getFreeServer(user: User, pack: Package): Promise<Server> {
-    if (!user.brandId) {
-      throw new NotAcceptableException('Brand is not found for this user');
-    }
-
-    const activeServer = await this.prisma.activeServer.findUnique({
+    const activeServer = await this.prisma.activeServer.findFirst({
       where: {
-        BrandCategoryUnique: {
-          brandId: user.brandId,
-          category: pack.category,
-        },
+        category: pack.category,
       },
       include: {
         server: true,
