@@ -28,6 +28,7 @@ import {
   Period,
   roundTo,
   suggestWeights,
+  uniqByKey,
 } from '../common/helpers';
 import { User } from '../users/models/user.model';
 import { BrandService } from './../brand/brand.service';
@@ -771,7 +772,9 @@ export class XuiService {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null, category: { not: null } } });
 
-    for (const server of servers) {
+    const uniqueServers = uniqByKey(servers, 'domain');
+
+    for (const server of uniqueServers) {
       try {
         const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
         // .filter((stat) => stat.inboundId === server.inboundId);

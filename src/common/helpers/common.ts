@@ -336,3 +336,19 @@ export function extractSubdomain(urlOrDomain: string): string | null {
 
   return match ? match[1] : null;
 }
+
+export function uniqByKey<T, K extends keyof T>(items: T[], key: K): T[] {
+  const seen = new Set<T[K]>();
+
+  return items.filter((item) => {
+    const value = item[key];
+
+    if (seen.has(value)) {
+      return false;
+    }
+
+    seen.add(value);
+
+    return true;
+  });
+}
