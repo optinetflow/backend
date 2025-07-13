@@ -742,23 +742,35 @@ export class XuiService {
       where: { deletedAt: null, category: { not: null } },
     });
 
-    for (const server of servers) {
-      const res = await this.authenticatedReq<string>({
-        serverId: server.id,
-        url: (domain) => ENDPOINTS(domain).getDb,
-        method: 'get',
-        isBuffer: true,
-      });
+    const uniqueServers = uniqByKey(servers, 'domain');
 
-      const brandId = 'da99bcd1-4a96-416f-bc38-90c5b363573e';
-      const backupGroupId = (await this.prisma.brand.findUniqueOrThrow({ where: { id: brandId } })).backupGroupId!;
+    const queue = new PQueue({ concurrency: 3, interval: 1000, intervalCap: 3 });
 
-      const bot = this.telegramService.getBot(brandId);
-      await bot.telegram.sendDocument(backupGroupId, {
-        source: res.data,
-        filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
+    for (const server of uniqueServers) {
+      await queue.add(async () => {
+        try {
+          const res = await this.authenticatedReq<string>({
+            serverId: server.id,
+            url: (domain) => ENDPOINTS(domain).getDb,
+            method: 'get',
+            isBuffer: true,
+          });
+
+          const brandId = 'da99bcd1-4a96-416f-bc38-90c5b363573e';
+          const backupGroupId = (await this.prisma.brand.findUniqueOrThrow({ where: { id: brandId } })).backupGroupId!;
+
+          const bot = this.telegramService.getBot(brandId);
+          await bot.telegram.sendDocument(backupGroupId, {
+            source: res.data,
+            filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
+          });
+        } catch (error) {
+          console.error(`Error backing up database for server: ${server.id}`, error);
+        }
       });
     }
+
+    await queue.onIdle();
   }
 
   @Interval('syncClientStats', 1 * 60 * 1000)
@@ -774,17 +786,23 @@ export class XuiService {
 
     const uniqueServers = uniqByKey(servers, 'domain');
 
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+
     for (const server of uniqueServers) {
-      try {
-        const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
-        // .filter((stat) => stat.inboundId === server.inboundId);
-        const onlinesStat = await this.getOnlinesInbounds(server.id);
-        // Upsert ClientStat records in bulk
-        await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
-      } catch (error) {
-        console.error(`Error syncing ClientStats for server: ${server.id}`, error);
-      }
+      await queue.add(async () => {
+        try {
+          const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+          // .filter((stat) => stat.inboundId === server.inboundId);
+          const onlinesStat = await this.getOnlinesInbounds(server.id);
+          // Upsert ClientStat records in bulk
+          await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
+        } catch (error) {
+          console.error(`Error syncing ClientStats for server: ${server.id}`, error);
+        }
+      });
     }
+
+    await queue.onIdle();
   }
 
   @Interval('getServersStats', 60 * 60 * 1000)
@@ -801,36 +819,42 @@ export class XuiService {
       where: { deletedAt: null, category: { not: null } },
     });
 
+    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+
     for (const server of servers) {
-      try {
-        // fetch the latest stat
-        const { data } = await this.authenticatedReq<{ obj: ServerStat }>({
-          serverId: server.id,
-          url: (domain) => ENDPOINTS(domain).serverStatus,
-          method: 'post',
-        });
+      await queue.add(async () => {
+        try {
+          // fetch the latest stat
+          const { data } = await this.authenticatedReq<{ obj: ServerStat }>({
+            serverId: server.id,
+            url: (domain) => ENDPOINTS(domain).serverStatus,
+            method: 'post',
+          });
 
-        // build new stat entry (add a timestamp if you'd like)
-        const newStat: Prisma.JsonValue = {
-          netTraffic: data.obj.netTraffic,
-          timestamp: new Date().toISOString(),
-        };
+          // build new stat entry (add a timestamp if you'd like)
+          const newStat: Prisma.JsonValue = {
+            netTraffic: data.obj.netTraffic,
+            timestamp: new Date().toISOString(),
+          };
 
-        // get existing stats array
-        const currentStats = Array.isArray(server.stats) ? server.stats : [];
+          // get existing stats array
+          const currentStats = Array.isArray(server.stats) ? server.stats : [];
 
-        // append and trim to last 168 entries
-        const updatedStats = [...currentStats, newStat].slice(-168);
+          // append and trim to last 168 entries
+          const updatedStats = [...currentStats, newStat].slice(-168);
 
-        // persist back
-        await this.prisma.server.update({
-          where: { id: server.id },
-          data: { stats: updatedStats },
-        });
-      } catch (error) {
-        this.logger.error(`Error getting server stats for ${server.id}`, error);
-      }
+          // persist back
+          await this.prisma.server.update({
+            where: { id: server.id },
+            data: { stats: updatedStats },
+          });
+        } catch (error) {
+          this.logger.error(`Error getting server stats for ${server.id}`, error);
+        }
+      });
     }
+
+    await queue.onIdle();
   }
 
   @Interval('setActiveServers', 120 * 60 * 1000)
