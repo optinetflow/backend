@@ -898,9 +898,10 @@ export class XuiService {
 
       const weights = suggestWeights(allServers, '24h');
 
-      await this.prisma.activeServer.update({
+      await this.prisma.activeServer.upsert({
         where: { category: category as PackageCategory },
-        data: { activeServerId: weights[0].id },
+        update: { activeServerId: weights[0].id },
+        create: { category: category as PackageCategory, activeServerId: weights[0].id },
       });
 
       if (message !== '#STATS Last 24 hours\n') {

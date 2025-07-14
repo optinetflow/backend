@@ -124,6 +124,7 @@ Table Server {
   type ServerCountry [not null]
   domain String [not null]
   inboundId Int [not null, default: 1]
+  inboundType InboundType [not null, default: 'VLESS_TLS']
   token String [not null]
   category PackageCategory
   tunnelDomain String [not null]
@@ -305,6 +306,11 @@ Enum ServerCountry {
   NL
   DE
   TR
+}
+
+Enum InboundType {
+  VLESS_TLS
+  VMESS
 }
 
 Enum PaymentState {

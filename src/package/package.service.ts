@@ -8,7 +8,7 @@ import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
 import { GraphqlConfig } from '../common/configs/config.interface';
-import { arrayToDic, bytesToGB, ceilIfNeeded, getVlessLink, pctToDec, roundTo } from '../common/helpers';
+import { arrayToDic, bytesToGB, ceilIfNeeded, getConfigLink, pctToDec, roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { PaymentService } from '../payment/payment.service';
 import { User } from '../users/models/user.model';
@@ -423,12 +423,13 @@ export class PackageService {
       name: userPackage.name,
       category: userPackage.package.category,
       categoryFa: this.i18.__(`package.category.${userPackage.package.category}`),
-      link: getVlessLink(
-        userPack.statId,
-        userPackage.server.tunnelDomain,
-        `${userPack.name} | ${brandName}`,
-        userPackage.server.port,
-      ),
+      link: getConfigLink({
+        id: userPack.statId,
+        name: `${userPack.name} | ${brandName}`,
+        port: userPackage.server.port,
+        tunnelDomain: userPackage.server.tunnelDomain,
+        inboundType: userPackage.server.inboundType,
+      }),
       remainingTraffic: userPackage.stat.total - (userPackage.stat.down + userPackage.stat.up),
       totalTraffic: userPackage.stat.total,
       expiryTime: userPackage.stat.expiryTime,

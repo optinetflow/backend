@@ -4,7 +4,7 @@ import { PrismaService } from 'nestjs-prisma';
 
 import { AdminGqlAuthGuard, GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
-import { getVlessLink } from '../common/helpers';
+import { getConfigLink } from '../common/helpers';
 import { User } from '../users/models/user.model';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
@@ -47,7 +47,13 @@ export class PackageResolver {
       where: { id: user.brandId },
     });
 
-    return getVlessLink(userPack.statId, server.tunnelDomain, `${userPack.name} | ${brand.domainName}`, server.port);
+    return getConfigLink({
+      id: userPack.statId,
+      name: `${userPack.name} | ${brand.domainName}`,
+      port: server.port,
+      tunnelDomain: server.tunnelDomain,
+      inboundType: server.inboundType,
+    });
   }
 
   @UseGuards(GqlAuthGuard)
@@ -98,6 +104,12 @@ export class PackageResolver {
       where: { id: user.brandId },
     });
 
-    return getVlessLink(userPack.statId, server.tunnelDomain, `${userPack.name} | ${brand.domainName}`, server.port);
+    return getConfigLink({
+      id: userPack.statId,
+      name: `${userPack.name} | ${brand.domainName}`,
+      port: server.port,
+      tunnelDomain: server.tunnelDomain,
+      inboundType: server.inboundType,
+    });
   }
 }

@@ -174,6 +174,10 @@ enum ServerCountry {
 //   }
 // } 
 
+enum InboundType {
+  VLESS_TLS
+  VMESS
+}
 model Server {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt    DateTime         @default(now())
@@ -182,6 +186,7 @@ model Server {
   type         ServerCountry
   domain       String           @db.VarChar(255)
   inboundId    Int              @default(1)
+  inboundType  InboundType      @default(VLESS_TLS)
   token        String
   category     PackageCategory?
   tunnelDomain String           @db.VarChar(255)

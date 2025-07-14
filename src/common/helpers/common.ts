@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/cognitive-complexity */
+import { InboundType } from '@prisma/client';
 import * as Cookie from 'cookie';
 import type { ReadStream } from 'fs';
 import fs from 'fs';
@@ -271,12 +272,49 @@ export function convertPersianCurrency(number: number): string {
   return number.toString();
 }
 
-export const getVlessLink = (id: string, tunnelDomain: string, name: string, port: number) =>
+interface ConfigLinkParams {
+  id: string;
+  tunnelDomain: string;
+  name: string;
+  port: number;
+  inboundType: InboundType;
+}
+
+export const getVlessLink = ({ id, name, port, tunnelDomain }: ConfigLinkParams): string =>
   `vless://${id}@${removePort(
     tunnelDomain,
   )}:${port}?type=ws&path=%2Fws&security=tls&fp=chrome&alpn=http%2F1.1%2Ch2&allowInsecure=1#${encodeURIComponent(
     name,
   )}`;
+
+export const getVMessLink = ({ id, name, port, tunnelDomain }: ConfigLinkParams): string =>
+  `vmess://${Buffer.from(
+    JSON.stringify({
+      v: '2',
+      ps: name,
+      add: tunnelDomain,
+      port,
+      id,
+      scy: 'auto',
+      net: 'tcp',
+      type: 'http',
+      tls: 'none',
+      path: '/',
+      host: 'skyroom.online,gharar.ir,igap.net',
+    }),
+  ).toString('base64')}`;
+
+export const getConfigLink = (params: ConfigLinkParams): string => {
+  if (params.inboundType === 'VLESS_TLS') {
+    return getVlessLink(params);
+  }
+
+  if (params.inboundType === 'VMESS') {
+    return getVMessLink(params);
+  }
+
+  return '';
+};
 
 export function floorTo(number: number, decimalPlaces: number) {
   const factor = Math.pow(10, decimalPlaces);
