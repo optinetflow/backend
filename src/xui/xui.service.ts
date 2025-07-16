@@ -487,8 +487,6 @@ export class XuiService {
     await this.delDepletedClients(serverId);
     const updatedValues: Prisma.Sql[] = [];
 
-    // ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
-
     for (const stat of stats) {
       const lastConnectedAtSQL = onlineStatDic[stat.id]
         ? Prisma.sql`to_timestamp(${onlineStatDic[stat.id]} / 1000.0)`
@@ -496,9 +494,9 @@ export class XuiService {
 
       const statSql = Prisma.sql`(${stat.id}::uuid, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${
         stat.total
-      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${serverId}::uuid, ${stat.flow}, ${stat.subId}, ${
-        stat.tgId
-      }, ${stat.limitIp || 0}, ${lastConnectedAtSQL})`;
+      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${serverId}::uuid, ${stat.flow || ''}, ${
+        stat.subId
+      }, ${stat.tgId || ''}, ${stat.limitIp || 0}, ${lastConnectedAtSQL})`;
       updatedValues.push(statSql);
     }
 
@@ -523,8 +521,11 @@ export class XuiService {
           "limitIp" = EXCLUDED."limitIp",
           "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
+      this.logger.debug(`Successfully upserted ${stats.length} ClientStats for server ${serverId}`);
     } catch (error) {
-      console.error('An error occurred while upserting ClientStats:', error);
+      this.logger.error(`An error occurred while upserting ClientStats for server ${serverId}:`, error);
+
+      throw error;
     }
   }
 
