@@ -36,24 +36,26 @@ export class PackageResolver {
   }
 
   @UseGuards(GqlAuthGuard)
-  @Mutation(() => String)
-  async buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): Promise<string> {
-    const userPack = await this.packageService.buyPackage(user, data);
+  @Mutation(() => [String])
+  async buyPackage(@UserEntity() user: User, @Args('data') data: BuyPackageInput): Promise<string[]> {
+    const userPacks = await this.packageService.buyPackage(user, data);
     const server = await this.prisma.server.findUniqueOrThrow({
-      where: { id: userPack.serverId },
+      where: { id: userPacks[0].serverId },
     });
 
     const brand = await this.prisma.brand.findUniqueOrThrow({
       where: { id: user.brandId },
     });
 
-    return getConfigLink({
-      id: userPack.statId,
-      name: `${userPack.name} | ${brand.domainName}`,
-      port: server.port,
-      tunnelDomain: server.tunnelDomain,
-      inboundType: server.inboundType,
-    });
+    return userPacks.map((pack) =>
+      getConfigLink({
+        id: pack.statId,
+        name: `${pack.name} | ${brand.domainName}`,
+        port: server.port,
+        tunnelDomain: server.tunnelDomain,
+        inboundType: server.inboundType,
+      }),
+    );
   }
 
   @UseGuards(GqlAuthGuard)

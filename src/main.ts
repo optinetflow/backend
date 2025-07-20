@@ -9,17 +9,20 @@ import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 
 import { AppModule } from './app.module';
 import type { CorsConfig, NestConfig, SwaggerConfig } from './common/configs/config.interface';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
-process.on('****======++++++ unhandledRejection ****======++++++', (reason) => {
+process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });
 
-process.on('****======++++++ uncaughtException ****======++++++', (error) => {
+process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
 
   // Validation
   app.useGlobalPipes(new ValidationPipe());
@@ -34,7 +37,7 @@ async function bootstrap() {
 
   // Prisma Client Exception Filter for unhandled exceptions
   const { httpAdapter } = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
+  app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter), new AllExceptionsFilter());
 
   const configService = app.get(ConfigService);
   const nestConfig = configService.get<NestConfig>('nest');

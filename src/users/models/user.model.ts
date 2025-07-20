@@ -135,6 +135,9 @@ export class User extends BaseModel {
   @Field(() => Float, { nullable: true })
   appliedDiscountPercent?: number | null;
 
+  @Field(() => Float, { nullable: true })
+  maxGroupDiscount?: number | null;
+
   @Field(() => [UserGift], { nullable: true })
   userGift?: UserGift[] | null;
 }

@@ -19,6 +19,7 @@ import { GetPackageInput } from './dto/get-packages.input';
 import { UserPackageOutput } from './dto/get-user-packages.output';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { UserPackage } from './models/userPackage.model';
+import { bundleGroupSizes } from './package.constant';
 import { CreatePackageInput } from './package.types';
 
 interface DiscountedPackage extends Package {
@@ -56,56 +57,36 @@ export class PackageService {
     return activeServer.server;
   }
 
-  async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma> {
+  async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma[]> {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-    const isBlocked = Boolean(user.isDisabled || user.isParentDisabled);
-
-    if (isBlocked) {
-      throw new BadRequestException('Your account is blocked!');
-    }
 
     const pack = await this.prisma.package.findUniqueOrThrow({
-      where: {
-        id: input.packageId,
-      },
+      where: { id: input.packageId },
     });
-    const role = user.role;
-    const discountedPrice = pack.price * (1 - pctToDec(user.appliedDiscountPercent));
 
-    if (role === Role.ADMIN && (discountedPrice < 0 || discountedPrice > user.balance)) {
-      throw new BadRequestException(this.i18.__('user.balance.not_enough'));
-    }
+    this.validateUserForPurchase(user, pack);
 
+    const bundleGroupKey = input.bundleGroupSize ? nanoid() : undefined;
     const server = await this.getFreeServer(user, pack);
-    const email = nanoid();
-    const id = uuid();
-    const subId = nanoid();
-    const userPackageId = uuid();
     const userPackageName = input.name || 'No Name';
-    const isDev = this.configService.get('env') === 'development';
 
-    // to make up for lose user
-    // const isOldUser = new Date(user.createdAt) < new Date('2025-01-29');
-    // pack.traffic = pack.traffic * (isOldUser ? 1.2 : 1);
-
-    if (!isDev) {
-      await this.xuiService.addClient(user, {
-        id,
-        subId,
-        email,
-        serverId: server.id,
-        package: pack,
-        name: input.name || 'No Name',
-      });
-    }
+    const clients = await this.createClientsForPurchase({
+      user,
+      pack,
+      server,
+      bundleGroupSize: input.bundleGroupSize,
+      userPackageName,
+      nanoid,
+    });
 
     const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
-      userPackageId,
+      userPackageId: clients[0].userPackageId,
       package: pack,
       receipt: input.receipt,
       inRenew: false,
       userPackageName,
       server,
+      bundleGroupSize: input.bundleGroupSize,
     });
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
@@ -113,20 +94,107 @@ export class PackageService {
       orderBy: { orderN: 'desc' },
     });
 
-    const createPackageTransactions = this.createPackage(user, {
-      id,
-      userPackageId,
-      subId,
-      email,
-      server,
-      name: userPackageName,
-      package: pack,
-      orderN: (lastUserPack?.orderN || 0) + 1,
-    });
+    const createPackageTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
+
+    for (const client of clients) {
+      createPackageTransactions.push(
+        ...this.createPackage(user, {
+          id: client.id,
+          userPackageId: client.userPackageId,
+          subId: client.subId,
+          email: client.email,
+          server,
+          name: client.name,
+          package: pack,
+          orderN: (lastUserPack?.orderN || 0) + (clients.indexOf(client) + 1),
+          bundleGroupSize: input.bundleGroupSize,
+          bundleGroupKey,
+        }),
+      );
+    }
+
     await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
     await this.telegramService.sendBulkMessage(telegramMessages);
 
-    return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
+    return bundleGroupKey
+      ? this.prisma.userPackage.findMany({ where: { bundleGroupKey } })
+      : this.prisma.userPackage.findMany({ where: { id: clients[0].userPackageId } });
+  }
+
+  private validateUserForPurchase(user: User, pack: Package): void {
+    const isBlocked = Boolean(user.isDisabled || user.isParentDisabled);
+
+    if (isBlocked) {
+      throw new BadRequestException('Your account is blocked!');
+    }
+
+    const discountedPrice = pack.price * (1 - pctToDec(user.appliedDiscountPercent));
+
+    if (user.role === Role.ADMIN && (discountedPrice < 0 || discountedPrice > user.balance)) {
+      throw new BadRequestException(this.i18.__('user.balance.not_enough'));
+    }
+  }
+
+  private async createClientsForPurchase({
+    user,
+    pack,
+    server,
+    bundleGroupSize,
+    userPackageName,
+    nanoid,
+  }: {
+    user: User;
+    pack: Package;
+    server: Server;
+    bundleGroupSize: number | undefined;
+    userPackageName: string;
+    nanoid: (size?: number) => string;
+  }): Promise<
+    Array<{
+      userPackageId: string;
+      id: string;
+      subId: string;
+      email: string;
+      serverId: string;
+      package: Package;
+      name: string;
+    }>
+  > {
+    const clients: Array<{
+      userPackageId: string;
+      id: string;
+      subId: string;
+      email: string;
+      serverId: string;
+      package: Package;
+      name: string;
+    }> = [];
+
+    const isDev = this.configService.get('env') === 'development';
+    const size = bundleGroupSize || 1;
+
+    for (let i = 0; i < size; i++) {
+      const email = nanoid();
+      const id = uuid();
+      const subId = nanoid();
+      const userPackageId = uuid();
+
+      clients.push({
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: bundleGroupSize ? `${userPackageName} ${i + 1}` : userPackageName,
+        userPackageId,
+      });
+    }
+
+    if (!isDev) {
+      await this.xuiService.addClient(user, clients);
+    }
+
+    return clients;
   }
 
   async getCurrentFreePackage(user: User): Promise<UserPackagePrisma | null> {
@@ -164,14 +232,16 @@ export class PackageService {
     const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
 
     if (!graphqlConfig?.debug) {
-      await this.xuiService.addClient(user, {
-        id,
-        subId,
-        email,
-        serverId: server.id,
-        package: pack,
-        name: userPackageName,
-      });
+      await this.xuiService.addClient(user, [
+        {
+          id,
+          subId,
+          email,
+          serverId: server.id,
+          package: pack,
+          name: userPackageName,
+        },
+      ]);
     }
 
     const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
@@ -226,14 +296,16 @@ export class PackageService {
     const userPackageName = 'هدیه 🎁';
 
     if (!graphqlConfig?.debug) {
-      await this.xuiService.addClient(user, {
-        id,
-        subId,
-        email,
-        serverId: server.id,
-        package: pack,
-        name: userPackageName,
-      });
+      await this.xuiService.addClient(user, [
+        {
+          id,
+          subId,
+          email,
+          serverId: server.id,
+          package: pack,
+          name: userPackageName,
+        },
+      ]);
     }
 
     const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
@@ -366,15 +438,17 @@ export class PackageService {
       // nothing
     }
 
-    await this.xuiService.addClient(user, {
-      id: userPack.statId,
-      subId: userPack.stat.subId,
-      email: userPack.stat.email,
-      serverId: userPack.server.id,
-      package: modifiedPack,
-      name: userPack.name,
-      orderN: userPack.orderN,
-    });
+    await this.xuiService.addClient(user, [
+      {
+        id: userPack.statId,
+        subId: userPack.stat.subId,
+        email: userPack.stat.email,
+        serverId: userPack.server.id,
+        package: modifiedPack,
+        name: userPack.name,
+        orderN: userPack.orderN,
+      },
+    ]);
 
     const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
       userPackageId,
@@ -506,6 +580,8 @@ export class PackageService {
             name: input.name,
             orderN: input.orderN,
             isFree: input.isFree || false,
+            bundleGroupSize: input?.bundleGroupSize,
+            bundleGroupKey: input?.bundleGroupKey,
           },
         }),
       ];
@@ -514,6 +590,29 @@ export class PackageService {
 
       throw new BadRequestException('upsert client Stat or create userPackage got failed.');
     }
+  }
+
+  addGroupPackage(packages: DiscountedPackage[], parent: User): DiscountedPackage[] {
+    const groupPackages: DiscountedPackage[] = [];
+    const maxUserDiscount = (parent.profitPercent / (100 + parent.profitPercent)) * 100;
+    const maxGroupDiscount = parent.maxGroupDiscount || maxUserDiscount;
+    const targetPackages = packages.filter((pack) => pack.traffic === 40 && pack.expirationDays === 30);
+
+    for (const pack of targetPackages) {
+      bundleGroupSizes.forEach(({ bundleGroupSize, discount }) => {
+        const price = pack.price * bundleGroupSize;
+        const group = {
+          ...pack,
+          id: `${pack.id}-${bundleGroupSize}`,
+          price,
+          bundleGroupSize,
+          discountedPrice: ceilIfNeeded(price * (1 - discount * pctToDec(maxGroupDiscount)), 0),
+        };
+        groupPackages.push(group);
+      });
+    }
+
+    return [...packages, ...groupPackages];
   }
 
   async getPackages(user: User, filters: GetPackageInput, id?: string): Promise<DiscountedPackage[]> {
@@ -528,10 +627,12 @@ export class PackageService {
       },
       orderBy: { order: 'asc' },
     });
+
     packages = packages.map((pack) => ({
       ...pack,
       categoryFa: this.i18.__(`package.category.${pack.category}`),
     }));
+
     const parent = user?.parentId ? await this.prisma.user.findUnique({ where: { id: user?.parentId } }) : null;
 
     const hasParentDiscount = typeof parent?.appliedDiscountPercent === 'number';
@@ -552,18 +653,21 @@ export class PackageService {
           })
         : packages;
 
-    return typeof user?.appliedDiscountPercent === 'number'
-      ? appliedPackPrice.map((pack) => {
-          const discountedPrice = ceilIfNeeded(
-            packagesDic[pack.id].price * (1 - pctToDec(user.appliedDiscountPercent)),
-            0,
-          );
+    const discountedPackages =
+      typeof user?.appliedDiscountPercent === 'number'
+        ? appliedPackPrice.map((pack) => {
+            const discountedPrice = ceilIfNeeded(
+              packagesDic[pack.id].price * (1 - pctToDec(user.appliedDiscountPercent)),
+              0,
+            );
 
-          return {
-            ...pack,
-            discountedPrice: discountedPrice !== pack.price ? discountedPrice : undefined,
-          };
-        })
-      : appliedPackPrice;
+            return {
+              ...pack,
+              discountedPrice: discountedPrice !== pack.price ? discountedPrice : undefined,
+            };
+          })
+        : appliedPackPrice;
+
+    return parent ? this.addGroupPackage(discountedPackages, parent) : discountedPackages;
   }
 }

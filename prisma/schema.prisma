@@ -49,6 +49,7 @@ model User {
   description                String?
   joinedPromotionId          String?   @db.Uuid
   joinedPromotionCode        String?   @db.VarChar(255)
+  maxGroupDiscount           Float?
 
   brand           Brand?        @relation(fields: [brandId], references: [id])
   parent          User?         @relation("UserParentRelation", fields: [parentId], references: [id])
@@ -178,6 +179,7 @@ enum InboundType {
   VLESS_TLS
   VMESS
 }
+
 model Server {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt    DateTime         @default(now())
@@ -228,7 +230,7 @@ model RechargePackage {
   discountPercent Float
 }
 
-model  UserPackage {
+model UserPackage {
   id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -242,6 +244,8 @@ model  UserPackage {
   statId                 String    @db.Uuid
   thresholdWarningSentAt DateTime?
   orderN                 Int       @default(1)
+  bundleGroupSize        Int?
+  bundleGroupKey         String?
 
   package  Package    @relation(fields: [packageId], references: [id])
   user     User       @relation(fields: [userId], references: [id])
@@ -376,7 +380,7 @@ model Brand {
   backupGroupId String?   @db.VarChar(255)
   logo          Json?
 
-  User   User[]
+  User User[]
 }
 
 view PersianCalendar {

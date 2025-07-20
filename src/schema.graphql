@@ -26,6 +26,7 @@ type Brand {
 }
 
 input BuyPackageInput {
+  bundleGroupSize: Int
   name: String!
   packageId: String!
   receipt: String
@@ -64,6 +65,7 @@ type Child {
   isVerified: Boolean!
   joinedPromotionCode: String
   lastConnectedAt: DateTime
+  maxGroupDiscount: Float
   maxRechargeDiscountPercent: Float
   onlinePackages: Int!
   otp: String
@@ -181,7 +183,7 @@ input LoginInput {
 }
 
 type Mutation {
-  buyPackage(data: BuyPackageInput!): String!
+  buyPackage(data: BuyPackageInput!): [String!]!
   buyRechargePackage(input: BuyRechargePackageInput!): User!
   changePassword(data: ChangePasswordInput!): User!
   createPromotionCode(data: CreatePromotionInput!): Promotion!
@@ -206,6 +208,7 @@ type Mutation {
 }
 
 type Package {
+  bundleGroupSize: Int
   category: PackageCategory!
   categoryFa: String
 
@@ -401,6 +404,7 @@ type User {
   isParentDisabled: Boolean
   isVerified: Boolean!
   joinedPromotionCode: String
+  maxGroupDiscount: Float
   maxRechargeDiscountPercent: Float
   otp: String
   otpExpiration: DateTime

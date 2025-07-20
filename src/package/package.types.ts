@@ -10,4 +10,6 @@ export interface CreatePackageInput {
   package: Package;
   orderN: number;
   isFree?: boolean;
+  bundleGroupSize?: number;
+  bundleGroupKey?: string;
 }

@@ -18,6 +18,19 @@ import { User } from '../users/models/user.model';
 import { CreatePackageInput } from './../package/package.types';
 import { AddClientInput, AuthenticatedReq, UpdateClientReqInput } from './../xui/xui.types';
 
+export interface ClientInput {
+  id: string;
+  flow: string;
+  email: string;
+  limitIp: number;
+  totalGB: number;
+  expiryTime: number;
+  enable: boolean;
+  tgId: string;
+  reset: number;
+  comment: string;
+  subId: string;
+}
 @Injectable()
 export class AggregatorService {
   constructor(
@@ -238,14 +251,16 @@ export class AggregatorService {
     const subId = nanoid();
     const userPackageId = uuid();
 
-    await this.addClient(user, {
-      id,
-      subId,
-      email,
-      serverId: server.id,
-      package: pack,
-      name: 'هدیه 🎁',
-    });
+    await this.addClient(user, [
+      {
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: 'هدیه 🎁',
+      },
+    ]);
 
     const lastUserPack = await this.prisma.userPackage.findFirst({
       where: { userId: user.id },
@@ -497,36 +512,42 @@ export class AggregatorService {
     }
   }
 
-  private async addClient(_user: User, input: AddClientInput): Promise<void> {
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input.serverId } });
+  async addClient(_user: User, input: AddClientInput[]): Promise<void> {
+    const clients: ClientInput[] = [];
+    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input[0].serverId } });
 
-    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-    const email = input?.email || nanoid();
-    const id = input?.id || uuid();
-    const subId = input?.subId || nanoid();
+    for (const client of input) {
+      const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+      const email = client?.email || nanoid();
+      const id = client?.id || uuid();
+      const subId = client?.subId || nanoid();
+
+      clients.push({
+        id,
+        flow: '',
+        email,
+        limitIp: client.package.userCount,
+        totalGB: 1024 * 1024 * 1024 * client.package.traffic,
+        expiryTime: Date.now() + 24 * 60 * 60 * 1000 * client.package.expirationDays,
+        enable: true,
+        tgId: '',
+        reset: 0,
+        comment: '',
+        subId,
+      });
+    }
+
     const jsonData = {
       id: server.inboundId,
       settings: {
-        clients: [
-          {
-            id,
-            flow: '',
-            email,
-            limitIp: input.package.userCount,
-            totalGB: 1024 * 1024 * 1024 * input.package.traffic,
-            expiryTime: Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays,
-            enable: true,
-            tgId: '',
-            subId,
-          },
-        ],
+        clients,
       },
     };
 
     const params = jsonObjectToQueryString(jsonData);
 
     const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: input.serverId,
+      serverId: input[0].serverId,
       url: (domain) => this.getEndpoints(domain).addClient,
       method: 'post',
       body: params,

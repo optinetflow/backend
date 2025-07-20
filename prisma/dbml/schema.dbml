@@ -29,6 +29,7 @@ Table User {
   description String
   joinedPromotionId String
   joinedPromotionCode String
+  maxGroupDiscount Float
   brand Brand
   parent User
   children User [not null]
@@ -178,6 +179,8 @@ Table UserPackage {
   statId String [not null]
   thresholdWarningSentAt DateTime
   orderN Int [not null, default: 1]
+  bundleGroupSize Int
+  bundleGroupKey String
   package Package [not null]
   user User [not null]
   server Server [not null]

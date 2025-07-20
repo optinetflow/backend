@@ -24,6 +24,9 @@ export class Package extends BaseModel {
   @Field(() => Float, { nullable: true })
   discountedPrice?: number;
 
+  @Field(() => Int, { nullable: true })
+  bundleGroupSize?: number;
+
   @Field(() => Int)
   userCount: number;
 

@@ -14,4 +14,8 @@ export class BuyPackageInput {
   @IsUUID()
   @IsOptional()
   receipt?: string;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  bundleGroupSize?: number;
 }

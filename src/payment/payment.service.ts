@@ -15,6 +15,7 @@ import {
 } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { MinioClientService } from '../minio/minio.service';
+import { bundleGroupSizes } from '../package/package.constant';
 import { CallbackData } from '../telegram/telegram.constants';
 import { TelegramMessage, TelegramReplyMarkup, TelegramService } from '../telegram/telegram.service';
 import { User } from '../users/models/user.model';
@@ -44,6 +45,7 @@ interface PackagePaymentInput {
   userPackageId: string;
   userPackageName: string;
   server: Server;
+  bundleGroupSize?: number;
 }
 
 export interface SendBuyPackMessage {
@@ -59,6 +61,7 @@ export interface SendBuyPackMessage {
   isGift?: boolean;
   profitAmount: number;
   inRenew: boolean;
+  bundleGroupSize?: number;
 }
 
 interface GetBuyPackMessages {
@@ -67,6 +70,22 @@ interface GetBuyPackMessages {
   receiptBuffer?: Buffer;
   userPackageId: string;
   server: Server;
+  bundleGroupSize?: number;
+}
+
+interface CalculateUserPricingInput {
+  packagePrice: number;
+  currentUser: User;
+  parentUser?: User;
+  childUser?: User;
+  bundleGroupSize?: number;
+  isChildEndUser: boolean;
+}
+
+interface CalculateGroupPricingInput {
+  packagePrice: number;
+  parentUser: User;
+  bundleGroupSize: number;
 }
 
 @Injectable()
@@ -112,15 +131,21 @@ export class PaymentService {
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  nestedBuyPackageTxt(
-    firstUserId: string,
-    buyPackMessagesDic: Record<string, SendBuyPackMessage>,
+  nestedBuyPackageTxt({
+    firstUserId,
+    buyPackMessagesDic,
     isNested = false,
-    server: Server,
-  ): string {
+    server,
+  }: {
+    firstUserId: string;
+    buyPackMessagesDic: Record<string, SendBuyPackMessage>;
+    isNested?: boolean;
+    server: Server;
+  }): string {
     let txt = '';
 
     const buyPackMessage = buyPackMessagesDic?.[firstUserId];
+    const isBundleGroup = Boolean(buyPackMessage?.bundleGroupSize);
 
     if (!buyPackMessage) {
       return '';
@@ -133,9 +158,9 @@ export class PaymentService {
       } else if (buyPackMessage.isGift) {
         txt = `#فعالسازی_هدیه 🎁\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
       } else {
-        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}\n📦 ${buyPackMessage.pack.traffic} گیگ - ${
-          buyPackMessage.pack.expirationDays
-        } روزه`;
+        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}${isBundleGroup ? ' #خریدـگروهی' : ''}\n📦 ${
+          isBundleGroup ? `${buyPackMessage.bundleGroupSize} تا ` : ''
+        }${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
       }
 
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
@@ -149,7 +174,12 @@ export class PaymentService {
       ];
 
     if (child && child?.user?.id) {
-      txt += `${this.nestedBuyPackageTxt(child?.user?.id, buyPackMessagesDic, true, server)}`;
+      txt += `${this.nestedBuyPackageTxt({
+        firstUserId: child?.user?.id,
+        buyPackMessagesDic,
+        isNested: true,
+        server,
+      })}`;
     }
 
     txt += `\n\n👤 ${buyPackMessage.user.fullname}`;
@@ -283,105 +313,240 @@ export class PaymentService {
     `;
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private calculateGroupPricing(input: CalculateGroupPricingInput) {
+    const { packagePrice, parentUser, bundleGroupSize } = input;
+    const maxUserDiscount = (parentUser?.profitPercent / (100 + parentUser?.profitPercent)) * 100;
+    const maxGroupDiscount = parentUser?.maxGroupDiscount || maxUserDiscount;
+    const discount = bundleGroupSizes.find((size) => size.bundleGroupSize === bundleGroupSize)?.discount;
+
+    if (!discount) {
+      throw new BadRequestException('Discount not found!');
+    }
+
+    const rawPrice =
+      packagePrice * (1 - pctToDec(parentUser?.appliedDiscountPercent)) * (1 + pctToDec(parentUser?.profitPercent));
+    const price = ceilIfNeeded(rawPrice, 0) * bundleGroupSize;
+
+    // Calculate discounted price for current user
+    const rawDiscountedPrice = price * (1 - discount * pctToDec(maxGroupDiscount));
+    const discountedPrice = ceilIfNeeded(rawDiscountedPrice, 0);
+
+    // Calculate discount amount
+    const discountAmount = price - discountedPrice;
+
+    // Calculate profit amounts
+    const finalProfit = discountAmount;
+    const profitAmount = ceilIfNeeded(parentUser ? finalProfit : (discountAmount || 0) - discountedPrice, 0);
+
+    return {
+      price,
+      discountedPrice,
+      discountAmount,
+      sellPrice: undefined,
+      profitAmount,
+    };
+  }
+
+  /**
+   * Calculates pricing details for a user in the package purchase hierarchy
+   */
+  private calculateUserPricing(input: CalculateUserPricingInput) {
+    const { packagePrice, currentUser, parentUser, childUser, bundleGroupSize, isChildEndUser } = input;
+
+    if (bundleGroupSize && parentUser && !childUser) {
+      return this.calculateGroupPricing({ ...input, bundleGroupSize, parentUser });
+    }
+
+    // Calculate the base price including parent's discount and profit margin
+    const rawPrice =
+      packagePrice * (1 - pctToDec(parentUser?.appliedDiscountPercent)) * (1 + pctToDec(parentUser?.profitPercent));
+    const price = ceilIfNeeded(rawPrice, 0) * (bundleGroupSize || 1);
+
+    // Calculate discounted price for current user
+    const rawDiscountedPrice = packagePrice * (1 - pctToDec(currentUser.appliedDiscountPercent));
+    const discountedPrice = ceilIfNeeded(rawDiscountedPrice, 0) * (bundleGroupSize || 1);
+
+    // Calculate discount amount
+    const discountAmount = price - discountedPrice;
+
+    // Calculate sell price if user has children
+    const rawSellPrice = childUser ? packagePrice * (1 - pctToDec(childUser.appliedDiscountPercent)) : undefined;
+    const groupSellPrice =
+      bundleGroupSize && isChildEndUser
+        ? this.calculateGroupPricing({
+            bundleGroupSize,
+            packagePrice,
+            parentUser: currentUser,
+          }).discountedPrice
+        : undefined;
+    const sellPrice =
+      rawSellPrice !== undefined ? groupSellPrice || ceilIfNeeded(rawSellPrice, 0) * (bundleGroupSize || 1) : undefined;
+
+    // Calculate profit amounts
+    const sellProfit = sellPrice !== undefined ? sellPrice - discountedPrice : undefined;
+    const finalProfit = sellPrice !== undefined ? sellProfit : discountAmount;
+    const profitAmount = ceilIfNeeded((parentUser ? finalProfit : (sellPrice || 0) - discountedPrice) as number, 0);
+
+    return {
+      price,
+      discountedPrice,
+      discountAmount,
+      sellPrice,
+      profitAmount,
+    };
+  }
+
+  /**
+   * Creates financial transactions for a user's package purchase
+   */
+  private createUserTransactions(
+    currentUser: User,
+    discountedPrice: number,
+    profitAmount: number,
+    userPackageId: string,
+    receiptImage?: string,
+  ): Array<Prisma.PrismaPromise<unknown>> {
+    const transactions: Array<Prisma.PrismaPromise<unknown>> = [];
+
+    // Create payment record
+    transactions.push(
+      this.prisma.payment.create({
+        data: {
+          amount: discountedPrice,
+          type: 'PACKAGE_PURCHASE',
+          payerId: currentUser.id,
+          receiptImage,
+          userPackageId,
+          profitAmount,
+        },
+      }),
+    );
+
+    // Update user balance if they're an admin
+    if (currentUser.role === Role.ADMIN) {
+      transactions.push(
+        this.prisma.user.update({
+          where: { id: currentUser.id },
+          data: {
+            balance: {
+              decrement: discountedPrice,
+            },
+          },
+        }),
+      );
+    }
+
+    return transactions;
+  }
+
+  /**
+   * Creates a buy pack message for telegram notifications
+   */
+  private createBuyPackMessage({
+    currentUser,
+    packageData,
+    userPackageName,
+    pricingDetails,
+    input,
+    receiptBuffer,
+    bundleGroupSize,
+  }: {
+    currentUser: User;
+    packageData: Package;
+    userPackageName: string;
+    pricingDetails: ReturnType<PaymentService['calculateUserPricing']>;
+    input: PackagePaymentInput;
+    receiptBuffer?: Buffer;
+    bundleGroupSize?: number;
+  }): SendBuyPackMessage {
+    return {
+      discountedPrice: pricingDetails.discountedPrice,
+      profitAmount: pricingDetails.profitAmount,
+      receiptBuffer,
+      sellPrice: pricingDetails.sellPrice,
+      inRenew: input.inRenew,
+      pack: packageData,
+      price: pricingDetails.price,
+      isFree: input.isFree || false,
+      isGift: input.isGift || false,
+      user: currentUser,
+      userId: currentUser.id,
+      userPackageName,
+      bundleGroupSize,
+    };
+  }
+
   async purchasePackagePayment(
     user: User,
     input: PackagePaymentInput,
   ): Promise<[Array<Prisma.PrismaPromise<unknown>>, TelegramMessage[]]> {
-    const users = [...(await this.getAllParents(user.id)), user];
-    const usersDic = arrayToDic(users);
+    // Get all users in the hierarchy (parents + current user)
+    const usersInHierarchy = [...(await this.getAllParents(user.id)), user];
+    const usersDictionary = arrayToDic(usersInHierarchy);
     const buyPackMessages: SendBuyPackMessage[] = [];
+    const allFinanceTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
 
+    // Handle receipt upload if provided
     const [receiptBuffer, receiptImage] = input.receipt
       ? await this.uploadReceiptPermanently(input.userPackageId, input.receipt)
       : [];
 
-    const financeTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
-    const usersLength = users.length;
+    // Process each user in the hierarchy
+    for (let userIndex = 0; userIndex < usersInHierarchy.length; userIndex++) {
+      const currentUser = usersInHierarchy[userIndex];
+      const isEndUser = userIndex === usersInHierarchy.length - 1;
+      const shouldSkipTransaction = (input.isFree || input.isGift) && isEndUser;
 
-    for (let i = 0; i < usersLength; i++) {
-      const currentUser = users[i];
-      const parent = usersDic?.[currentUser?.parentId || ''];
-      const child = users.find((u) => u?.parentId === currentUser.id);
+      // Get related users in hierarchy
+      const parentUser = usersDictionary[currentUser?.parentId || ''];
+      const childUser = usersInHierarchy.find((u) => u?.parentId === currentUser.id);
+      const isChildEndUser = childUser ? childUser.id === usersInHierarchy[usersInHierarchy.length - 1].id : false;
 
-      const rawPrice =
-        input.package.price * (1 - pctToDec(parent?.appliedDiscountPercent)) * (1 + pctToDec(parent?.profitPercent));
-
-      const price = ceilIfNeeded(rawPrice, 0);
-
-      const notRoundedDiscountedPrice = input.package.price * (1 - pctToDec(currentUser.appliedDiscountPercent));
-
-      const discountedPrice = ceilIfNeeded(notRoundedDiscountedPrice, 0);
-
-      const discountAmount = price - discountedPrice;
-
-      const rawSellPrice = child ? input.package.price * (1 - pctToDec(child.appliedDiscountPercent)) : undefined;
-
-      const sellPrice = rawSellPrice !== undefined ? ceilIfNeeded(rawSellPrice, 0) : undefined;
-
-      const sellProfit = sellPrice !== undefined ? sellPrice - discountedPrice : undefined;
-
-      const finalProfit = sellPrice !== undefined ? sellProfit : discountAmount;
-
-      const profitAmount = ceilIfNeeded((parent ? finalProfit : (sellPrice || 0) - discountedPrice) as number, 0);
-
-      const isUserWhoUseThePackage = i === usersLength - 1;
-      const shouldSkipTransaction = (input.isFree || input.isGift) && isUserWhoUseThePackage;
-
-      if (!shouldSkipTransaction) {
-        financeTransactions.push(
-          this.prisma.payment.create({
-            data: {
-              amount: discountedPrice,
-              type: 'PACKAGE_PURCHASE',
-              payerId: currentUser.id,
-              receiptImage,
-              userPackageId: input.userPackageId,
-              profitAmount,
-            },
-          }),
-        );
-      }
-
-      if (currentUser.role === Role.ADMIN && !shouldSkipTransaction) {
-        financeTransactions.push(
-          this.prisma.user.update({
-            where: {
-              id: currentUser.id,
-            },
-            data: {
-              balance: {
-                decrement: discountedPrice,
-              },
-            },
-          }),
-        );
-      }
-
-      buyPackMessages.push({
-        discountedPrice,
-        profitAmount,
-        receiptBuffer,
-        sellPrice,
-        inRenew: input.inRenew,
-        pack: input.package,
-        price,
-        isFree: input.isFree || false,
-        isGift: input.isGift || false,
-        user: currentUser,
-        userId: currentUser.id,
-        userPackageName: input.userPackageName,
+      // Calculate pricing for this user
+      const pricingDetails = this.calculateUserPricing({
+        packagePrice: input.package.price,
+        currentUser,
+        parentUser,
+        childUser,
+        bundleGroupSize: input.bundleGroupSize,
+        isChildEndUser,
       });
+
+      // Create financial transactions if not skipped
+      if (!shouldSkipTransaction) {
+        const userTransactions = this.createUserTransactions(
+          currentUser,
+          pricingDetails.discountedPrice,
+          pricingDetails.profitAmount,
+          input.userPackageId,
+          receiptImage,
+        );
+        allFinanceTransactions.push(...userTransactions);
+      }
+
+      // Create buy pack message for notifications
+      const buyPackMessage = this.createBuyPackMessage({
+        currentUser,
+        packageData: input.package,
+        userPackageName: input.userPackageName,
+        pricingDetails,
+        input,
+        receiptBuffer,
+        bundleGroupSize: input.bundleGroupSize,
+      });
+      buyPackMessages.push(buyPackMessage);
     }
 
+    // Get telegram users for notifications
     const telegramUsers = await this.prisma.telegramUser.findMany({
       where: {
         userId: {
-          in: buyPackMessages.map((b) => b.userId),
+          in: buyPackMessages.map((message) => message.userId),
         },
       },
     });
 
+    // Generate telegram messages
     const telegramMessages = await this.getBuyPackMessages({
       buyPackMessages,
       telegramUsers,
@@ -390,7 +555,7 @@ export class PaymentService {
       server: input.server,
     });
 
-    return [financeTransactions, telegramMessages];
+    return [allFinanceTransactions, telegramMessages];
   }
 
   // async purchasePaymentRequest(user: User, input: PurchasePaymentRequestInput): Promise<PaymentReq> {
@@ -657,7 +822,11 @@ export class PaymentService {
         continue;
       }
 
-      const caption = this.nestedBuyPackageTxt(buyPackMessage.userId, buyPackMessagesDic, false, input.server);
+      const caption = this.nestedBuyPackageTxt({
+        firstUserId: buyPackMessage.userId,
+        buyPackMessagesDic,
+        server: input.server,
+      });
       const chatId = Number(telegramUsersDic?.[buyPackMessage.userId]?.chatId);
       let source: Buffer | undefined;
       let replyMarkup: TelegramReplyMarkup | undefined;
