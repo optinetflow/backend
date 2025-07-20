@@ -106,7 +106,7 @@ export class PackageService {
           server,
           name: client.name,
           package: pack,
-          orderN: (lastUserPack?.orderN || 0) + (clients.indexOf(client) + 1),
+          orderN: (lastUserPack?.orderN || 0) + ((input.bundleGroupSize || 1) - clients.indexOf(client)) + 1,
           bundleGroupSize: input.bundleGroupSize,
           bundleGroupKey,
         }),
@@ -508,6 +508,8 @@ export class PackageService {
       totalTraffic: userPackage.stat.total,
       expiryTime: userPackage.stat.expiryTime,
       lastConnectedAt: userPackage.stat?.lastConnectedAt,
+      isFree: userPackage.isFree,
+      bundleGroupSize: userPackage.bundleGroupSize,
     };
   }
 

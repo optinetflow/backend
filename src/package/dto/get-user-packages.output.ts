@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { PackageCategory } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
@@ -31,4 +31,10 @@ export class UserPackageOutput extends BaseModel {
 
   @Field(() => String, { nullable: true })
   categoryFa?: string;
+
+  @Field(() => Boolean)
+  isFree: boolean;
+
+  @Field(() => Int, { nullable: true })
+  bundleGroupSize?: number;
 }

@@ -430,6 +430,7 @@ type UserGift {
 }
 
 type UserPackageOutput {
+  bundleGroupSize: Int
   category: PackageCategory!
   categoryFa: String
 
@@ -437,6 +438,7 @@ type UserPackageOutput {
   createdAt: DateTime!
   expiryTime: BigNumber!
   id: ID!
+  isFree: Boolean!
   lastConnectedAt: DateTime
   link: String!
   name: String!

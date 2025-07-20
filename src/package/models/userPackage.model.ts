@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 import { BaseModel } from '../../common/models/base.model';
 import { BigNumberScalar } from '../../common/scalars/bigNumber';
@@ -39,4 +39,10 @@ export class UserPackage extends BaseModel {
 
   @Field(() => Server)
   server: Server;
+
+  @Field(() => Boolean)
+  isFree: boolean;
+
+  @Field(() => Int, { nullable: true })
+  bundleGroupSize?: number;
 }
