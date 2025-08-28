@@ -116,6 +116,6 @@ jobs:
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker pull $TAG_COMMIT"
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker container rm -f $CONTAINER_NAME || true"
           scp -o StrictHostKeyChecking=no -P $SERVER_PORT .env $SERVER_USERNAME@$SERVER_IP:$TEMP_ENV_PATH
-          ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "(docker container rm -f autoheal || true) && docker run -d --name autoheal --restart=always -e AUTOHEAL_CONTAINER_LABEL=all -v /var/run/docker.sock:/var/run/docker.sock willfarrell/autoheal"
+          # ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "(docker container rm -f autoheal || true) && docker run -d --name autoheal --restart=always -e AUTOHEAL_CONTAINER_LABEL=all -v /var/run/docker.sock:/var/run/docker.sock willfarrell/autoheal"
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker run -d --name $CONTAINER_NAME --env-file $TEMP_ENV_PATH/.env --network=${NETWORK_NAME} --restart always $TAG_COMMIT"
           ssh -o StrictHostKeyChecking=no $SERVER_USERNAME@$SERVER_IP -p $SERVER_PORT "docker logout"
