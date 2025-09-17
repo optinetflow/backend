@@ -34,6 +34,18 @@ export class PromotionCode {
 }
 
 @ObjectType()
+export class UnderChargedParent {
+  @Field(() => String)
+  phone: string;
+
+  @Field(() => String)
+  fullname: string;
+
+  @Field(() => Float)
+  balance: number;
+}
+
+@ObjectType()
 export class UserGift {
   @Field(() => Package, { nullable: true })
   giftPackage?: Package | null;
@@ -119,6 +131,9 @@ export class User extends BaseModel {
 
   @Field(() => Parent, { nullable: true })
   parent?: Parent | null;
+
+  @Field(() => UnderChargedParent, { nullable: true })
+  underChargedParent?: UnderChargedParent | null;
 
   @Field(() => Float, { nullable: true })
   maxRechargeDiscountPercent?: number | null;

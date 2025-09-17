@@ -22,9 +22,9 @@ RUN curl https://get.acme.sh | sh && \
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
-RUN mkdir -p /root/.ssh
-COPY id_rsa /root/.ssh/id_rsa
-RUN chmod 600 /root/.ssh/id_rsa
+# RUN mkdir -p /root/.ssh
+# COPY id_rsa /root/.ssh/id_rsa
+# RUN chmod 600 /root/.ssh/id_rsa
 
 
 

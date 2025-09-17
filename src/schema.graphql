@@ -80,6 +80,7 @@ type Child {
   role: Role!
   telegram: TelegramUser
   totalProfit: Float!
+  underChargedParent: UnderChargedParent
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
@@ -356,6 +357,12 @@ type Token {
   refreshToken: JWT!
 }
 
+type UnderChargedParent {
+  balance: Float!
+  fullname: String!
+  phone: String!
+}
+
 input UpdateChildInput {
   childId: String!
   description: String
@@ -417,6 +424,7 @@ type User {
   role: Role!
   telegram: TelegramUser
   totalProfit: Float!
+  underChargedParent: UnderChargedParent
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!

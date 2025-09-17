@@ -58,7 +58,11 @@ export class UsersService {
 
     prefixAvatar(fullUser?.telegram);
 
-    return fullUser;
+    const allParents = await this.getAllParents(fullUser.id);
+
+    const underChargedParent = allParents.find((parent) => parent.balance < 1000);
+
+    return { ...fullUser, underChargedParent };
   }
 
   private getUserSegment(
