@@ -598,7 +598,7 @@ export class PackageService {
     const groupPackages: DiscountedPackage[] = [];
     const maxUserDiscount = (parent.profitPercent / (100 + parent.profitPercent)) * 100;
     const maxGroupDiscount = parent.maxGroupDiscount || maxUserDiscount;
-    const targetPackages = packages.filter((pack) => pack.traffic === 40 && pack.expirationDays === 30);
+    const targetPackages = packages.filter((pack) => pack.traffic === 30 && pack.expirationDays === 30);
 
     for (const pack of targetPackages) {
       bundleGroupSizes.forEach(({ bundleGroupSize, discount }) => {

@@ -1,6 +1,5 @@
 export const bundleGroupSizes = [
-  { bundleGroupSize: 3, discount: 0.3 },
-  { bundleGroupSize: 4, discount: 0.5 },
-  { bundleGroupSize: 6, discount: 0.6 },
-  { bundleGroupSize: 8, discount: 0.8 },
+  { bundleGroupSize: 2, discount: 0.7 },
+  { bundleGroupSize: 3, discount: 0.8 },
+  { bundleGroupSize: 4, discount: 0.9 },
 ];

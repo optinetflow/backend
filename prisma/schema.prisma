@@ -117,47 +117,6 @@ model File {
   @@index([userId], name: "FileUserIdIndex")
 }
 
-model Domain {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  domain         String      @unique // @db.VarChar(255)
-  expiredAt      DateTime
-  nsState        DomainState @default(PENDING)
-  arvanSslState  DomainState @default(PENDING)
-  letsEncryptSsl DomainState @default(PENDING)
-  port           Int?
-  isAutomated    Boolean?
-  arvanId        String      @db.Uuid
-  serverId       String      @db.Uuid
-
-  arvan  Arvan  @relation(fields: [arvanId], references: [id])
-  server Server @relation(fields: [serverId], references: [id])
-
-  @@index([nsState], name: "DomainNsStateIndex")
-  @@index([arvanSslState], name: "DomainArvanSslStateIndex")
-  @@index([letsEncryptSsl], name: "DomainLetsEncryptSslIndex")
-  @@index([arvanId], name: "DomainArvanIdIndex")
-  @@index([serverId], name: "DomainServerIdIndex")
-}
-
-enum DomainState {
-  PENDING
-  APPLIED
-}
-
-model Arvan {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  email          String    @unique @db.VarChar(255)
-  password       String // @db.VarChar(255)
-  token          String? // @db.VarChar(255)
-  tokenExpiredAt DateTime?
-  nsKeys         String[]  @db.VarChar(255)
-  domain         Domain[]
-}
-
 enum ServerCountry {
   IR
   NL
@@ -196,7 +155,6 @@ model Server {
   port         Int              @default(443)
 
   userPackage  UserPackage[]
-  Domain       Domain[]
   clientStat   ClientStat[]
   ActiveServer ActiveServer[]
 }
@@ -382,7 +340,6 @@ model Brand {
 
   User User[]
 }
-
 view PersianCalendar {
   date                    DateTime @id @db.Date
   persian_year            Int
