@@ -88,35 +88,6 @@ Table File {
   user User [not null]
 }
 
-Table Domain {
-  id String [pk]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  domain String [unique, not null]
-  expiredAt DateTime [not null]
-  nsState DomainState [not null, default: 'PENDING']
-  arvanSslState DomainState [not null, default: 'PENDING']
-  letsEncryptSsl DomainState [not null, default: 'PENDING']
-  port Int
-  isAutomated Boolean
-  arvanId String [not null]
-  serverId String [not null]
-  arvan Arvan [not null]
-  server Server [not null]
-}
-
-Table Arvan {
-  id String [pk]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  email String [unique, not null]
-  password String [not null]
-  token String
-  tokenExpiredAt DateTime
-  nsKeys String[] [not null]
-  domain Domain [not null]
-}
-
 Table Server {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
@@ -132,7 +103,6 @@ Table Server {
   stats Json
   port Int [not null, default: 443]
   userPackage UserPackage [not null]
-  Domain Domain [not null]
   clientStat ClientStat [not null]
   ActiveServer ActiveServer [not null]
 }
@@ -299,11 +269,6 @@ Enum PackageCategory {
   QUALITY
 }
 
-Enum DomainState {
-  PENDING
-  APPLIED
-}
-
 Enum ServerCountry {
   IR
   NL
@@ -344,10 +309,6 @@ Ref: TelegramUser.userId - User.id
 Ref: BankCard.userId > User.id
 
 Ref: File.userId > User.id
-
-Ref: Domain.arvanId > Arvan.id
-
-Ref: Domain.serverId > Server.id
 
 Ref: UserPackage.packageId > Package.id
 
