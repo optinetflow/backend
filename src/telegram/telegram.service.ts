@@ -477,23 +477,32 @@ export class TelegramService {
 
   async sendBulkMessage(telegramMessages: TelegramMessage[]) {
     for (const telegramMessage of telegramMessages) {
-      const bot = this.getBot(telegramMessage.brandId);
+      try {
+        const bot = this.getBot(telegramMessage.brandId);
 
-      if (telegramMessage.source) {
-        await bot.telegram.sendPhoto(
-          telegramMessage.chatId,
-          { source: telegramMessage.source },
-          {
-            caption: telegramMessage.caption,
-            ...(telegramMessage?.reply_markup && {
-              reply_markup: telegramMessage.reply_markup,
-            }),
-          },
+        if (telegramMessage.source) {
+          await bot.telegram.sendPhoto(
+            telegramMessage.chatId,
+            { source: telegramMessage.source },
+            {
+              caption: telegramMessage.caption,
+              ...(telegramMessage?.reply_markup && {
+                reply_markup: telegramMessage.reply_markup,
+              }),
+            },
+          );
+          continue;
+        }
+
+        await bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send telegram message to chatId: ${telegramMessage.chatId}, brandId: ${telegramMessage.brandId}`,
+          error,
         );
+        // Continue processing remaining messages
         continue;
       }
-
-      await bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption);
     }
   }
 
