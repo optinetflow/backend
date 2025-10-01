@@ -7,6 +7,7 @@ export interface AuthenticatedReq {
   headers?: Record<string, string>;
   body?: Record<string, unknown> | string;
   isBuffer?: boolean;
+  retries?: number;
 }
 
 export interface InboundSetting {

@@ -16,7 +16,6 @@ import { v4 as uuid } from 'uuid';
 import { errors } from '../common/errors';
 import {
   arrayToDic,
-  estimateTraffic,
   excludeFromArr,
   extractSubdomain,
   getDateTimeString,
@@ -28,7 +27,8 @@ import {
   Period,
   roundTo,
   suggestWeights,
-  uniqByKey,
+  uniqByKeys,
+  withRetries,
 } from '../common/helpers';
 import { User } from '../users/models/user.model';
 import { BrandService } from './../brand/brand.service';
@@ -61,6 +61,12 @@ export interface ClientInput {
   subId: string;
 }
 
+interface BulkDeleteResult {
+  successful: number;
+  failed: number;
+  errors: string[];
+}
+
 const ENDPOINTS = (domain: string) => {
   // const url = `https://${domain}/v`;
   const url = `${domain}/v`;
@@ -90,6 +96,8 @@ export class XuiService {
     private httpService: HttpService,
     private readonly configService: ConfigService,
   ) {}
+
+  // async onModuleInit() {}
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -162,23 +170,25 @@ export class XuiService {
     return [`3x-ui=${Cookie.parse(token)['3x-ui']}`, server];
   }
 
-  async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer }: AuthenticatedReq) {
-    const [auth, server] = await this.getAuthorization(serverId);
+  async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer, retries = 10 }: AuthenticatedReq) {
+    return withRetries(async () => {
+      const [auth, server] = await this.getAuthorization(serverId);
 
-    const config: AxiosRequestConfig = {
-      headers: { ...(headers || {}), cookie: auth },
-      httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
-      maxContentLength: 10_485_760,
-      ...(isBuffer && { responseType: 'arraybuffer' }),
-    };
+      const config: AxiosRequestConfig = {
+        headers: { ...(headers || {}), cookie: auth },
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false,
+        }),
+        maxContentLength: 10_485_760,
+        ...(isBuffer && { responseType: 'arraybuffer' }),
+      };
 
-    return firstValueFrom(
-      method === 'get'
-        ? this.httpService.get<T>(url(server.domain), config)
-        : this.httpService[method]<T>(url(server.domain), body, config),
-    );
+      return firstValueFrom(
+        method === 'get'
+          ? this.httpService.get<T>(url(server.domain), config)
+          : this.httpService[method]<T>(url(server.domain), body, config),
+      );
+    }, retries);
   }
 
   async getInbounds(serverId: string): Promise<Stat[]> {
@@ -253,6 +263,104 @@ export class XuiService {
     if (!res.data.success) {
       throw new BadRequestException(errors.xui.deleteClientError);
     }
+  }
+
+  async bulkDeleteClients(
+    clientStatIds: string[],
+    server?: { id: string; inboundId: number },
+  ): Promise<BulkDeleteResult> {
+    if (clientStatIds.length === 0) {
+      return { successful: 0, failed: 0, errors: [] };
+    }
+
+    interface ServerInfo {
+      id: string;
+      inboundId: number;
+    }
+    interface ClientWithServer {
+      id: string;
+      server: ServerInfo;
+    }
+    interface DeleteResult {
+      id: string;
+      ok: boolean;
+      message?: string;
+    }
+
+    // -- helpers (move logic out of the main function to reduce complexity) --
+    const resolveClients = async (): Promise<{
+      byId: Map<string, ClientWithServer>;
+      missingIds: string[];
+    }> => {
+      if (server) {
+        // Skip DB: use the same server for all IDs
+        const map = new Map<string, ClientWithServer>();
+
+        for (const id of clientStatIds) {
+          map.set(id, { id, server });
+        }
+
+        return { byId: map, missingIds: [] };
+      }
+
+      // Default: fetch from DB
+      const clientStats = await this.prisma.clientStat.findMany({
+        where: { id: { in: clientStatIds } },
+        include: { server: true },
+      });
+
+      const byId = new Map<string, ClientWithServer>(clientStats.map((cs: ClientWithServer) => [cs.id, cs]));
+
+      const missingIds = clientStatIds.filter((id) => !byId.has(id));
+
+      return { byId, missingIds };
+    };
+
+    const deleteClient = async (cs: ClientWithServer): Promise<DeleteResult> => {
+      try {
+        const res = await this.authenticatedReq<{ success: boolean }>({
+          serverId: cs.server.id,
+          url: (domain: string) => ENDPOINTS(domain).delClient(cs.id, cs.server.inboundId),
+          method: 'post',
+        });
+
+        if (res.data?.success) {
+          return { id: cs.id, ok: true };
+        }
+
+        return {
+          id: cs.id,
+          ok: false,
+          message: `Delete returned unsuccessful for ${cs.id}`,
+        };
+      } catch (error: unknown) {
+        const errorMessage = String(error instanceof Error ? error.message : 'Unknown error');
+
+        return { id: cs.id, ok: false, message: `Error deleting ${cs.id}: ${errorMessage}` };
+      }
+    };
+
+    // -- main flow (now straightforward) --
+    const { byId, missingIds } = await resolveClients();
+
+    const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+    const validClientIds = clientStatIds.filter((id) => byId.has(id));
+    const tasks = validClientIds.map((id) => () => deleteClient(byId.get(id)!));
+
+    const results: DeleteResult[] = await Promise.all(tasks.map((t) => queue.add(t)));
+
+    const successful = results.filter((r) => r.ok).length;
+    const failedFromApi = results.length - successful;
+    const finalErrors = [
+      ...results.filter((r) => !r.ok && r.message).map((r) => r.message as string),
+      ...missingIds.map((id) => `Not found: ${id}`),
+    ];
+
+    return {
+      successful,
+      failed: failedFromApi + missingIds.length,
+      errors: finalErrors,
+    };
   }
 
   async delDepletedClients(serverId: string) {
@@ -485,7 +593,9 @@ export class XuiService {
     });
   }
 
-  async upsertClientStats(stats: Stat[], serverId: string, onlinesStat: string[]) {
+  async upsertClientStats(stats: Stat[], server: Server, onlinesStat: string[]) {
+    const isDev = this.configService.get('env') === 'development';
+
     if (stats.length === 0) {
       return; // Nothing to upsert
     }
@@ -495,10 +605,13 @@ export class XuiService {
       {},
     );
 
-    await this.sendThresholdWarning(stats);
-    await this.updateFinishedPackages(stats);
-    await this.syncNotExistClientStats(stats, serverId);
-    await this.delDepletedClients(serverId);
+    if (!isDev) {
+      await this.sendThresholdWarning(stats);
+      await this.updateFinishedPackages(stats);
+      await this.syncNotExistClientStats(stats, server.id);
+      await this.delDepletedClients(server.id);
+    }
+
     const updatedValues: Prisma.Sql[] = [];
 
     for (const stat of stats) {
@@ -508,7 +621,7 @@ export class XuiService {
 
       const statSql = Prisma.sql`(${stat.id}::uuid, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${
         stat.total
-      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${serverId}::uuid, ${stat.flow || ''}, ${
+      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${server.id}::uuid, ${stat.flow || ''}, ${
         stat.subId
       }, ${stat.tgId || ''}, ${stat.limitIp || 0}, ${lastConnectedAtSQL})`;
       updatedValues.push(statSql);
@@ -535,9 +648,14 @@ export class XuiService {
           "limitIp" = EXCLUDED."limitIp",
           "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
-      this.logger.debug(`Successfully upserted ${stats.length} ClientStats for server ${serverId}`);
+      this.logger.debug(
+        `Successfully upserted ${stats.length} ClientStats for domain: ${server.domain}, inboundId: ${server.inboundId}`,
+      );
     } catch (error) {
-      this.logger.error(`An error occurred while upserting ClientStats for server ${serverId}:`, error);
+      this.logger.error(
+        `An error occurred while upserting ClientStats for domain: ${server.domain}, inboundId: ${server.inboundId}:`,
+        error,
+      );
 
       throw error;
     }
@@ -760,7 +878,7 @@ export class XuiService {
       where: { deletedAt: null, category: { not: null } },
     });
 
-    const uniqueServers = uniqByKey(servers, 'domain');
+    const uniqueServers = uniqByKeys(servers, 'domain');
 
     const queue = new PQueue({ concurrency: 3, interval: 1000, intervalCap: 3 });
 
@@ -802,20 +920,24 @@ export class XuiService {
     this.logger.debug('SyncClientStats called every 1 min');
     const servers = await this.prisma.server.findMany({ where: { deletedAt: null, category: { not: null } } });
 
-    const uniqueServers = uniqByKey(servers, 'domain');
+    const uniqueServers = uniqByKeys(servers, ['domain', 'inboundId']);
 
-    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+    const queue = new PQueue({ concurrency: 3, interval: 1000, intervalCap: 3 });
 
     for (const server of uniqueServers) {
       await queue.add(async () => {
         try {
-          const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
-          // .filter((stat) => stat.inboundId === server.inboundId);
+          const updatedClientStats = (await this.getInbounds(server.id))
+            .filter((i) => isUUID(i.id))
+            .filter((stat) => stat.inboundId === server.inboundId);
           const onlinesStat = await this.getOnlinesInbounds(server.id);
           // Upsert ClientStat records in bulk
-          await this.upsertClientStats(updatedClientStats, server.id, onlinesStat);
+          await this.upsertClientStats(updatedClientStats, server, onlinesStat);
         } catch (error) {
-          console.error(`Error syncing ClientStats for server: ${server.id}`, error);
+          console.error(
+            `Error syncing ClientStats for server: ${server.domain}, inboundId: ${server.inboundId}`,
+            error,
+          );
         }
       });
     }

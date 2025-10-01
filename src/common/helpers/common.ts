@@ -375,18 +375,46 @@ export function extractSubdomain(urlOrDomain: string): string | null {
   return match ? match[1] : null;
 }
 
-export function uniqByKey<T, K extends keyof T>(items: T[], key: K): T[] {
-  const seen = new Set<T[K]>();
+// Unique by one key or multiple keys (string properties)
+export function uniqByKeys<T, K extends keyof T & string>(items: T[], keyOrKeys: K | readonly K[]): T[] {
+  const keys = (Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys]) as readonly K[];
+  const SEP = '\u001F'; // safe field separator
+
+  const seen = new Set<string>();
 
   return items.filter((item) => {
-    const value = item[key];
+    // Since your values are strings, simple join is enough
+    const sig = keys.map((k) => String((item as Record<K, string>)[k])).join(SEP);
 
-    if (seen.has(value)) {
+    if (seen.has(sig)) {
       return false;
     }
 
-    seen.add(value);
+    seen.add(sig);
 
     return true;
   });
+}
+
+// small retry helper
+export async function withRetries<T>(fn: () => Promise<T>, retries = 10, baseDelay = 500): Promise<T> {
+  let attempt = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      return await fn();
+    } catch (error: unknown) {
+      attempt++;
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      const isRetriable = status === 429 || (status !== undefined && status >= 500 && status < 600);
+
+      if (!isRetriable || attempt > retries) {
+        throw error;
+      }
+
+      const delay = baseDelay * 2 ** (attempt - 1); // exponential backoff
+      await new Promise((res) => setTimeout(res, delay));
+    }
+  }
 }
