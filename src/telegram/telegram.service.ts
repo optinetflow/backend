@@ -10,6 +10,7 @@ import { Scenes, session, Telegraf } from 'telegraf';
 import { Brand } from '../brand/models/brand.model';
 import { b64UrlToJson, convertPersianCurrency, extractFileName, getFileFromURL, roundTo } from '../common/helpers';
 import { Context } from '../common/interfaces/context.interface';
+import { ClientManagementService } from '../common/services/client-management.service';
 import { MinioClientService } from '../minio/minio.service';
 import { BrandService } from './../brand/brand.service';
 import { AggregatorService } from './aggregator.service';
@@ -47,6 +48,7 @@ export class TelegramService {
     private readonly brandService: BrandService,
     private readonly aggregatorService: AggregatorService,
     private readonly configService: ConfigService,
+    private readonly clientManagementService: ClientManagementService,
   ) {
     void this.initiateBots();
   }
@@ -101,7 +103,7 @@ export class TelegramService {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n❌ رد شد';
             await ctx.editMessageCaption(caption);
             const user = await this.aggregatorService.rejectRechargePack(parsed.R_CHARGE);
-            await this.aggregatorService.toggleUserBlock(user.id, true);
+            await this.clientManagementService.toggleUserBlock(user.id, true);
           }
         });
         void bot.launch();

@@ -10,6 +10,8 @@ import { v4 as uuid } from 'uuid';
 import { GraphqlConfig } from '../common/configs/config.interface';
 import { arrayToDic, bytesToGB, ceilIfNeeded, getConfigLink, pctToDec, roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
+import { ClientManagementService } from '../common/services/client-management.service';
+import { ServerManagementService } from '../common/services/server-management.service';
 import { PaymentService } from '../payment/payment.service';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
@@ -36,25 +38,12 @@ export class PackageService {
     private readonly payment: PaymentService,
     private readonly configService: ConfigService,
     private readonly i18: I18nService,
+    private readonly serverManagementService: ServerManagementService,
+    private readonly clientManagementService: ClientManagementService,
   ) {}
 
   async getFreeServer(user: User, pack: Package): Promise<Server> {
-    const activeServer = await this.prisma.activeServer.findFirst({
-      where: {
-        category: pack.category,
-      },
-      include: {
-        server: true,
-      },
-    });
-
-    if (!activeServer?.server) {
-      throw new NotAcceptableException(
-        `No active server found for brand ${user.brandId} and category ${pack.category}`,
-      );
-    }
-
-    return activeServer.server;
+    return this.serverManagementService.getFreeServer(user, pack);
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma[]> {
@@ -191,7 +180,7 @@ export class PackageService {
     }
 
     if (!isDev) {
-      await this.xuiService.addClient(user, clients);
+      await this.clientManagementService.addClient(user, clients);
     }
 
     return clients;
@@ -232,7 +221,7 @@ export class PackageService {
     const graphqlConfig = this.configService.get<GraphqlConfig>('graphql');
 
     if (!graphqlConfig?.debug) {
-      await this.xuiService.addClient(user, [
+      await this.clientManagementService.addClient(user, [
         {
           id,
           subId,
@@ -296,7 +285,7 @@ export class PackageService {
     const userPackageName = 'هدیه 🎁';
 
     if (!graphqlConfig?.debug) {
-      await this.xuiService.addClient(user, [
+      await this.clientManagementService.addClient(user, [
         {
           id,
           subId,
@@ -438,7 +427,7 @@ export class PackageService {
       // nothing
     }
 
-    await this.xuiService.addClient(user, [
+    await this.clientManagementService.addClient(user, [
       {
         id: userPack.statId,
         subId: userPack.stat.subId,
@@ -548,50 +537,7 @@ export class PackageService {
   }
 
   createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<unknown>> {
-    try {
-      const clientStat = {
-        id: input.id,
-        down: 0,
-        up: 0,
-        flow: '',
-        tgId: '',
-        subId: input.subId,
-        limitIp: input.package.userCount,
-        total: roundTo(1024 * 1024 * 1024 * input.package.traffic, 0),
-        serverId: input.server.id,
-        expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
-        enable: true,
-        email: input.email,
-      };
-
-      return [
-        this.prisma.clientStat.upsert({
-          where: {
-            id: input.id,
-          },
-          create: clientStat,
-          update: clientStat,
-        }),
-        this.prisma.userPackage.create({
-          data: {
-            id: input.userPackageId,
-            packageId: input.package.id,
-            serverId: input.server.id,
-            userId: user.id,
-            statId: input.id,
-            name: input.name,
-            orderN: input.orderN,
-            isFree: input.isFree || false,
-            bundleGroupSize: input?.bundleGroupSize,
-            bundleGroupKey: input?.bundleGroupKey,
-          },
-        }),
-      ];
-    } catch (error) {
-      console.error(error);
-
-      throw new BadRequestException('upsert client Stat or create userPackage got failed.');
-    }
+    return this.clientManagementService.createPackage(user, input);
   }
 
   addGroupPackage(packages: DiscountedPackage[], parent: User): DiscountedPackage[] {

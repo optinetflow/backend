@@ -1,16 +1,11 @@
 /* eslint-disable max-len */
-import { HttpService } from '@nestjs/axios';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PackageCategory, Prisma, Server } from '@prisma/client';
-import { AxiosRequestConfig } from 'axios';
-import * as Cookie from 'cookie';
-import https from 'https';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import PQueue from 'p-queue';
-import { firstValueFrom } from 'rxjs';
 import { v4 as uuid } from 'uuid';
 
 import { errors } from '../common/errors';
@@ -20,7 +15,6 @@ import {
   extractSubdomain,
   getDateTimeString,
   getRemainingDays,
-  isSessionExpired,
   isUUID,
   jsonObjectToQueryString,
   NetStatSample,
@@ -28,8 +22,9 @@ import {
   roundTo,
   suggestWeights,
   uniqByKeys,
-  withRetries,
 } from '../common/helpers';
+import { ClientManagementService } from '../common/services/client-management.service';
+import { XuiClientService } from '../common/services/xui-client.service';
 import { User } from '../users/models/user.model';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
@@ -37,7 +32,6 @@ import { GetClientStatsFiltersInput } from './dto/getClientStatsFilters.input';
 import { ClientStat } from './models/clientStat.model';
 import {
   AddClientInput,
-  AuthenticatedReq,
   InboundListRes,
   InboundSetting,
   OnlineInboundRes,
@@ -46,6 +40,12 @@ import {
   UpdateClientInput,
   UpdateClientReqInput,
 } from './xui.types';
+
+interface BulkDeleteResult {
+  successful: number;
+  failed: number;
+  errors: string[];
+}
 
 export interface ClientInput {
   id: string;
@@ -59,12 +59,6 @@ export interface ClientInput {
   reset: number;
   comment: string;
   subId: string;
-}
-
-interface BulkDeleteResult {
-  successful: number;
-  failed: number;
-  errors: string[];
 }
 
 const ENDPOINTS = (domain: string) => {
@@ -93,8 +87,9 @@ export class XuiService {
     private readonly telegramService: TelegramService,
     private readonly brandService: BrandService,
     private prisma: PrismaService,
-    private httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly xuiClientService: XuiClientService,
+    private readonly clientManagementService: ClientManagementService,
   ) {}
 
   // async onModuleInit() {}
@@ -116,85 +111,10 @@ export class XuiService {
     };
   }
 
-  async login(domain: string): Promise<string> {
-    try {
-      const password = this.configService.get('xui').password;
-      const login = await firstValueFrom(
-        this.httpService.post<{ success: boolean }>(ENDPOINTS(domain).login, `username=mamad&password=${password}`, {
-          headers: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          },
-          httpsAgent: new https.Agent({
-            rejectUnauthorized: false,
-          }),
-        }),
-      );
-      const cookie = login?.headers['set-cookie']?.[1] || login?.headers['set-cookie']?.[0];
-
-      if (!cookie) {
-        throw new NotFoundException(errors.xui.accountNotFound);
-      }
-
-      return cookie;
-    } catch (_error) {
-      const error = _error as { response?: string };
-
-      if (error?.response) {
-        console.error(error.response);
-      }
-
-      throw new BadRequestException();
-    }
-  }
-
-  async getAuthorization(serverId: string): Promise<[string, Server]> {
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId, deletedAt: null } });
-
-    if (!isSessionExpired(server.token)) {
-      return [`3x-ui=${Cookie.parse(server.token)['3x-ui']}`, server];
-    }
-
-    const token = await this.login(server.domain);
-
-    await this.prisma.server.update({
-      where: {
-        id: serverId,
-        deletedAt: null,
-      },
-      data: {
-        token,
-      },
-    });
-
-    return [`3x-ui=${Cookie.parse(token)['3x-ui']}`, server];
-  }
-
-  async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer, retries = 10 }: AuthenticatedReq) {
-    return withRetries(async () => {
-      const [auth, server] = await this.getAuthorization(serverId);
-
-      const config: AxiosRequestConfig = {
-        headers: { ...(headers || {}), cookie: auth },
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,
-        }),
-        maxContentLength: 10_485_760,
-        ...(isBuffer && { responseType: 'arraybuffer' }),
-      };
-
-      return firstValueFrom(
-        method === 'get'
-          ? this.httpService.get<T>(url(server.domain), config)
-          : this.httpService[method]<T>(url(server.domain), body, config),
-      );
-    }, retries);
-  }
-
   async getInbounds(serverId: string): Promise<Stat[]> {
-    const inbounds = await this.authenticatedReq<InboundListRes>({
+    const inbounds = await this.xuiClientService.authenticatedReq<InboundListRes>({
       serverId,
-      url: (domain) => ENDPOINTS(domain).inbounds,
+      url: (domain) => this.xuiClientService.getEndpoints(domain).inbounds,
       method: 'post',
     });
 
@@ -218,9 +138,9 @@ export class XuiService {
   }
 
   async getOnlinesInbounds(serverId: string): Promise<string[]> {
-    const inbounds = await this.authenticatedReq<OnlineInboundRes>({
+    const inbounds = await this.xuiClientService.authenticatedReq<OnlineInboundRes>({
       serverId,
-      url: (domain) => ENDPOINTS(domain).onlines,
+      url: (domain) => this.xuiClientService.getEndpoints(domain).onlines,
       method: 'post',
     });
 
@@ -237,9 +157,10 @@ export class XuiService {
       include: { server: true },
     });
 
-    const res = await this.authenticatedReq<{ success: boolean }>({
+    const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
       serverId: clientStat.server.id,
-      url: (domain) => ENDPOINTS(domain).resetClientTraffic(clientStat.email, clientStat.server.inboundId),
+      url: (domain) =>
+        this.xuiClientService.getEndpoints(domain).resetClientTraffic(clientStat.email, clientStat.server.inboundId),
       method: 'post',
     });
 
@@ -248,22 +169,6 @@ export class XuiService {
     }
   }
 
-  async deleteClient(clientStatId: string) {
-    const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
-      where: { id: clientStatId },
-      include: { server: true },
-    });
-
-    const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: clientStat.server.id,
-      url: (domain) => ENDPOINTS(domain).delClient(clientStat.id, clientStat.server.inboundId),
-      method: 'post',
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.deleteClientError);
-    }
-  }
 
   async bulkDeleteClients(
     clientStatIds: string[],
@@ -318,24 +223,10 @@ export class XuiService {
 
     const deleteClient = async (cs: ClientWithServer): Promise<DeleteResult> => {
       try {
-        const res = await this.authenticatedReq<{ success: boolean }>({
-          serverId: cs.server.id,
-          url: (domain: string) => ENDPOINTS(domain).delClient(cs.id, cs.server.inboundId),
-          method: 'post',
-        });
-
-        if (res.data?.success) {
-          return { id: cs.id, ok: true };
-        }
-
-        return {
-          id: cs.id,
-          ok: false,
-          message: `Delete returned unsuccessful for ${cs.id}`,
-        };
+        await this.xuiClientService.deleteClient(cs.id);
+        return { id: cs.id, ok: true };
       } catch (error: unknown) {
         const errorMessage = String(error instanceof Error ? error.message : 'Unknown error');
-
         return { id: cs.id, ok: false, message: `Error deleting ${cs.id}: ${errorMessage}` };
       }
     };
@@ -364,9 +255,9 @@ export class XuiService {
   }
 
   async delDepletedClients(serverId: string) {
-    const res = await this.authenticatedReq<{ success: boolean }>({
+    const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
       serverId,
-      url: (domain) => ENDPOINTS(domain).delDepletedClients,
+      url: (domain) => this.xuiClientService.getEndpoints(domain).delDepletedClients,
       method: 'post',
     });
 
@@ -661,102 +552,11 @@ export class XuiService {
     }
   }
 
-  async addClient(_user: User, input: AddClientInput[]): Promise<void> {
-    const clients: ClientInput[] = [];
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input[0].serverId } });
 
-    for (const client of input) {
-      const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-      const email = client?.email || nanoid();
-      const id = client?.id || uuid();
-      const subId = client?.subId || nanoid();
 
-      clients.push({
-        id,
-        flow: '',
-        email,
-        limitIp: client.package.userCount,
-        totalGB: 1024 * 1024 * 1024 * client.package.traffic,
-        expiryTime: Date.now() + 24 * 60 * 60 * 1000 * client.package.expirationDays,
-        enable: true,
-        tgId: '',
-        reset: 0,
-        comment: '',
-        subId,
-      });
-    }
-
-    const jsonData = {
-      id: server.inboundId,
-      settings: {
-        clients,
-      },
-    };
-
-    const params = jsonObjectToQueryString(jsonData);
-
-    const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: input[0].serverId,
-      url: (domain) => ENDPOINTS(domain).addClient,
-      method: 'post',
-      body: params,
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
-    }
-  }
-
-  async updateClientReq(input: UpdateClientReqInput) {
-    const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
-      where: { id: input.id },
-      include: { server: true },
-    });
-
-    const jsonData = {
-      id: clientStat.server.inboundId,
-      settings: {
-        clients: [
-          {
-            id: input?.id || clientStat.id,
-            flow: clientStat.flow,
-            email: clientStat.email,
-            limitIp: input?.limitIp || clientStat.limitIp,
-            totalGB: input?.totalGB || Number(clientStat.total),
-            expiryTime: input?.expiryTime || Number(clientStat.expiryTime),
-            enable: input?.enable || clientStat.enable,
-            tgId: clientStat.tgId,
-            subId: clientStat.subId,
-            reset: 0,
-            comment: '',
-          },
-        ],
-      },
-    };
-
-    const params = jsonObjectToQueryString(jsonData);
-
-    const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: clientStat.server.id,
-      url: (domain) => ENDPOINTS(domain).updateClient(clientStat.id),
-      method: 'post',
-      body: params,
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.updateClientError);
-    }
-  }
-
-  async toggleClientState(clientId: string, state: boolean) {
-    await this.updateClientReq({
-      id: clientId,
-      enable: state,
-    });
-  }
 
   async updateClient(_user: User, input: UpdateClientInput): Promise<void> {
-    await this.updateClientReq({
+    await this.clientManagementService.updateClientReq({
       id: input.id,
       expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
       limitIp: input.package.userCount,
@@ -782,63 +582,7 @@ export class XuiService {
   }
 
   async toggleUserBlock(userId: string, isBlocked: boolean): Promise<void> {
-    try {
-      const [userPacks, children] = await Promise.all([
-        this.prisma.userPackage.findMany({
-          where: {
-            userId,
-            finishedAt: null,
-            deletedAt: null,
-          },
-        }),
-        this.prisma.user.findMany({
-          where: {
-            parentId: userId,
-            ...(isBlocked ? {} : { isDisabled: false }),
-          },
-        }),
-      ]);
-
-      const childrenIds = children.map((child) => child.id);
-
-      const childrenPacks = await this.prisma.userPackage.findMany({
-        where: {
-          userId: {
-            in: childrenIds,
-          },
-          deletedAt: null,
-          finishedAt: null,
-        },
-      });
-
-      const allStatIds = [...userPacks, ...childrenPacks].map((pack) => pack.statId);
-
-      const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
-
-      for (const statId of allStatIds) {
-        await queue.add(async () => {
-          await this.toggleClientState(statId, !isBlocked);
-        });
-      }
-
-      await queue.onIdle();
-
-      await this.prisma.$transaction([
-        this.prisma.user.update({
-          where: { id: userId },
-          data: { isDisabled: isBlocked },
-        }),
-        this.prisma.user.updateMany({
-          where: { id: { in: childrenIds } },
-          data: { isParentDisabled: isBlocked },
-        }),
-      ]);
-    } catch (error) {
-      console.error('Error toggling user block:', error);
-
-      // You might want to add more sophisticated error handling here
-      throw error;
-    }
+    return this.clientManagementService.toggleUserBlock(userId, isBlocked);
   }
 
   // async fixOrder() {
@@ -885,9 +629,9 @@ export class XuiService {
     for (const server of uniqueServers) {
       await queue.add(async () => {
         try {
-          const res = await this.authenticatedReq<string>({
+          const res = await this.xuiClientService.authenticatedReq<string>({
             serverId: server.id,
-            url: (domain) => ENDPOINTS(domain).getDb,
+            url: (domain) => this.xuiClientService.getEndpoints(domain).getDb,
             method: 'get',
             isBuffer: true,
           });
@@ -965,9 +709,9 @@ export class XuiService {
       await queue.add(async () => {
         try {
           // fetch the latest stat
-          const { data } = await this.authenticatedReq<{ obj: ServerStat }>({
+          const { data } = await this.xuiClientService.authenticatedReq<{ obj: ServerStat }>({
             serverId: server.id,
-            url: (domain) => ENDPOINTS(domain).serverStatus,
+            url: (domain) => this.xuiClientService.getEndpoints(domain).serverStatus,
             method: 'post',
           });
 

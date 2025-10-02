@@ -1,42 +1,26 @@
-import { HttpService } from '@nestjs/axios';
-import { BadRequestException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, Server, UserPackage, UserPackage as UserPackagePrisma } from '@prisma/client';
-import { AxiosRequestConfig } from 'axios';
-import * as Cookie from 'cookie';
-import https from 'https';
+import { Prisma, UserPackage, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
-import PQueue from 'p-queue';
-import { firstValueFrom } from 'rxjs';
 import { v4 as uuid } from 'uuid';
 
-import { errors } from '../common/errors';
-import { isSessionExpired, jsonObjectToQueryString, roundTo } from '../common/helpers';
+import { ClientManagementService } from '../common/services/client-management.service';
+import { ServerManagementService } from '../common/services/server-management.service';
+import { XuiClientService } from '../common/services/xui-client.service';
 import { Package } from '../package/models/package.model';
 import { User } from '../users/models/user.model';
 import { CreatePackageInput } from './../package/package.types';
-import { AddClientInput, AuthenticatedReq, UpdateClientReqInput } from './../xui/xui.types';
+import { AddClientInput, UpdateClientReqInput } from './../xui/xui.types';
 
-export interface ClientInput {
-  id: string;
-  flow: string;
-  email: string;
-  limitIp: number;
-  totalGB: number;
-  expiryTime: number;
-  enable: boolean;
-  tgId: string;
-  reset: number;
-  comment: string;
-  subId: string;
-}
 @Injectable()
 export class AggregatorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
+    private readonly xuiClientService: XuiClientService,
+    private readonly serverManagementService: ServerManagementService,
+    private readonly clientManagementService: ClientManagementService,
   ) {}
 
   async acceptPurchasePack(userPackageId: string): Promise<void> {
@@ -109,10 +93,10 @@ export class AggregatorService {
     const isDev = this.configService.get('env') === 'development';
 
     if (!isDev) {
-      await this.deleteClient(userPack.statId);
+      await this.xuiClientService.deleteClient(userPack.statId);
     }
 
-    await this.toggleUserBlock(userPack.userId, true);
+    await this.clientManagementService.toggleUserBlock(userPack.userId, true);
 
     return userPack;
   }
@@ -175,83 +159,18 @@ export class AggregatorService {
     return user;
   }
 
-  async toggleUserBlock(userId: string, isBlocked: boolean) {
-    const isDev = this.configService.get('env') === 'development';
-    const userPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId,
-        deletedAt: null,
-      },
-    });
-
-    const children = await this.prisma.user.findMany({
-      where: {
-        parentId: userId,
-        ...(isBlocked
-          ? {}
-          : {
-              isDisabled: false,
-            }),
-      },
-    });
-
-    const childrenIds = children.map((child) => child.id);
-
-    const childrenPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId: {
-          in: childrenIds,
-        },
-        deletedAt: null,
-      },
-    });
-
-    const allStatIds = [...childrenPacks, ...userPacks].map((i) => i.statId);
-
-    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
-
-    for (const [i, statId] of allStatIds.entries()) {
-      await queue.add(async () => {
-        if (!isDev) {
-          await this.toggleClientState(statId, !isBlocked);
-        }
-      });
-    }
-
-    await queue.onIdle();
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        isDisabled: isBlocked,
-      },
-    });
-
-    await this.prisma.user.updateMany({
-      where: {
-        id: {
-          in: childrenIds,
-        },
-      },
-      data: {
-        isParentDisabled: isBlocked,
-      },
-    });
-  }
-
   async enableGift(user: User, userGiftId: string) {
     const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
 
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
-    const server = await this.getFreeServer(user, pack);
+    const server = await this.serverManagementService.getFreeServer(user, pack);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();
     const userPackageId = uuid();
 
-    await this.addClient(user, [
+    await this.clientManagementService.addClient(user, [
       {
         id,
         subId,
@@ -267,7 +186,7 @@ export class AggregatorService {
       orderBy: { orderN: 'desc' },
     });
 
-    const createPackageTransactions = this.createPackage(user, {
+    const createPackageTransactions = this.clientManagementService.createPackage(user, {
       userPackageId,
       id,
       subId,
@@ -285,276 +204,5 @@ export class AggregatorService {
     await this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } });
 
     return { package: pack, userPack };
-  }
-
-  private async getFreeServer(user: User, pack: Package): Promise<Server> {
-    if (!user.brandId) {
-      throw new NotAcceptableException('Brand is not found for this user');
-    }
-
-    const activeServer = await this.prisma.activeServer.findFirst({
-      where: {
-        category: pack.category,
-      },
-      include: {
-        server: true,
-      },
-    });
-
-    if (!activeServer?.server) {
-      throw new NotAcceptableException(
-        `No active server found for brand ${user.brandId} and category ${pack.category}`,
-      );
-    }
-
-    return activeServer.server;
-  }
-
-  private async deleteClient(clientStatId: string) {
-    const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
-      where: { id: clientStatId },
-      include: { server: true },
-    });
-
-    const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: clientStat.server.id,
-      url: (domain) => this.getEndpoints(domain).delClient(clientStat.id, clientStat.server.inboundId),
-      method: 'post',
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.deleteClientError);
-    }
-  }
-
-  private async authenticatedReq<T>({ serverId, url, method, body, headers, isBuffer }: AuthenticatedReq) {
-    const [auth, server] = await this.getAuthorization(serverId);
-
-    const config: AxiosRequestConfig = {
-      headers: { ...(headers || {}), cookie: auth },
-      httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
-      maxContentLength: 10_485_760,
-      ...(isBuffer && { responseType: 'arraybuffer' }),
-    };
-
-    return firstValueFrom(
-      method === 'get'
-        ? this.httpService.get<T>(url(server.domain), config)
-        : this.httpService[method]<T>(url(server.domain), body, config),
-    );
-  }
-
-  private getEndpoints(domain: string) {
-    const url = `https://${domain}/v`;
-
-    return {
-      login: `${url}/login`,
-      inbounds: `${url}/panel/inbound/list`,
-      onlines: `${url}/panel/inbound/onlines`,
-      addInbound: `${url}/panel/inbound/add`,
-      addClient: `${url}/panel/inbound/addClient`,
-      updateClient: (id: string) => `${url}/panel/inbound/updateClient/${id}`,
-      resetClientTraffic: (email: string, inboundId: number) =>
-        `${url}/panel/inbound/${inboundId}/resetClientTraffic/${email}`,
-      delClient: (id: string, inboundId: number) => `${url}/panel/inbound/${inboundId}/delClient/${id}`,
-      serverStatus: `${url}/server/status`,
-      getDb: `${url}/server/getDb`,
-    };
-  }
-
-  private async getAuthorization(serverId: string): Promise<[string, Server]> {
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: serverId, deletedAt: null } });
-
-    if (!isSessionExpired(server.token)) {
-      return [`3x-ui=${Cookie.parse(server.token)['3x-ui']}`, server];
-    }
-
-    const token = await this.login(server.domain);
-
-    await this.prisma.server.update({
-      where: {
-        id: serverId,
-        deletedAt: null,
-      },
-      data: {
-        token,
-      },
-    });
-
-    return [`3x-ui=${Cookie.parse(token)['3x-ui']}`, server];
-  }
-
-  private async login(domain: string): Promise<string> {
-    try {
-      const password = this.configService.get('xui').password;
-      const login = await firstValueFrom(
-        this.httpService.post<{ success: boolean }>(
-          this.getEndpoints(domain).login,
-          `username=mamad&password=${password}`,
-          {
-            headers: {
-              // eslint-disable-next-line @typescript-eslint/naming-convention
-              'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            },
-            httpsAgent: new https.Agent({
-              rejectUnauthorized: false,
-            }),
-          },
-        ),
-      );
-      const cookie = login?.headers['set-cookie']?.[1];
-
-      if (!cookie) {
-        throw new NotFoundException(errors.xui.accountNotFound);
-      }
-
-      return cookie;
-    } catch (_error) {
-      const error = _error as { response?: string };
-
-      if (error?.response) {
-        console.error(error.response);
-      }
-
-      throw new BadRequestException();
-    }
-  }
-
-  private async toggleClientState(clientId: string, state: boolean) {
-    await this.updateClientReq({
-      id: clientId,
-      enable: state,
-    });
-  }
-
-  async updateClientReq(input: UpdateClientReqInput) {
-    const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
-      where: { id: input.id },
-      include: { server: true },
-    });
-
-    const jsonData = {
-      id: clientStat.server.inboundId,
-      settings: {
-        clients: [
-          {
-            flow: clientStat.flow,
-            email: clientStat.email,
-            limitIp: clientStat.limitIp,
-            totalGB: Number(clientStat.total),
-            expiryTime: Number(clientStat.expiryTime),
-            enable: clientStat.enable,
-            tgId: clientStat.tgId,
-            subId: clientStat.subId,
-            ...input,
-          },
-        ],
-      },
-    };
-
-    const params = jsonObjectToQueryString(jsonData);
-
-    const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: clientStat.server.id,
-      url: (domain) => this.getEndpoints(domain).updateClient(clientStat.id),
-      method: 'post',
-      body: params,
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
-    }
-  }
-
-  createPackage(user: User, input: CreatePackageInput): Array<Prisma.PrismaPromise<unknown>> {
-    try {
-      const clientStat = {
-        id: input.id,
-        down: 0,
-        up: 0,
-        flow: '',
-        tgId: '',
-        subId: input.subId,
-        limitIp: input.package.userCount,
-        total: roundTo(1024 * 1024 * 1024 * input.package.traffic, 0),
-        serverId: input.server.id,
-        expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
-        enable: true,
-        email: input.email,
-      };
-
-      return [
-        this.prisma.clientStat.upsert({
-          where: {
-            id: input.id,
-          },
-          create: clientStat,
-          update: clientStat,
-        }),
-        this.prisma.userPackage.create({
-          data: {
-            id: input.userPackageId,
-            packageId: input.package.id,
-            serverId: input.server.id,
-            userId: user.id,
-            statId: input.id,
-            name: input.name,
-            orderN: input.orderN,
-          },
-        }),
-      ];
-    } catch (error) {
-      console.error(error);
-
-      throw new BadRequestException('upsert client Stat or create userPackage got failed.');
-    }
-  }
-
-  async addClient(_user: User, input: AddClientInput[]): Promise<void> {
-    const clients: ClientInput[] = [];
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input[0].serverId } });
-
-    for (const client of input) {
-      const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-      const email = client?.email || nanoid();
-      const id = client?.id || uuid();
-      const subId = client?.subId || nanoid();
-
-      clients.push({
-        id,
-        flow: '',
-        email,
-        limitIp: client.package.userCount,
-        totalGB: 1024 * 1024 * 1024 * client.package.traffic,
-        expiryTime: Date.now() + 24 * 60 * 60 * 1000 * client.package.expirationDays,
-        enable: true,
-        tgId: '',
-        reset: 0,
-        comment: '',
-        subId,
-      });
-    }
-
-    const jsonData = {
-      id: server.inboundId,
-      settings: {
-        clients,
-      },
-    };
-
-    const params = jsonObjectToQueryString(jsonData);
-
-    const res = await this.authenticatedReq<{ success: boolean }>({
-      serverId: input[0].serverId,
-      url: (domain) => this.getEndpoints(domain).addClient,
-      method: 'post',
-      body: params,
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
-    }
   }
 }
