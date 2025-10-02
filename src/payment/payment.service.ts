@@ -18,6 +18,7 @@ import { MinioClientService } from '../minio/minio.service';
 import { bundleGroupSizes } from '../package/package.constant';
 import { CallbackData } from '../telegram/telegram.constants';
 import { TelegramMessage, TelegramReplyMarkup, TelegramService } from '../telegram/telegram.service';
+import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { User } from '../users/models/user.model';
 import { UsersService } from '../users/users.service';
 import { BuyRechargePackageInput } from './dto/buyRechargePackage.input';
@@ -243,38 +244,44 @@ export class PaymentService {
     const reportCaption = caption + (user?.parentId ? this.nestedParentsChargeTxt(user.parentId, parentsDic) : '');
 
     if (telegramUser && receiptBuffer) {
-      try {
-        await bot.telegram.sendPhoto(
-          Number(telegramUser.chatId),
-          { source: receiptBuffer },
-          {
-            caption,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    callback_data: jsonToB64Url(rejectData as Record<string, string>),
-                    text: '❌ رد',
-                  },
-                  {
-                    callback_data: jsonToB64Url(acceptData as Record<string, string>),
-                    text: '✅ تایید',
-                  },
+      await TelegramErrorHandler.safeTelegramCall(
+        () =>
+          bot.telegram.sendPhoto(
+            Number(telegramUser.chatId),
+            { source: receiptBuffer },
+            {
+              caption,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      callback_data: jsonToB64Url(rejectData as Record<string, string>),
+                      text: '❌ رد',
+                    },
+                    {
+                      callback_data: jsonToB64Url(acceptData as Record<string, string>),
+                      text: '✅ تایید',
+                    },
+                  ],
                 ],
-              ],
+              },
             },
-          },
-        );
-      } catch (error) {
-        console.error(
-          `Couldn't send photo to parent (${parentsDic[user.parentId!].phone}) of user for buyRechargePackage\n\n`,
-          error,
-        );
-      }
+          ),
+        'Send recharge package receipt to parent',
+        telegramUser.chatId?.toString() || 'unknown',
+      );
 
-      await bot.telegram.sendPhoto(user.brand!.reportGroupId!, { source: receiptBuffer }, { caption: reportCaption });
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendPhoto(user.brand!.reportGroupId!, { source: receiptBuffer }, { caption: reportCaption }),
+        'Send recharge package receipt to report group',
+        user.brand!.reportGroupId,
+      );
     } else if (receiptBuffer) {
-      await bot.telegram.sendPhoto(user.brand!.reportGroupId!, { source: receiptBuffer }, { caption: reportCaption });
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendPhoto(user.brand!.reportGroupId!, { source: receiptBuffer }, { caption: reportCaption }),
+        'Send recharge package receipt to report group (no parent)',
+        user.brand!.reportGroupId,
+      );
     }
 
     return this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });

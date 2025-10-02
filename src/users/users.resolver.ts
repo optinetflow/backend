@@ -5,6 +5,7 @@ import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { BrandService } from '../brand/brand.service';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { TelegramService } from '../telegram/telegram.service';
+import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { ChangePasswordInput } from './dto/change-password.input';
 import { GetChildrenBySegmentOutput } from './dto/get-children-by-segment.output';
 import { GetOptinetflowCustomerInfoInput } from './dto/get-optinetflow-customer-info.input';
@@ -59,9 +60,22 @@ export class UsersResolver {
     const chatIds = ['406607551', '118763170'];
 
     for await (const chatId of chatIds) {
-      await bot.telegram.sendSticker(chatId, 'CAACAgIAAxkBAAOEZvAlfoRyhpaikie54VgNity1Ae4AAn89AAItySlKdrcmTxVTXBc2BA');
-      await bot.telegram.sendMessage(chatId, 'یه مشتری جدید پیدا کردیم 😁');
-      await bot.telegram.sendMessage(chatId, caption);
+      await TelegramErrorHandler.safeTelegramCall(
+        () =>
+          bot.telegram.sendSticker(chatId, 'CAACAgIAAxkBAAOEZvAlfoRyhpaikie54VgNity1Ae4AAn89AAItySlKdrcmTxVTXBc2BA'),
+        'Send new customer sticker notification',
+        chatId,
+      );
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendMessage(chatId, 'یه مشتری جدید پیدا کردیم 😁'),
+        'Send new customer message',
+        chatId,
+      );
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendMessage(chatId, caption),
+        'Send new customer details',
+        chatId,
+      );
     }
 
     return true;

@@ -16,6 +16,7 @@ import { BrandService } from './../brand/brand.service';
 import { AggregatorService } from './aggregator.service';
 import { TelegramUser } from './models/telegramUser.model';
 import { CallbackData, HOME_SCENE_ID, REGISTER_SCENE_ID } from './telegram.constants';
+import { TelegramErrorHandler } from './telegram-error-handler';
 
 interface StartPayload {
   uid?: string;
@@ -90,7 +91,11 @@ export class TelegramService {
             )} - ${userPack.package.expirationDays} روزه\n🔤 نام بسته: ${userPack.name}\n👤 خریدار: ${
               userPack.user.fullname
             }\n👨 مارکتر: ${parent?.fullname}`;
-            await bot.telegram.sendMessage(userPack.user.brand?.reportGroupId as string, text);
+            await TelegramErrorHandler.safeTelegramCall(
+              () => bot.telegram.sendMessage(userPack.user.brand?.reportGroupId as string, text),
+              'Send reject pack notification to report group',
+              userPack.user.brand?.reportGroupId,
+            );
           }
 
           if (parsed?.A_CHARGE) {
@@ -226,12 +231,20 @@ export class TelegramService {
       const bot = this.getBot(user.brandId);
 
       if (bigPhoto) {
-        await bot?.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: bigPhoto }, { caption });
+        await TelegramErrorHandler.safeTelegramCall(
+          () => bot?.telegram.sendPhoto(user.brand?.reportGroupId as string, { source: bigPhoto }, { caption }),
+          'Send telegram registration photo to report group',
+          user.brand?.reportGroupId,
+        );
 
         return;
       }
 
-      await bot?.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot?.telegram.sendMessage(user.brand?.reportGroupId as string, caption),
+        'Send telegram registration message to report group',
+        user.brand?.reportGroupId,
+      );
     }
   }
 
@@ -241,7 +254,34 @@ export class TelegramService {
     telegramUser?: TelegramUser,
   ): Promise<[TelegramUser, Buffer | undefined]> {
     const bot = this.getBot(user.brandId);
-    const chat = await bot.telegram.getChat(chatId);
+    const chat = await TelegramErrorHandler.safeTelegramCall(
+      () => bot.telegram.getChat(chatId),
+      'Get chat information',
+      chatId,
+    );
+
+    if (!chat) {
+      // If we can't get chat info, create a basic telegram user record without photo
+      const updatedTelegramUser = await this.prisma.telegramUser.upsert({
+        where: {
+          chatId,
+          userId: user.id,
+        },
+        create: {
+          chatId,
+          userId: user.id,
+          firstname: 'Unknown',
+          lastname: '',
+          username: null,
+        },
+        update: {
+          chatId,
+          userId: user.id,
+        },
+      });
+
+      return [updatedTelegramUser, undefined];
+    }
 
     let bigAvatar: string | undefined;
     let smallAvatar: string | undefined;
@@ -253,27 +293,40 @@ export class TelegramService {
       chat.photo?.small_file_id && chat.photo.small_file_id === extractFileName(telegramUser?.smallAvatar);
 
     if (chat.photo && chat.photo?.small_file_id && !isPhotoAlreadySaved) {
-      const bigPhotoLink = await bot.telegram.getFileLink(chat.photo.big_file_id);
-      const smallPhotoLink = await bot.telegram.getFileLink(chat.photo.small_file_id);
-      bigPhoto = await getFileFromURL(bigPhotoLink.href);
-      smallPhoto = await getFileFromURL(smallPhotoLink.href);
-      bigAvatar = `userPhotoBig/${chat.photo.big_file_id}.jpg`;
-      smallAvatar = `userPhotoSmall/${chat.photo.small_file_id}.jpg`;
+      const bigPhotoLink = await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.getFileLink(chat.photo!.big_file_id),
+        'Get big photo file link',
+        chatId,
+      );
+      const smallPhotoLink = await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.getFileLink(chat.photo!.small_file_id),
+        'Get small photo file link',
+        chatId,
+      );
 
-      if (telegramUser?.smallAvatar && telegramUser?.bigAvatar) {
-        await this.minioService.delete([telegramUser.smallAvatar, telegramUser.bigAvatar]);
+      if (!bigPhotoLink || !smallPhotoLink) {
+        this.logger.warn(`Failed to get photo links for user ${user.id}, chatId: ${chatId}`);
+      } else {
+        bigPhoto = await getFileFromURL(bigPhotoLink.href);
+        smallPhoto = await getFileFromURL(smallPhotoLink.href);
+        bigAvatar = `userPhotoBig/${chat.photo.big_file_id}.jpg`;
+        smallAvatar = `userPhotoSmall/${chat.photo.small_file_id}.jpg`;
+
+        if (telegramUser?.smallAvatar && telegramUser?.bigAvatar) {
+          await this.minioService.delete([telegramUser.smallAvatar, telegramUser.bigAvatar]);
+        }
+
+        await this.minioService.upload([
+          {
+            buffer: bigPhoto,
+            filename: bigAvatar,
+          },
+          {
+            buffer: smallPhoto,
+            filename: smallAvatar,
+          },
+        ]);
       }
-
-      await this.minioService.upload([
-        {
-          buffer: bigPhoto,
-          filename: bigAvatar,
-        },
-        {
-          buffer: smallPhoto,
-          filename: smallAvatar,
-        },
-      ]);
     }
 
     const extendedChat = chat as typeof chat & {
@@ -348,7 +401,11 @@ export class TelegramService {
     const caption = `#تکمیلـثبتـنامـتلگرام\n👤 ${updatedTelegramUser.user.fullname}  (@${updatedTelegramUser?.username})\n📞 موبایل: +98${updatedTelegramUser.user.phone}\n📱 موبایل تلگرام: +${updatedTelegramUser.phone}\n👨 نام تلگرام: ${updatedTelegramUser.firstname} ${updatedTelegramUser.lastname}\n\n👨 مارکتر: ${updatedTelegramUser.user?.parent?.fullname}`;
     const bot = this.getBot(updatedTelegramUser.user.brandId);
 
-    return bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption);
+    return TelegramErrorHandler.safeTelegramCall(
+      () => bot.telegram.sendMessage(updatedTelegramUser.user.brand?.reportGroupId as string, caption),
+      'Send phone registration completion to report group',
+      updatedTelegramUser.user.brand?.reportGroupId,
+    );
   }
 
   async enableGift(userId: string) {
@@ -370,7 +427,11 @@ export class TelegramService {
       }\n💵 شارژ حساب: ${convertPersianCurrency(roundTo(user?.balance || 0, 0))}`;
       const bot = this.getBot(user.brandId);
 
-      await bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption);
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendMessage(user.brand?.reportGroupId as string, caption),
+        'Send gift activation to report group',
+        user.brand?.reportGroupId,
+      );
     }
   }
 
@@ -399,7 +460,7 @@ export class TelegramService {
         try {
           await this.upsertTelegramUser(telegramUser.user, Number(telegramUser.chatId), telegramUser);
         } catch (error) {
-          console.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.chatId}`, error);
+          this.logger.error(`SyncTelegramUsersInfo failed for telegramID = ${telegramUser.chatId}`, error);
         }
       }
 
@@ -420,11 +481,21 @@ export class TelegramService {
     const parentMessage = `\nشارژ حساب ${admin.fullname} منفی شده! ❌\n📞: +98${admin.phone}\n💰 موجودی فعلی: ${admin.balance} تومان\nلطفاً پیگیری کنید که زودتر شارژ بشه؛ چون ممکنه حساب مشتریا بسته بشه. 🚫\n\nاگه کمک خواستید، ما همیشه در دسترسیم! 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
 
     if (admin.telegram?.chatId) {
-      await bot.telegram.sendMessage(admin.telegram.chatId.toString(), message);
+      const adminChatId = admin.telegram.chatId.toString();
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendMessage(adminChatId, message),
+        'Send negative balance notification to admin',
+        adminChatId,
+      );
     }
 
     if (admin.parent?.telegram?.chatId) {
-      await bot.telegram.sendMessage(admin.parent.telegram.chatId.toString(), parentMessage);
+      const parentChatId = admin.parent.telegram.chatId.toString();
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendMessage(parentChatId, parentMessage),
+        'Send negative balance notification to parent',
+        parentChatId,
+      );
     }
   }
 
@@ -446,7 +517,7 @@ export class TelegramService {
     for await (const admin of admins) {
       await queue.add(() =>
         this.sendNotificationForNegetiveAdminBalance(admin).catch((error) => {
-          console.error(`Failed to send notification to admin ${admin.fullname}:`, error);
+          this.logger.error(`Failed to send notification to admin ${admin.fullname}:`, error);
         }),
       );
     }
@@ -483,23 +554,32 @@ export class TelegramService {
         const bot = this.getBot(telegramMessage.brandId);
 
         if (telegramMessage.source) {
-          await bot.telegram.sendPhoto(
+          await TelegramErrorHandler.safeTelegramCall(
+            () =>
+              bot.telegram.sendPhoto(
+                telegramMessage.chatId,
+                { source: telegramMessage.source! },
+                {
+                  caption: telegramMessage.caption,
+                  ...(telegramMessage?.reply_markup && {
+                    reply_markup: telegramMessage.reply_markup,
+                  }),
+                },
+              ),
+            'Send bulk photo message',
             telegramMessage.chatId,
-            { source: telegramMessage.source },
-            {
-              caption: telegramMessage.caption,
-              ...(telegramMessage?.reply_markup && {
-                reply_markup: telegramMessage.reply_markup,
-              }),
-            },
           );
           continue;
         }
 
-        await bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption);
+        await TelegramErrorHandler.safeTelegramCall(
+          () => bot.telegram.sendMessage(telegramMessage.chatId, telegramMessage.caption),
+          'Send bulk text message',
+          telegramMessage.chatId,
+        );
       } catch (error) {
         this.logger.error(
-          `Failed to send telegram message to chatId: ${telegramMessage.chatId}, brandId: ${telegramMessage.brandId}`,
+          `Unexpected error in sendBulkMessage for chatId: ${telegramMessage.chatId}, brandId: ${telegramMessage.brandId}`,
           error,
         );
         // Continue processing remaining messages

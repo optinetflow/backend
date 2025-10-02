@@ -15,6 +15,7 @@ import { v4 as uuid } from 'uuid';
 import { Brand } from '../brand/models/brand.model';
 import { SecurityConfig } from '../common/configs/config.interface';
 import { SmsService } from '../sms/sms.service';
+import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { User } from '../users/models/user.model';
 import { UsersService } from '../users/users.service';
 import { TelegramService } from './../telegram/telegram.service';
@@ -196,10 +197,18 @@ export class AuthService {
     const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\n\n👨 مارکتر: ${reseller?.fullname}${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
     const bot = this.telegramService.getBot(brand.id);
 
-    await bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption);
+    await TelegramErrorHandler.safeTelegramCall(
+      () => bot.telegram.sendMessage(brand.reportGroupId as string, reportCaption),
+      'Send signup notification to report group',
+      brand.reportGroupId,
+    );
 
     if (reseller && reseller.telegram?.chatId) {
-      await bot.telegram.sendMessage(Number(reseller.telegram.chatId), reportCaption);
+      await TelegramErrorHandler.safeTelegramCall(
+        () => bot.telegram.sendMessage(Number(reseller.telegram!.chatId), reportCaption),
+        'Send signup notification to reseller',
+        reseller.telegram.chatId.toString(),
+      );
     }
   }
 
@@ -249,7 +258,11 @@ export class AuthService {
     const reportCaption = `#تایید_موبایل\n👤 ${user.fullname}\n📞 موبایل: +98${user.phone}\n\n🏷️ برند: ${user?.brand?.domainName}`;
     const bot = this.telegramService.getBot(user.brandId);
 
-    await bot.telegram.sendMessage(user?.brand?.reportGroupId as string, reportCaption);
+    await TelegramErrorHandler.safeTelegramCall(
+      () => bot.telegram.sendMessage(user?.brand?.reportGroupId as string, reportCaption),
+      'Send password reset notification to report group',
+      user?.brand?.reportGroupId,
+    );
 
     const tokens = this.generateTokens({ userId: user.id });
     this.setAuthCookie({

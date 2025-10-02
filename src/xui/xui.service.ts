@@ -25,6 +25,7 @@ import {
 } from '../common/helpers';
 import { ClientManagementService } from '../common/services/client-management.service';
 import { XuiClientService } from '../common/services/xui-client.service';
+import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { User } from '../users/models/user.model';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
@@ -169,7 +170,6 @@ export class XuiService {
     }
   }
 
-
   async bulkDeleteClients(
     clientStatIds: string[],
     server?: { id: string; inboundId: number },
@@ -224,9 +224,11 @@ export class XuiService {
     const deleteClient = async (cs: ClientWithServer): Promise<DeleteResult> => {
       try {
         await this.xuiClientService.deleteClient(cs.id);
+
         return { id: cs.id, ok: true };
       } catch (error: unknown) {
         const errorMessage = String(error instanceof Error ? error.message : 'Unknown error');
+
         return { id: cs.id, ok: false, message: `Error deleting ${cs.id}: ${errorMessage}` };
       }
     };
@@ -324,10 +326,15 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         await telegramQueue.add(async () => {
-          await bot.telegram.sendMessage(
+          await TelegramErrorHandler.safeTelegramCall(
+            () =>
+              bot.telegram.sendMessage(
+                telegramId,
+                text,
+                this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+              ),
+            'Send finished traffic pack notification',
             telegramId,
-            text,
-            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
           );
         });
       }
@@ -347,10 +354,15 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" به پایان رسید. از طریق سایت می‌تونی تمدید کنی.`;
         await telegramQueue.add(async () => {
-          await bot.telegram.sendMessage(
+          await TelegramErrorHandler.safeTelegramCall(
+            () =>
+              bot.telegram.sendMessage(
+                telegramId,
+                text,
+                this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+              ),
+            'Send finished time pack notification',
             telegramId,
-            text,
-            this.loginToPanelBtn(userPack.user.brand?.domainName as string),
           );
         });
       }
@@ -416,15 +428,16 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز ۸۵ درصد حجم بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" را مصرف کرده‌اید. از طریق سایت می‌تونی تمدید کنی.`;
         await queue.add(async () => {
-          try {
-            await bot.telegram.sendMessage(
-              telegramId,
-              text,
-              this.loginToPanelBtn(userPack.user.brand?.domainName as string),
-            );
-          } catch (error) {
-            console.error('Threshold 1 Telegram message failed.', error);
-          }
+          await TelegramErrorHandler.safeTelegramCall(
+            () =>
+              bot.telegram.sendMessage(
+                telegramId,
+                text,
+                this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+              ),
+            'Send threshold warning (85% traffic)',
+            telegramId,
+          );
         });
       }
     }
@@ -442,15 +455,16 @@ export class XuiService {
       if (telegramId) {
         const text = `${userPack.user.fullname} عزیز دو روز دیگه زمان بسته‌ی ${userPack.package.traffic} گیگ ${userPack.package.expirationDays} روزه به نام "${userPack.name}" تموم میشه. از طریق سایت می‌تونی تمدید کنی.`;
         await queue.add(async () => {
-          try {
-            await bot.telegram.sendMessage(
-              telegramId,
-              text,
-              this.loginToPanelBtn(userPack.user.brand?.domainName as string),
-            );
-          } catch (error) {
-            console.error('Threshold 2 Telegram message failed.', error);
-          }
+          await TelegramErrorHandler.safeTelegramCall(
+            () =>
+              bot.telegram.sendMessage(
+                telegramId,
+                text,
+                this.loginToPanelBtn(userPack.user.brand?.domainName as string),
+              ),
+            'Send threshold warning (2 days remaining)',
+            telegramId,
+          );
         });
       }
     }
@@ -551,9 +565,6 @@ export class XuiService {
       throw error;
     }
   }
-
-
-
 
   async updateClient(_user: User, input: UpdateClientInput): Promise<void> {
     await this.clientManagementService.updateClientReq({
@@ -803,6 +814,10 @@ export class XuiService {
     const reportGroupId = (await this.prisma.brand.findUniqueOrThrow({ where: { id: brandId } })).reportGroupId!;
 
     const bot = this.telegramService.getBot(brandId);
-    await bot.telegram.sendMessage(reportGroupId, message);
+    await TelegramErrorHandler.safeTelegramCall(
+      () => bot.telegram.sendMessage(reportGroupId, message),
+      'Send server switch notification to report group',
+      reportGroupId,
+    );
   }
 }
