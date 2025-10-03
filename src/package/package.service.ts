@@ -29,6 +29,30 @@ interface DiscountedPackage extends Package {
   categoryFa?: string;
 }
 
+interface ProcessPackageTransactionInput {
+  user: User;
+  clients: Array<{
+    userPackageId: string;
+    id: string;
+    subId: string;
+    email: string;
+    serverId: string;
+    package: Package;
+    name: string;
+  }>;
+  pack: Package;
+  server: Server;
+  receipt?: string;
+  isRenewal: boolean;
+  userPackageName: string;
+  bundleGroupSize?: number;
+  bundleGroupKey?: string;
+  orderN?: number;
+  isFree?: boolean;
+  isGift?: boolean;
+  additionalTransactions?: Array<Prisma.PrismaPromise<unknown>>;
+}
+
 @Injectable()
 export class PackageService {
   constructor(
@@ -68,50 +92,32 @@ export class PackageService {
       nanoid,
     });
 
-    try {
-      const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
-        userPackageId: clients[0].userPackageId,
-        package: pack,
-        receipt: input.receipt,
-        inRenew: false,
-        userPackageName,
-        server,
-        bundleGroupSize: input.bundleGroupSize,
-      });
+    const lastUserPack = await this.prisma.userPackage.findFirst({
+      where: { userId: user.id },
+      orderBy: { orderN: 'desc' },
+    });
 
-      const lastUserPack = await this.prisma.userPackage.findFirst({
-        where: { userId: user.id },
-        orderBy: { orderN: 'desc' },
-      });
+    // Update clients with proper order numbers and package references
+    const clientsWithOrder = clients.map((client) => ({
+      ...client,
+      package: pack,
+    }));
 
-      const createPackageTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
+    const baseOrderN = (lastUserPack?.orderN || 0) + 1;
+    const orderN = baseOrderN + ((input.bundleGroupSize || 1) - 1);
 
-      for (const client of clients) {
-        createPackageTransactions.push(
-          ...this.createPackage(user, {
-            id: client.id,
-            userPackageId: client.userPackageId,
-            subId: client.subId,
-            email: client.email,
-            server,
-            name: client.name,
-            package: pack,
-            orderN: (lastUserPack?.orderN || 0) + ((input.bundleGroupSize || 1) - clients.indexOf(client)) + 1,
-            bundleGroupSize: input.bundleGroupSize,
-            bundleGroupKey,
-          }),
-        );
-      }
-
-      await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
-      await this.telegramService.sendBulkMessage(telegramMessages);
-    } catch {
-      // Bulk delete clients from stats if transaction fails
-      const clientStatIds = clients.map((client) => client.id);
-      await this.xuiService.bulkDeleteClients(clientStatIds, server);
-
-      throw new BadRequestException('Transaction failed');
-    }
+    await this.processPackageTransaction({
+      user,
+      clients: clientsWithOrder,
+      pack,
+      server,
+      receipt: input.receipt,
+      isRenewal: false,
+      userPackageName,
+      bundleGroupSize: input.bundleGroupSize,
+      bundleGroupKey,
+      orderN,
+    });
 
     return bundleGroupKey
       ? this.prisma.userPackage.findMany({ where: { bundleGroupKey } })
@@ -241,35 +247,33 @@ export class PackageService {
       ]);
     }
 
-    const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
-      userPackageId,
-      package: pack,
-      receipt: undefined,
-      inRenew: false,
-      userPackageName,
-      isFree: true,
-      server,
-    });
-
     const lastUserPack = await this.prisma.userPackage.findFirst({
       where: { userId: user.id },
       orderBy: { orderN: 'desc' },
     });
 
-    const createPackageTransactions = this.createPackage(user, {
-      id,
-      userPackageId,
-      subId,
-      email,
-      server,
-      name: userPackageName,
-      package: pack,
-      isFree: true,
-      orderN: (lastUserPack?.orderN || 0) + 1,
-    });
-    await this.prisma.$transaction([...createPackageTransactions, ...financeTransactions]);
+    const clients = [
+      {
+        userPackageId,
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: userPackageName,
+      },
+    ];
 
-    return this.telegramService.sendBulkMessage(telegramMessages);
+    await this.processPackageTransaction({
+      user,
+      clients,
+      pack,
+      server,
+      isRenewal: false,
+      userPackageName,
+      orderN: (lastUserPack?.orderN || 0) + 1,
+      isFree: true,
+    });
   }
 
   async enableGift(userId: string): Promise<void> {
@@ -305,39 +309,103 @@ export class PackageService {
       ]);
     }
 
-    const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
-      userPackageId,
-      package: pack,
-      receipt: undefined,
-      inRenew: false,
-      userPackageName,
-      isFree: false,
-      isGift: true,
-      server,
-    });
     const lastUserPack = await this.prisma.userPackage.findFirst({
       where: { userId: user.id },
       orderBy: { orderN: 'desc' },
     });
 
-    const createPackageTransactions = this.createPackage(user, {
-      userPackageId,
-      id,
-      subId,
-      email,
-      server,
-      name: 'هدیه 🎁',
-      package: pack,
-      orderN: (lastUserPack?.orderN || 0) + 1,
-    });
+    const clients = [
+      {
+        userPackageId,
+        id,
+        subId,
+        email,
+        serverId: server.id,
+        package: pack,
+        name: userPackageName,
+      },
+    ];
 
-    await this.prisma.$transaction([
-      ...createPackageTransactions,
-      ...financeTransactions,
+    const additionalTransactions = [
       this.prisma.userGift.update({ where: { id: gift.id }, data: { isGiftUsed: true } }),
-    ]);
+    ];
 
-    return this.telegramService.sendBulkMessage(telegramMessages);
+    await this.processPackageTransaction({
+      user,
+      clients,
+      pack,
+      server,
+      isRenewal: false,
+      userPackageName,
+      orderN: (lastUserPack?.orderN || 0) + 1,
+      isFree: false,
+      isGift: true,
+      additionalTransactions,
+    });
+  }
+
+  private async processPackageTransaction(input: ProcessPackageTransactionInput): Promise<void> {
+    const {
+      user,
+      clients,
+      pack,
+      server,
+      receipt,
+      isRenewal,
+      userPackageName,
+      bundleGroupSize,
+      bundleGroupKey,
+      orderN,
+      isFree,
+      isGift,
+      additionalTransactions,
+    } = input;
+
+    try {
+      const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+        userPackageId: clients[0].userPackageId,
+        package: pack,
+        receipt,
+        inRenew: isRenewal,
+        userPackageName,
+        server,
+        bundleGroupSize,
+        isFree,
+        isGift,
+      });
+
+      const createPackageTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
+
+      for (const client of clients) {
+        const clientOrderN = orderN ? orderN - clients.indexOf(client) : 1;
+        createPackageTransactions.push(
+          ...this.createPackage(user, {
+            id: client.id,
+            userPackageId: client.userPackageId,
+            subId: client.subId,
+            email: client.email,
+            server,
+            name: client.name,
+            package: client.package,
+            orderN: clientOrderN,
+            bundleGroupSize,
+            bundleGroupKey,
+            isFree,
+          }),
+        );
+      }
+
+      const allTransactions = [...createPackageTransactions, ...financeTransactions, ...(additionalTransactions || [])];
+
+      await this.prisma.$transaction(allTransactions);
+      await this.telegramService.sendBulkMessage(telegramMessages);
+    } catch {
+      // Bulk delete clients from stats if transaction fails
+      const clientStatIds = clients.map((client) => client.id);
+      await this.xuiService.bulkDeleteClients(clientStatIds, server);
+
+      throw new BadRequestException('Transaction failed');
+    }
   }
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
@@ -351,10 +419,6 @@ export class PackageService {
       },
     });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
-
-    // to make up for lose user
-    // const isOldUser = new Date(user.createdAt) < new Date('2025-01-29');
-    // pack.traffic = pack.traffic * (isOldUser ? 1.2 : 1);
 
     const role = user.role;
     const discountedPrice = pack.price * (1 - pctToDec(user.appliedDiscountPercent));
@@ -395,46 +459,36 @@ export class PackageService {
           });
         }
 
-        try {
-          const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+        const clients = [
+          {
             userPackageId,
-            package: pack,
-            receipt: input.receipt,
-            inRenew: true,
-            userPackageName: userPack.name,
-            server: userPack.server,
-          });
-
-          const createPackageTransactions = this.createPackage(user, {
             id: userPack.statId,
-            userPackageId,
             subId: userPack.stat.subId,
             email: userPack.stat.email,
-            server: userPack.server,
-            name: userPack.name,
+            serverId: userPack.server.id,
             package: modifiedPack,
-            orderN: userPack.orderN,
-          });
+            name: userPack.name,
+          },
+        ];
 
-          await this.prisma.$transaction([
-            ...createPackageTransactions,
-            ...financeTransactions,
-            this.prisma.userPackage.update({
-              where: {
-                id: userPack.id,
-              },
-              data: {
-                deletedAt: new Date(),
-              },
-            }),
-          ]);
-          await this.telegramService.sendBulkMessage(telegramMessages);
-        } catch {
-          // Bulk delete clients from stats if transaction fails
-          await this.xuiService.bulkDeleteClients([userPack.statId], userPack.server);
+        const additionalTransactions = [
+          this.prisma.userPackage.update({
+            where: { id: userPack.id },
+            data: { deletedAt: new Date() },
+          }),
+        ];
 
-          throw new BadRequestException('Transaction failed');
-        }
+        await this.processPackageTransaction({
+          user,
+          clients,
+          pack,
+          server: userPack.server,
+          receipt: input.receipt,
+          isRenewal: true,
+          userPackageName: userPack.name,
+          orderN: userPack.orderN,
+          additionalTransactions,
+        });
 
         return await this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
       }
@@ -454,46 +508,36 @@ export class PackageService {
       },
     ]);
 
-    try {
-      const [financeTransactions, telegramMessages] = await this.payment.purchasePackagePayment(user, {
+    const clients = [
+      {
         userPackageId,
-        package: pack,
-        receipt: input.receipt,
-        inRenew: true,
-        userPackageName: userPack.name,
-        server: userPack.server,
-      });
-
-      const createPackageTransactions = this.createPackage(user, {
         id: userPack.statId,
-        userPackageId,
         subId: userPack.stat.subId,
         email: userPack.stat.email,
-        server: userPack.server,
-        name: userPack.name,
+        serverId: userPack.server.id,
         package: modifiedPack,
-        orderN: userPack.orderN,
-      });
+        name: userPack.name,
+      },
+    ];
 
-      await this.prisma.$transaction([
-        ...createPackageTransactions,
-        ...financeTransactions,
-        this.prisma.userPackage.update({
-          where: {
-            id: userPack.id,
-          },
-          data: {
-            deletedAt: new Date(),
-          },
-        }),
-      ]);
-      await this.telegramService.sendBulkMessage(telegramMessages);
-    } catch {
-      // Bulk delete clients from stats if transaction fails
-      await this.xuiService.bulkDeleteClients([userPack.statId], userPack.server);
+    const additionalTransactions = [
+      this.prisma.userPackage.update({
+        where: { id: userPack.id },
+        data: { deletedAt: new Date() },
+      }),
+    ];
 
-      throw new BadRequestException('Transaction failed');
-    }
+    await this.processPackageTransaction({
+      user,
+      clients,
+      pack,
+      server: userPack.server,
+      receipt: input.receipt,
+      isRenewal: true,
+      userPackageName: userPack.name,
+      orderN: userPack.orderN,
+      additionalTransactions,
+    });
 
     return this.prisma.userPackage.findFirstOrThrow({ where: { id: userPackageId } });
   }
