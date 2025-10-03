@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
@@ -29,92 +29,141 @@ export interface ClientInput {
 
 @Injectable()
 export class ClientManagementService {
+  private readonly logger = new Logger(ClientManagementService.name);
+
   constructor(private readonly prisma: PrismaService, private readonly xuiClientService: XuiClientService) {}
 
   async addClient(_user: User, input: AddClientInput[]): Promise<void> {
-    const clients: ClientInput[] = [];
-    const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input[0].serverId } });
+    try {
+      const clients: ClientInput[] = [];
+      const server = await this.prisma.server.findUniqueOrThrow({ where: { id: input[0].serverId } });
 
-    for (const client of input) {
-      const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
-      const email = client?.email || nanoid();
-      const id = client?.id || uuid();
-      const subId = client?.subId || nanoid();
+      for (const client of input) {
+        const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 16);
+        const email = client?.email || nanoid();
+        const id = client?.id || uuid();
+        const subId = client?.subId || nanoid();
 
-      clients.push({
-        id,
-        flow: '',
-        email,
-        limitIp: client.package.userCount,
-        totalGB: 1024 * 1024 * 1024 * client.package.traffic,
-        expiryTime: Date.now() + 24 * 60 * 60 * 1000 * client.package.expirationDays,
-        enable: true,
-        tgId: '',
-        reset: 0,
-        comment: '',
-        subId,
+        clients.push({
+          id,
+          flow: '',
+          email,
+          limitIp: client.package.userCount,
+          totalGB: 1024 * 1024 * 1024 * client.package.traffic,
+          expiryTime: Date.now() + 24 * 60 * 60 * 1000 * client.package.expirationDays,
+          enable: true,
+          tgId: '',
+          reset: 0,
+          comment: '',
+          subId,
+        });
+      }
+
+      const jsonData = {
+        id: server.inboundId,
+        settings: {
+          clients,
+        },
+      };
+
+      const params = jsonObjectToQueryString(jsonData);
+
+      const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
+        serverId: input[0].serverId,
+        url: (domain) => this.xuiClientService.getEndpoints(domain).addClient,
+        method: 'post',
+        body: params,
       });
-    }
 
-    const jsonData = {
-      id: server.inboundId,
-      settings: {
-        clients,
-      },
-    };
+      if (!res.data.success) {
+        this.logger.error('Failed to add client(s)', {
+          serverId: input[0].serverId,
+          serverDomain: server.domain,
+          inboundId: server.inboundId,
+          clientCount: clients.length,
+          clientIds: clients.map((c) => c.id),
+          response: res.data,
+        });
 
-    const params = jsonObjectToQueryString(jsonData);
+        throw new BadRequestException(errors.xui.addClientError);
+      }
+    } catch (error) {
+      this.logger.error('Error in addClient', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        serverId: input[0]?.serverId,
+        clientCount: input.length,
+      });
 
-    const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
-      serverId: input[0].serverId,
-      url: (domain) => this.xuiClientService.getEndpoints(domain).addClient,
-      method: 'post',
-      body: params,
-    });
-
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.addClientError);
+      throw error;
     }
   }
 
   async updateClientReq(input: UpdateClientReqInput) {
-    const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
-      where: { id: input.id },
-      include: { server: true },
-    });
+    try {
+      const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
+        where: { id: input.id },
+        include: { server: true },
+      });
 
-    const jsonData = {
-      id: clientStat.server.inboundId,
-      settings: {
-        clients: [
-          {
-            id: input?.id || clientStat.id,
-            flow: clientStat.flow,
-            email: clientStat.email,
-            limitIp: input?.limitIp || clientStat.limitIp,
-            totalGB: input?.totalGB || Number(clientStat.total),
-            expiryTime: input?.expiryTime || Number(clientStat.expiryTime),
-            enable: input?.enable || clientStat.enable,
-            tgId: clientStat.tgId,
-            subId: clientStat.subId,
-            reset: 0,
-            comment: '',
-          },
-        ],
-      },
-    };
+      const jsonData = {
+        id: clientStat.server.inboundId,
+        settings: {
+          clients: [
+            {
+              id: input?.id || clientStat.id,
+              flow: clientStat.flow,
+              email: clientStat.email,
+              limitIp: input?.limitIp || clientStat.limitIp,
+              totalGB: input?.totalGB || Number(clientStat.total),
+              expiryTime: input?.expiryTime || Number(clientStat.expiryTime),
+              enable: input?.enable || clientStat.enable,
+              tgId: clientStat.tgId,
+              subId: clientStat.subId,
+              reset: 0,
+              comment: '',
+            },
+          ],
+        },
+      };
 
-    const params = jsonObjectToQueryString(jsonData);
+      const params = jsonObjectToQueryString(jsonData);
 
-    const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
-      serverId: clientStat.server.id,
-      url: (domain) => this.xuiClientService.getEndpoints(domain).updateClient(clientStat.id),
-      method: 'post',
-      body: params,
-    });
+      const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
+        serverId: clientStat.server.id,
+        url: (domain) => this.xuiClientService.getEndpoints(domain).updateClient(clientStat.id),
+        method: 'post',
+        body: params,
+      });
 
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.updateClientError);
+      if (!res.data.success) {
+        this.logger.error('Failed to update client', {
+          clientId: input.id,
+          email: clientStat.email,
+          serverId: clientStat.server.id,
+          serverDomain: clientStat.server.domain,
+          inboundId: clientStat.server.inboundId,
+          limitIp: input?.limitIp,
+          totalGB: input?.totalGB,
+          expiryTime: input?.expiryTime,
+          enable: input?.enable,
+          response: res.data,
+        });
+
+        throw new BadRequestException(errors.xui.updateClientError);
+      }
+    } catch (error) {
+      this.logger.error('Error in updateClientReq', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        clientId: input.id,
+        limitIp: input?.limitIp,
+        totalGB: input?.totalGB,
+        expiryTime: input?.expiryTime,
+        enable: input?.enable,
+      });
+
+      throw error;
     }
   }
 

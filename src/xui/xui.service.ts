@@ -153,20 +153,39 @@ export class XuiService {
   }
 
   async resetClientTraffic(clientStatId: string) {
-    const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
-      where: { id: clientStatId },
-      include: { server: true },
-    });
+    try {
+      const clientStat = await this.prisma.clientStat.findUniqueOrThrow({
+        where: { id: clientStatId },
+        include: { server: true },
+      });
 
-    const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
-      serverId: clientStat.server.id,
-      url: (domain) =>
-        this.xuiClientService.getEndpoints(domain).resetClientTraffic(clientStat.email, clientStat.server.inboundId),
-      method: 'post',
-    });
+      const res = await this.xuiClientService.authenticatedReq<{ success: boolean }>({
+        serverId: clientStat.server.id,
+        url: (domain) =>
+          this.xuiClientService.getEndpoints(domain).resetClientTraffic(clientStat.email, clientStat.server.inboundId),
+        method: 'post',
+      });
 
-    if (!res.data.success) {
-      throw new BadRequestException(errors.xui.resetClientTrafficError);
+      if (!res.data.success) {
+        this.logger.error('Failed to reset client traffic', {
+          clientStatId,
+          email: clientStat.email,
+          serverId: clientStat.server.id,
+          serverDomain: clientStat.server.domain,
+          inboundId: clientStat.server.inboundId,
+          response: res.data,
+        });
+
+        throw new BadRequestException(errors.xui.resetClientTrafficError);
+      }
+    } catch (error) {
+      this.logger.error('Error in resetClientTraffic', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        clientStatId,
+      });
+
+      throw error;
     }
   }
 
@@ -567,13 +586,27 @@ export class XuiService {
   }
 
   async updateClient(_user: User, input: UpdateClientInput): Promise<void> {
-    await this.clientManagementService.updateClientReq({
-      id: input.id,
-      expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
-      limitIp: input.package.userCount,
-      totalGB: roundTo(1024 * 1024 * 1024 * input.package.traffic, 0),
-      enable: input.enable,
-    });
+    try {
+      await this.clientManagementService.updateClientReq({
+        id: input.id,
+        expiryTime: roundTo(Date.now() + 24 * 60 * 60 * 1000 * input.package.expirationDays, 0),
+        limitIp: input.package.userCount,
+        totalGB: roundTo(1024 * 1024 * 1024 * input.package.traffic, 0),
+        enable: input.enable,
+      });
+    } catch (error) {
+      this.logger.error('Error updating client', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        clientId: input.id,
+        packageTraffic: input.package.traffic,
+        packageExpirationDays: input.package.expirationDays,
+        serverId: input.server.id,
+        serverDomain: input.server.domain,
+      });
+
+      throw error;
+    }
   }
 
   async getClientStats(filters?: GetClientStatsFiltersInput): Promise<ClientStat[]> {
