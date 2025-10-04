@@ -317,12 +317,19 @@ export class AuthService {
   async sendOtpAgain(user: User, domainName: string) {
     const userDomainName = user.brand?.domainName;
 
-    if (user.isVerified === true) {
-      throw new BadRequestException('User is already verified!');
-    }
+    // if (user.isVerified === true) {
+    //   throw new BadRequestException('User is already verified!');
+    // }
 
     if (userDomainName !== domainName) {
       throw new BadRequestException('Wrong brand!');
+    }
+
+    const now = new Date();
+
+    // Check if OTP exists and has not expired yet
+    if (user.otpExpiration && user.otpExpiration > now) {
+      return;
     }
 
     const { otp, otpExpiration } = this.generateOtp();

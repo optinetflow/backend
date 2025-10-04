@@ -61,6 +61,7 @@ type Child {
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
+  isOwner: Boolean!
   isParentDisabled: Boolean
   isVerified: Boolean!
   joinedPromotionCode: String
@@ -408,6 +409,7 @@ type User {
   id: ID!
   initialDiscountPercent: Float
   isDisabled: Boolean
+  isOwner: Boolean!
   isParentDisabled: Boolean
   isVerified: Boolean!
   joinedPromotionCode: String
