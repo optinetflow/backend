@@ -109,7 +109,7 @@ export class TelegramService {
             const caption = (ctx.callbackQuery?.message as { caption: string })?.caption + '\n\n❌ رد شد';
             await ctx.editMessageCaption(caption);
             const user = await this.aggregatorService.rejectRechargePack(parsed.R_CHARGE);
-            // await this.clientManagementService.toggleUserBlock(user.id, true);
+            await this.clientManagementService.toggleUserBlock(user.id, true);
           }
         });
         void bot.launch();

@@ -193,27 +193,27 @@ export class ClientManagementService {
 
     const childrenIds = children.map((child) => child.id);
 
-    const childrenPacks = await this.prisma.userPackage.findMany({
-      where: {
-        userId: {
-          in: childrenIds,
-        },
-        deletedAt: null,
-        finishedAt: null,
-      },
-    });
+    // const childrenPacks = await this.prisma.userPackage.findMany({
+    //   where: {
+    //     userId: {
+    //       in: childrenIds,
+    //     },
+    //     deletedAt: null,
+    //     finishedAt: null,
+    //   },
+    // });
 
-    const allStatIds = [...userPacks, ...childrenPacks].map((pack) => pack.statId);
+    // const allStatIds = [...userPacks, ...childrenPacks].map((pack) => pack.statId);
 
-    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+    // const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
 
-    for (const statId of allStatIds) {
-      await queue.add(async () => {
-        await this.toggleClientState(statId, !isBlocked);
-      });
-    }
+    // for (const statId of allStatIds) {
+    //   await queue.add(async () => {
+    //     await this.toggleClientState(statId, !isBlocked);
+    //   });
+    // }
 
-    await queue.onIdle();
+    // await queue.onIdle();
 
     await this.prisma.$transaction([
       this.prisma.user.update({
