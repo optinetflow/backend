@@ -50,6 +50,7 @@ model User {
   joinedPromotionId          String?   @db.Uuid
   joinedPromotionCode        String?   @db.VarChar(255)
   maxGroupDiscount           Float?
+  isOwner                    Boolean   @default(false)
 
   brand           Brand?        @relation(fields: [brandId], references: [id])
   parent          User?         @relation("UserParentRelation", fields: [parentId], references: [id])
@@ -340,6 +341,7 @@ model Brand {
 
   User User[]
 }
+
 view PersianCalendar {
   date                    DateTime @id @db.Date
   persian_year            Int

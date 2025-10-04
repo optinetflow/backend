@@ -153,6 +153,9 @@ export class User extends BaseModel {
   @Field(() => Float, { nullable: true })
   maxGroupDiscount?: number | null;
 
+  @Field(() => Boolean)
+  isOwner: boolean;
+
   @Field(() => [UserGift], { nullable: true })
   userGift?: UserGift[] | null;
 }

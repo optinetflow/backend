@@ -879,6 +879,7 @@ export class PaymentService {
           chatId: Number(brand.reportGroupId),
           source,
           brandId: buyPackMessage.user.brandId,
+          isOwner: false,
         });
       }
 
@@ -888,6 +889,7 @@ export class PaymentService {
         source,
         reply_markup: replyMarkup,
         brandId: buyPackMessage.user.brandId,
+        isOwner: buyPackMessage.user.isOwner,
       });
     }
 

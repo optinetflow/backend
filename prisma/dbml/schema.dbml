@@ -30,6 +30,7 @@ Table User {
   joinedPromotionId String
   joinedPromotionCode String
   maxGroupDiscount Float
+  isOwner Boolean [not null, default: false]
   brand Brand
   parent User
   children User [not null]

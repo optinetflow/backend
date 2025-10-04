@@ -37,6 +37,7 @@ export interface TelegramMessage {
   caption: string;
   source?: Buffer;
   reply_markup?: TelegramReplyMarkup;
+  isOwner?: boolean;
 }
 
 @Injectable()
@@ -552,6 +553,11 @@ export class TelegramService {
     for (const telegramMessage of telegramMessages) {
       try {
         const bot = this.getBot(telegramMessage.brandId);
+
+        // For isOwner = true, only send when message has reply_markup
+        if (telegramMessage.isOwner && !telegramMessage.reply_markup) {
+          continue;
+        }
 
         if (telegramMessage.source) {
           await TelegramErrorHandler.safeTelegramCall(
