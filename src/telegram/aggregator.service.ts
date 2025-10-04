@@ -96,7 +96,7 @@ export class AggregatorService {
       await this.xuiClientService.deleteClient(userPack.statId);
     }
 
-    await this.clientManagementService.toggleUserBlock(userPack.userId, true);
+    // await this.clientManagementService.toggleUserBlock(userPack.userId, true);
 
     return userPack;
   }
