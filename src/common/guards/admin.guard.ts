@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { PrismaService } from 'nestjs-prisma';
 import { TelegrafException, TelegrafExecutionContext } from 'nestjs-telegraf';
 
+import { TelegramErrorHandler } from '../../telegram/telegram-error-handler';
 import { Context } from '../interfaces/context.interface';
 
 @Injectable()
@@ -22,7 +23,11 @@ export class AdminGuard implements CanActivate {
     const chat = await bot.getChat();
     // console.log('{ chat }', chat);
 
-    const file = await bot.telegram.getFileLink(chat.photo!.big_file_id);
+    const file = await TelegramErrorHandler.safeTelegramCall(
+      () => bot.telegram.getFileLink(chat.photo!.big_file_id),
+      'Get chat photo file link',
+      from!.id.toString(),
+    );
     // console.log('file', file, await bot.telegram.getFileLink(chat.photo!.small_file_id));
 
     const isAdmin = this.adminIds.includes(from!.id.toString());

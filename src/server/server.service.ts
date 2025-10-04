@@ -8,6 +8,7 @@ import { PrismaService } from 'nestjs-prisma';
 import { PostgresConfig } from '../common/configs/config.interface';
 import { asyncShellExec } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
+import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
 
@@ -270,10 +271,15 @@ export class ServerService {
       const buffer = fs.readFileSync(`${outputFile}.gz`);
       const firstBrand = await this.brandService.getFirstBrand();
       const bot = this.telegramService.getBot(firstBrand?.id as string);
-      await bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
-        source: buffer,
-        filename: `${outputFile}.gz`,
-      });
+      await TelegramErrorHandler.safeTelegramCall(
+        () =>
+          bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
+            source: buffer,
+            filename: `${outputFile}.gz`,
+          }),
+        'Send database backup to backup group',
+        firstBrand?.backupGroupId,
+      );
 
       await asyncShellExec(`rm -rf ${outputFile}.gz`);
     } catch (error_) {

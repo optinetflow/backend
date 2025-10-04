@@ -684,10 +684,15 @@ export class XuiService {
           const backupGroupId = (await this.prisma.brand.findUniqueOrThrow({ where: { id: brandId } })).backupGroupId!;
 
           const bot = this.telegramService.getBot(brandId);
-          await bot.telegram.sendDocument(backupGroupId, {
-            source: res.data,
-            filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
-          });
+          await TelegramErrorHandler.safeTelegramCall(
+            () =>
+              bot.telegram.sendDocument(backupGroupId, {
+                source: res.data,
+                filename: `${server.domain.split('.')[0]}-${getDateTimeString()}.db`,
+              }),
+            'Send XUI database backup to backup group',
+            backupGroupId,
+          );
         } catch (error) {
           console.error(`Error backing up database for server: ${server.id}`, error);
         }
