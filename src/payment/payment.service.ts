@@ -741,42 +741,6 @@ export class PaymentService {
     return profitAmount;
   }
 
-  async acceptRechargePack(paymentId: string): Promise<void> {
-    await this.prisma.payment.update({
-      where: {
-        id: paymentId,
-      },
-      data: {
-        status: 'APPLIED',
-      },
-    });
-  }
-
-  async rejectRechargePack(paymentId: string): Promise<User> {
-    const payment = await this.prisma.payment.update({
-      where: {
-        id: paymentId,
-      },
-      data: {
-        status: 'REJECTED',
-      },
-    });
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: payment.payerId } });
-
-    await this.prisma.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        balance: {
-          decrement: payment.amount,
-        },
-      },
-    });
-
-    return user;
-  }
-
   async enterCost(user: User, input: EnterCostInput): Promise<User> {
     if (user.maxRechargeDiscountPercent !== 100) {
       throw new BadRequestException('Access denied!');
