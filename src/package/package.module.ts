@@ -1,5 +1,5 @@
 import { HttpModule } from '@nestjs/axios';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { I18Module } from '../common/i18/i18.module';
@@ -11,7 +11,18 @@ import { PackageResolver } from './package.resolver';
 import { PackageService } from './package.service';
 
 @Module({
-  imports: [AuthModule, HttpModule, PaymentModule, XuiModule, TelegramModule, I18Module, SharedServicesModule],
+  imports: [
+    AuthModule,
+    HttpModule.register({
+      timeout: 15_000, // 15 seconds for package operations
+      maxRedirects: 5,
+    }),
+    forwardRef(() => PaymentModule),
+    forwardRef(() => XuiModule),
+    forwardRef(() => TelegramModule),
+    I18Module,
+    SharedServicesModule,
+  ],
   providers: [PackageResolver, PackageService],
   exports: [PackageService],
 })

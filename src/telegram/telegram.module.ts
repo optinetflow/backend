@@ -7,7 +7,14 @@ import { AggregatorService } from './aggregator.service';
 import { TelegramService } from './telegram.service';
 
 @Module({
-  imports: [HttpModule, BrandModule, SharedServicesModule],
+  imports: [
+    HttpModule.register({
+      timeout: 30_000, // 30 seconds for Telegram API (file uploads)
+      maxRedirects: 5,
+    }),
+    BrandModule,
+    SharedServicesModule,
+  ],
   providers: [TelegramService, AggregatorService],
   exports: [TelegramService],
 })

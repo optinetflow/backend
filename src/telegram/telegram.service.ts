@@ -438,6 +438,12 @@ export class TelegramService {
 
   @Interval('syncTelegramUsersInfo', 24 * 60 * 60 * 1000)
   async updateUsersInfo() {
+    const isDev = this.configService.get('env') === 'development';
+
+    if (isDev) {
+      return;
+    }
+
     this.logger.debug('SyncTelegramUsersInfo called every 24 hours');
 
     let skip = 0;
@@ -500,8 +506,14 @@ export class TelegramService {
     }
   }
 
-  @Interval('negetiveAdminBalanceNotification', 12 * 60 * 60 * 1000) // 12 hours in milliseconds
+  // @Interval('negetiveAdminBalanceNotification', 12 * 60 * 60 * 1000) // 12 hours in milliseconds
   async negetiveAdminBalanceNotification() {
+    const isDev = this.configService.get('env') === 'development';
+
+    if (isDev) {
+      return;
+    }
+
     this.logger.debug('negetiveAdminBalanceNotification called every 12 hours');
 
     const admins = await this.prisma.user.findMany({

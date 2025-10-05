@@ -10,7 +10,17 @@ import { ServerResolver } from './server.resolver';
 import { ServerService } from './server.service';
 
 @Module({
-  imports: [HttpModule, XuiModule, PaymentModule, BrandModule, TelegramModule, I18Module],
+  imports: [
+    HttpModule.register({
+      timeout: 15_000, // 15 seconds for server operations
+      maxRedirects: 5,
+    }),
+    XuiModule,
+    PaymentModule,
+    BrandModule,
+    TelegramModule,
+    I18Module,
+  ],
   providers: [ServerResolver, ServerService],
 })
 export class ServerModule {}

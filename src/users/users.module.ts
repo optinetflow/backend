@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { PasswordService } from '../auth/password.service';
 import { BrandModule } from '../brand/brand.module';
@@ -8,7 +8,7 @@ import { UsersResolver } from './users.resolver';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [XuiModule, TelegramModule, BrandModule],
+  imports: [forwardRef(() => XuiModule), forwardRef(() => TelegramModule), BrandModule],
   providers: [UsersResolver, UsersService, PasswordService],
   exports: [UsersService],
 })

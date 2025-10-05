@@ -52,6 +52,7 @@ export class XuiClientService {
               // eslint-disable-next-line @typescript-eslint/naming-convention
               'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
             },
+            timeout: 10_000, // 10 seconds for login
             httpsAgent: new https.Agent({
               rejectUnauthorized: false,
             }),
@@ -102,11 +103,15 @@ export class XuiClientService {
     return withRetries(async () => {
       const [auth, server] = await this.getAuthorization(serverId);
 
+      // Use 60s timeout for database backups (isBuffer), 15s for regular operations
+      const timeoutMs = isBuffer ? 60_000 : 15_000;
+
       const config: AxiosRequestConfig = {
         headers: { ...(headers || {}), cookie: auth },
         httpsAgent: new https.Agent({
           rejectUnauthorized: false,
         }),
+        timeout: timeoutMs,
         maxContentLength: 10_485_760,
         ...(isBuffer && { responseType: 'arraybuffer' }),
       };

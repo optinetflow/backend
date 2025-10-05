@@ -38,6 +38,11 @@ import { XuiModule } from './xui/xui.module';
             logLevel: 'log',
           }),
         ],
+        prismaOptions: {
+          log: ['error', 'warn'],
+          errorFormat: 'pretty',
+        },
+        explicitConnect: true,
       },
     }),
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
