@@ -471,6 +471,7 @@ export class PackageService {
 
   async renewPackage(user: User, input: RenewPackageInput): Promise<UserPackagePrisma> {
     const userPackageId = uuid();
+    const isDev = this.isDevelopment();
     const userPack = await this.prisma.userPackage.findUniqueOrThrow({
       where: { id: input.userPackageId },
       include: { server: true, stat: true, package: true },
@@ -489,8 +490,8 @@ export class PackageService {
     ];
 
     try {
-      if (!userPack.finishedAt) {
-        if (!this.isDebugMode()) {
+      if (!isDev) {
+        if (!userPack.finishedAt) {
           await this.xuiService.resetClientTraffic(userPack.statId);
           await this.xuiService.updateClient(user, {
             id: userPack.statId,
@@ -502,19 +503,19 @@ export class PackageService {
             server: userPack.server,
             enable: userPack.stat.enable,
           });
+        } else {
+          await this.clientManagementService.addClient(user, [
+            {
+              id: userPack.statId,
+              subId: userPack.stat.subId,
+              email: userPack.stat.email,
+              serverId: userPack.server.id,
+              package: modifiedPack,
+              name: userPack.name,
+              orderN: userPack.orderN,
+            },
+          ]);
         }
-      } else {
-        await this.clientManagementService.addClient(user, [
-          {
-            id: userPack.statId,
-            subId: userPack.stat.subId,
-            email: userPack.stat.email,
-            serverId: userPack.server.id,
-            package: modifiedPack,
-            name: userPack.name,
-            orderN: userPack.orderN,
-          },
-        ]);
       }
 
       await this.executePackageTransaction({

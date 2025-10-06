@@ -9,6 +9,7 @@ import {
   ceilIfNeeded,
   convertPersianCurrency,
   extractSubdomain,
+  floorTo,
   jsonToB64Url,
   pctToDec,
   roundTo,
@@ -147,6 +148,13 @@ export class PaymentService {
 
     const buyPackMessage = buyPackMessagesDic?.[firstUserId];
     const isBundleGroup = Boolean(buyPackMessage?.bundleGroupSize);
+    const paidByBalance =
+      buyPackMessage.user.balance - buyPackMessage.price > 0 ? buyPackMessage.price : buyPackMessage.user.balance;
+
+    const newBalance =
+      buyPackMessage.user.role === 'ADMIN'
+        ? buyPackMessage.user.balance - buyPackMessage.discountedPrice
+        : buyPackMessage.user.balance - paidByBalance;
 
     if (!buyPackMessage) {
       return '';
@@ -185,10 +193,8 @@ export class PaymentService {
 
     txt += `\n\n👤 ${buyPackMessage.user.fullname}`;
 
-    if (buyPackMessage.user.role === 'ADMIN') {
-      txt += `\n💵 شارژ حساب: ${convertPersianCurrency(
-        roundTo(buyPackMessage.user.balance - buyPackMessage.discountedPrice, 0),
-      )}`;
+    if (buyPackMessage.user.role === 'ADMIN' || buyPackMessage.user.balance > 0) {
+      txt += `\n💵 شارژ حساب: ${convertPersianCurrency(floorTo(newBalance, 0))}`;
     }
 
     txt += `\n📱 موبایل: +98${buyPackMessage.user.phone}`;
@@ -202,6 +208,10 @@ export class PaymentService {
         txt += `\n📈 سود: ${convertPersianCurrency(buyPackMessage.profitAmount)} (%${roundTo(profitPercent, 1)})`;
       } else {
         txt += `\n💰 قیمت خرید: ${convertPersianCurrency(buyPackMessage.price)}`;
+      }
+
+      if (buyPackMessage.user.balance > 0 && buyPackMessage.user.role === Role.USER) {
+        txt += `\n💰 مبلغ کسر شده از کیف پول: ${convertPersianCurrency(floorTo(paidByBalance, 0))}`;
       }
     }
 
@@ -430,13 +440,18 @@ export class PaymentService {
     );
 
     // Update user balance if they're an admin
-    if (currentUser.role === Role.ADMIN) {
+    if (currentUser.role === Role.ADMIN || (currentUser.role === Role.USER && currentUser.balance > 0)) {
+      const paidByBalance =
+        currentUser.role === Role.USER && currentUser.balance - discountedPrice > 0
+          ? discountedPrice
+          : currentUser.balance;
+      const decrementAmount = currentUser.role === Role.ADMIN ? discountedPrice : paidByBalance;
       transactions.push(
         this.prisma.user.update({
           where: { id: currentUser.id },
           data: {
             balance: {
-              decrement: discountedPrice,
+              decrement: decrementAmount,
             },
           },
         }),
