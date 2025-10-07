@@ -817,7 +817,7 @@ export class PaymentService {
       let source: Buffer | undefined;
       let replyMarkup: TelegramReplyMarkup | undefined;
 
-      if (!chatId) {
+      if (!chatId && buyPackMessage.user.parentId) {
         continue;
       }
 
@@ -862,14 +862,17 @@ export class PaymentService {
         });
       }
 
-      telegramMessages.push({
-        caption,
-        chatId,
-        source,
-        reply_markup: replyMarkup,
-        brandId: buyPackMessage.user.brandId,
-        isOwner: buyPackMessage.user.isOwner,
-      });
+      // Only push user message if chatId is valid
+      if (chatId) {
+        telegramMessages.push({
+          caption,
+          chatId,
+          source,
+          reply_markup: replyMarkup,
+          brandId: buyPackMessage.user.brandId,
+          isOwner: buyPackMessage.user.isOwner,
+        });
+      }
     }
 
     return telegramMessages;
