@@ -103,8 +103,8 @@ export class XuiClientService {
     return withRetries(async () => {
       const [auth, server] = await this.getAuthorization(serverId);
 
-      // Use 60s timeout for database backups (isBuffer), 15s for regular operations
-      const timeoutMs = isBuffer ? 60_000 : 15_000;
+      // Use 60s timeout for database backups (isBuffer), 30s for regular operations
+      const timeoutMs = isBuffer ? 60_000 : 30_000;
 
       const config: AxiosRequestConfig = {
         headers: { ...(headers || {}), cookie: auth },
