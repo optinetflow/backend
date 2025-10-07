@@ -396,9 +396,68 @@ export function uniqByKeys<T, K extends keyof T & string>(items: T[], keyOrKeys:
   });
 }
 
-// small retry helper
-export async function withRetries<T>(fn: () => Promise<T>, retries = 10, baseDelay = 500): Promise<T> {
+// Helper to extract HTTP status from error
+function getErrorStatus(error: unknown): number | undefined {
+  return (error as { response?: { status?: number } })?.response?.status;
+}
+
+// Helper to extract error code from error
+function getErrorCode(error: unknown): string | undefined {
+  return (error as { code?: string })?.code;
+}
+
+// Helper to determine if an error is retriable
+function isRetriableError(error: unknown): boolean {
+  // HTTP status codes that are retriable (rate limiting, server errors, service unavailable, gateway errors)
+  const status = getErrorStatus(error);
+
+  if (status !== undefined && (status === 429 || (status >= 500 && status < 600))) {
+    return true;
+  }
+
+  // Network errors and timeouts
+  const errorCode = getErrorCode(error);
+
+  if (errorCode) {
+    const retriableCodes = [
+      'ETIMEDOUT', // Connection timeout
+      'ECONNRESET', // Connection reset by peer
+      'ECONNREFUSED', // Connection refused
+      'ENOTFOUND', // DNS lookup failed
+      'ENETUNREACH', // Network unreachable
+      'EAI_AGAIN', // DNS lookup timeout
+      'ECONNABORTED', // Connection aborted
+      'EPIPE', // Broken pipe
+      'ERR_NETWORK', // Generic network error
+      'ERR_CANCELED', // Request canceled (might be timeout)
+    ];
+
+    if (retriableCodes.includes(errorCode)) {
+      return true;
+    }
+  }
+
+  // Check for timeout errors in error message
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  return (
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('timed out') ||
+    errorMessage.includes('econnreset') ||
+    errorMessage.includes('socket hang up')
+  );
+}
+
+// Enhanced retry helper with exponential backoff, jitter, and comprehensive error handling
+export async function withRetries<T>(
+  fn: () => Promise<T>,
+  retries = 10,
+  baseDelay = 500,
+  maxDelay = 30_000, // Maximum 30 seconds between retries
+  totalTimeout = 300_000, // Maximum 5 minutes total
+): Promise<T> {
   let attempt = 0;
+  const startTime = Date.now();
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -406,14 +465,42 @@ export async function withRetries<T>(fn: () => Promise<T>, retries = 10, baseDel
       return await fn();
     } catch (error: unknown) {
       attempt++;
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      const isRetriable = status === 429 || (status !== undefined && status >= 500 && status < 600);
 
-      if (!isRetriable || attempt > retries) {
+      // Check total timeout
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed >= totalTimeout) {
+        console.error(`[withRetries] Total timeout exceeded (${totalTimeout}ms) after ${attempt} attempts`);
+
         throw error;
       }
 
-      const delay = baseDelay * 2 ** (attempt - 1); // exponential backoff
+      // Determine if error is retriable
+      const isRetriable = isRetriableError(error);
+
+      if (!isRetriable || attempt > retries) {
+        if (attempt > 1) {
+          console.error(`[withRetries] Failed after ${attempt} attempts`, {
+            error: error instanceof Error ? error.message : String(error),
+            isRetriable,
+            reachedMaxRetries: attempt > retries,
+          });
+        }
+
+        throw error;
+      }
+
+      // Calculate delay with exponential backoff and jitter
+      const exponentialDelay = Math.min(baseDelay * 2 ** (attempt - 1), maxDelay);
+      const jitter = Math.random() * 0.3 * exponentialDelay; // Add up to 30% jitter
+      const delay = Math.min(exponentialDelay + jitter, maxDelay);
+
+      console.warn(`[withRetries] Attempt ${attempt}/${retries} failed, retrying in ${Math.round(delay)}ms`, {
+        error: error instanceof Error ? error.message : String(error),
+        errorCode: getErrorCode(error),
+        status: getErrorStatus(error),
+      });
+
       await new Promise((res) => setTimeout(res, delay));
     }
   }
