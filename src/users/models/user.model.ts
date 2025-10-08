@@ -70,6 +70,9 @@ export class Parent {
 
   @Field(() => [PromotionCode], { nullable: true })
   promotion?: PromotionCode[] | null;
+
+  @Field(() => Boolean)
+  isOwner: boolean;
 }
 
 @ObjectType()

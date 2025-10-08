@@ -237,6 +237,7 @@ type Parent {
   bankCard: [BankCard!]
   freePackageId: String
   id: String!
+  isOwner: Boolean!
   promotion: [PromotionCode!]
   telegram: ParentTelegram
 }
