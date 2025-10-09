@@ -517,7 +517,7 @@ export class XuiService {
     });
   }
 
-  async upsertClientStats(stats: Stat[], server: Server, onlinesStat: string[]) {
+  async upsertClientStats(stats: Array<Stat & { serverId: string }>, onlinesStat: string[]) {
     const isDev = this.configService.get('env') === 'development';
 
     if (stats.length === 0) {
@@ -539,7 +539,7 @@ export class XuiService {
 
       const statSql = Prisma.sql`(${stat.id}::uuid, ${stat.enable}, ${stat.email}, ${stat.up}, ${stat.down}, ${
         stat.total
-      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${server.id}::uuid, ${stat.flow || ''}, ${
+      }, ${stat.expiryTime}, to_timestamp(${Date.now()} / 1000.0), ${stat.serverId}::uuid, ${stat.flow || ''}, ${
         stat.subId
       }, ${stat.tgId || ''}, ${stat.limitIp || 0}, ${lastConnectedAtSQL})`;
       updatedValues.push(statSql);
@@ -567,14 +567,12 @@ export class XuiService {
           "lastConnectedAt" = CASE WHEN EXCLUDED."lastConnectedAt" IS NOT NULL THEN EXCLUDED."lastConnectedAt" ELSE "ClientStat"."lastConnectedAt" END
       `;
     } catch (error) {
-      this.logger.error(
-        `CRITICAL: Failed to upsert ClientStats for domain: ${server.domain}, inboundId: ${server.inboundId}`,
-        {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          statsCount: stats.length,
-        },
-      );
+      this.logger.error('CRITICAL: Failed to upsert ClientStats', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        statsCount: stats.length,
+        serverIds: [...new Set(stats.map((s) => s.serverId))],
+      });
 
       throw error; // Re-throw as this is critical
     }
@@ -582,6 +580,7 @@ export class XuiService {
     // Step 2: NON-CRITICAL - Run secondary operations with proper dependency chain
     // These should NOT prevent the sync from succeeding, but have dependencies
     if (!isDev) {
+      const serverId = stats[0]?.serverId;
       let canProceedWithCleanup = true;
 
       // Group 1: Package status tracking (must succeed together for data consistency)
@@ -592,8 +591,7 @@ export class XuiService {
         canProceedWithCleanup = false;
         this.logger.error('Non-critical: Failed to update package status (warnings/finished packages)', {
           error: error instanceof Error ? error.message : String(error),
-          serverId: server.id,
-          domain: server.domain,
+          serverId,
           impact:
             'Skipping cleanup operations (syncNotExistClientStats, delDepletedClients) to prevent data inconsistency',
         });
@@ -604,24 +602,22 @@ export class XuiService {
       if (canProceedWithCleanup) {
         // Sync non-existent client stats (depends on updateFinishedPackages)
         try {
-          await this.syncNotExistClientStats(stats, server.id);
+          await this.syncNotExistClientStats(stats, serverId);
         } catch (error) {
           this.logger.error('Non-critical: Failed to sync non-existent client stats', {
             error: error instanceof Error ? error.message : String(error),
-            serverId: server.id,
-            domain: server.domain,
+            serverId,
           });
           // Continue to next cleanup operation
         }
 
         // Delete depleted clients (depends on package status being tracked)
         try {
-          await this.delDepletedClients(server.id);
+          await this.delDepletedClients(serverId);
         } catch (error) {
           this.logger.error('Non-critical: Failed to delete depleted clients', {
             error: error instanceof Error ? error.message : String(error),
-            serverId: server.id,
-            domain: server.domain,
+            serverId,
           });
           // Continue processing
         }
@@ -746,6 +742,58 @@ export class XuiService {
     await queue.onIdle();
   }
 
+  /**
+   * Sync a single server with retry logic and isolated error handling
+   */
+  private async syncSingleServer(server: Server, allServers: Server[], retryCount = 0): Promise<void> {
+    const MAX_RETRIES = 2;
+
+    try {
+      // Step 1: Fetch data (with retry on network errors)
+      const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+      // .filter((stat) => stat.inboundId === server.inboundId);
+
+      const onlinesStat = await this.getOnlinesInbounds(server.id);
+
+      // Step 2: Upsert stats (critical operation)
+      const statsWithServerId = updatedClientStats
+        .map((s) => {
+          const serverId = allServers.find(
+            (inAllServer) => s.inboundId === inAllServer.inboundId && inAllServer.domain === server.domain,
+          )?.id;
+
+          if (serverId) {
+            return { ...s, serverId };
+          }
+
+          return null;
+        })
+        .filter(Boolean) as Array<Stat & { serverId: string }>;
+      await this.upsertClientStats(statsWithServerId, onlinesStat);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isNetworkError =
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('ETIMEDOUT') ||
+        errorMessage.includes('ENOTFOUND');
+
+      // Retry on network errors only
+      if (isNetworkError && retryCount < MAX_RETRIES) {
+        this.logger.warn(`Retrying server ${server.domain} (attempt ${retryCount + 1}/${MAX_RETRIES})`, {
+          error: errorMessage,
+        });
+
+        // Exponential backoff: 2s, 4s
+        await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** retryCount));
+
+        return this.syncSingleServer(server, allServers, retryCount + 1);
+      }
+
+      // Re-throw to be caught by parent
+      throw error;
+    }
+  }
+
   @Interval('syncClientStats', 1 * 60 * 1000)
   async syncClientStats() {
     const isDev = this.configService.get('env') === 'development';
@@ -765,7 +813,7 @@ export class XuiService {
     };
 
     try {
-      servers = await this.prisma.server.findMany({ where: { deletedAt: null, category: { not: null } } });
+      servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
     } catch (error) {
       this.logger.error('Critical: Failed to fetch servers from database', {
         error: error instanceof Error ? error.message : String(error),
@@ -781,7 +829,7 @@ export class XuiService {
       return;
     }
 
-    const uniqueServers = uniqByKeys(servers, ['domain', 'inboundId']);
+    const uniqueServers = uniqByKeys(servers, ['domain']);
     this.logger.debug(`Processing ${uniqueServers.length} unique servers`);
 
     const queue = new PQueue({ concurrency: 3, interval: 1000, intervalCap: 3 });
@@ -793,7 +841,7 @@ export class XuiService {
         try {
           // Wrap in timeout protection (30 seconds max per server)
           await Promise.race([
-            this.syncSingleServer(server),
+            this.syncSingleServer(server, servers),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Server sync timeout')), 30_000)),
           ]);
 
@@ -835,46 +883,6 @@ export class XuiService {
       this.logger.log(
         `Sync complete: ${results.success}/${uniqueServers.length} servers, ${results.failed} failed (${totalDuration}ms)`,
       );
-    }
-  }
-
-  /**
-   * Sync a single server with retry logic and isolated error handling
-   */
-  private async syncSingleServer(server: Server, retryCount = 0): Promise<void> {
-    const MAX_RETRIES = 2;
-
-    try {
-      // Step 1: Fetch data (with retry on network errors)
-      const updatedClientStats = (await this.getInbounds(server.id))
-        .filter((i) => isUUID(i.id))
-        .filter((stat) => stat.inboundId === server.inboundId);
-
-      const onlinesStat = await this.getOnlinesInbounds(server.id);
-
-      // Step 2: Upsert stats (critical operation)
-      await this.upsertClientStats(updatedClientStats, server, onlinesStat);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isNetworkError =
-        errorMessage.includes('ECONNREFUSED') ||
-        errorMessage.includes('ETIMEDOUT') ||
-        errorMessage.includes('ENOTFOUND');
-
-      // Retry on network errors only
-      if (isNetworkError && retryCount < MAX_RETRIES) {
-        this.logger.warn(`Retrying server ${server.domain} (attempt ${retryCount + 1}/${MAX_RETRIES})`, {
-          error: errorMessage,
-        });
-
-        // Exponential backoff: 2s, 4s
-        await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** retryCount));
-
-        return this.syncSingleServer(server, retryCount + 1);
-      }
-
-      // Re-throw to be caught by parent
-      throw error;
     }
   }
 
