@@ -517,7 +517,7 @@ export class XuiService {
     });
   }
 
-  async upsertClientStats(stats: Array<Stat & { serverId: string }>, onlinesStat: string[]) {
+  async upsertClientStats(stats: Array<Stat & { serverId?: string }>, onlinesStat: string[]) {
     const isDev = this.configService.get('env') === 'development';
 
     if (stats.length === 0) {
@@ -579,8 +579,9 @@ export class XuiService {
 
     // Step 2: NON-CRITICAL - Run secondary operations with proper dependency chain
     // These should NOT prevent the sync from succeeding, but have dependencies
-    if (!isDev) {
-      const serverId = stats[0]?.serverId;
+    const serverId = stats[0]?.serverId;
+
+    if (!isDev && serverId) {
       let canProceedWithCleanup = true;
 
       // Group 1: Package status tracking (must succeed together for data consistency)
@@ -669,30 +670,6 @@ export class XuiService {
     return this.clientManagementService.toggleUserBlock(userId, isBlocked);
   }
 
-  // async fixOrder() {
-  //   this.logger.debug('fixOrder');
-  //   const users = await this.prisma.user.findMany();
-
-  //   for (const user of users) {
-  //     try {
-  //       const userPacks = await this.prisma.userPackage.findMany({
-  //         where: { userId: user.id },
-  //         orderBy: { order: 'desc' },
-  //       });
-
-  //       let lastOrder = 1;
-
-  //       for (const userPack of userPacks) {
-  //         await this.prisma.userPackage.update({ where: { id: userPack.id }, data: { orderN: lastOrder } });
-  //         lastOrder += 1;
-  //       }
-  //       // Upsert ClientStat records in bulk
-  //     } catch (error) {
-  //       console.error('Error fixOrder', error);
-  //     }
-  //   }
-  // }
-
   @Interval('backupDB', 1 * 60 * 1000)
   async backupDB() {
     const isDev = this.configService.get('env') === 'development';
@@ -756,19 +733,13 @@ export class XuiService {
       const onlinesStat = await this.getOnlinesInbounds(server.id);
 
       // Step 2: Upsert stats (critical operation)
-      const statsWithServerId = updatedClientStats
-        .map((s) => {
-          const serverId = allServers.find(
-            (inAllServer) => s.inboundId === inAllServer.inboundId && inAllServer.domain === server.domain,
-          )?.id;
+      const statsWithServerId = updatedClientStats.map((s) => {
+        const serverId = allServers.find(
+          (inAllServer) => s.inboundId === inAllServer.inboundId && inAllServer.domain === server.domain,
+        )?.id;
 
-          if (serverId) {
-            return { ...s, serverId };
-          }
-
-          return null;
-        })
-        .filter(Boolean) as Array<Stat & { serverId: string }>;
+        return { ...s, serverId };
+      });
       await this.upsertClientStats(statsWithServerId, onlinesStat);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
