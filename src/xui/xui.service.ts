@@ -670,6 +670,52 @@ export class XuiService {
     return this.clientManagementService.toggleUserBlock(userId, isBlocked);
   }
 
+  /**
+   * Sync a single server with retry logic and isolated error handling
+   */
+  private async syncSingleServer(server: Server, allServers: Server[], retryCount = 0): Promise<void> {
+    const MAX_RETRIES = 2;
+
+    try {
+      // Step 1: Fetch data (with retry on network errors)
+      const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
+      // .filter((stat) => stat.inboundId === server.inboundId);
+
+      const onlinesStat = await this.getOnlinesInbounds(server.id);
+
+      // Step 2: Upsert stats (critical operation)
+      const statsWithServerId = updatedClientStats.map((s) => {
+        const serverId = allServers.find(
+          (inAllServer) => s.inboundId === inAllServer.inboundId && inAllServer.domain === server.domain,
+        )?.id;
+
+        return { ...s, serverId };
+      });
+      await this.upsertClientStats(statsWithServerId, onlinesStat);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isNetworkError =
+        errorMessage.includes('ECONNREFUSED') ||
+        errorMessage.includes('ETIMEDOUT') ||
+        errorMessage.includes('ENOTFOUND');
+
+      // Retry on network errors only
+      if (isNetworkError && retryCount < MAX_RETRIES) {
+        this.logger.warn(`Retrying server ${server.domain} (attempt ${retryCount + 1}/${MAX_RETRIES})`, {
+          error: errorMessage,
+        });
+
+        // Exponential backoff: 2s, 4s
+        await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** retryCount));
+
+        return this.syncSingleServer(server, allServers, retryCount + 1);
+      }
+
+      // Re-throw to be caught by parent
+      throw error;
+    }
+  }
+
   @Interval('backupDB', 1 * 60 * 1000)
   async backupDB() {
     const isDev = this.configService.get('env') === 'development';
@@ -717,52 +763,6 @@ export class XuiService {
     }
 
     await queue.onIdle();
-  }
-
-  /**
-   * Sync a single server with retry logic and isolated error handling
-   */
-  private async syncSingleServer(server: Server, allServers: Server[], retryCount = 0): Promise<void> {
-    const MAX_RETRIES = 2;
-
-    try {
-      // Step 1: Fetch data (with retry on network errors)
-      const updatedClientStats = (await this.getInbounds(server.id)).filter((i) => isUUID(i.id));
-      // .filter((stat) => stat.inboundId === server.inboundId);
-
-      const onlinesStat = await this.getOnlinesInbounds(server.id);
-
-      // Step 2: Upsert stats (critical operation)
-      const statsWithServerId = updatedClientStats.map((s) => {
-        const serverId = allServers.find(
-          (inAllServer) => s.inboundId === inAllServer.inboundId && inAllServer.domain === server.domain,
-        )?.id;
-
-        return { ...s, serverId };
-      });
-      await this.upsertClientStats(statsWithServerId, onlinesStat);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isNetworkError =
-        errorMessage.includes('ECONNREFUSED') ||
-        errorMessage.includes('ETIMEDOUT') ||
-        errorMessage.includes('ENOTFOUND');
-
-      // Retry on network errors only
-      if (isNetworkError && retryCount < MAX_RETRIES) {
-        this.logger.warn(`Retrying server ${server.domain} (attempt ${retryCount + 1}/${MAX_RETRIES})`, {
-          error: errorMessage,
-        });
-
-        // Exponential backoff: 2s, 4s
-        await new Promise((resolve) => setTimeout(resolve, 2000 * 2 ** retryCount));
-
-        return this.syncSingleServer(server, allServers, retryCount + 1);
-      }
-
-      // Re-throw to be caught by parent
-      throw error;
-    }
   }
 
   @Interval('syncClientStats', 1 * 60 * 1000)
