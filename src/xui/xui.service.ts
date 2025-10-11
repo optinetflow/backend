@@ -517,7 +517,7 @@ export class XuiService {
     });
   }
 
-  async upsertClientStats(stats: Array<Stat & { serverId?: string }>, onlinesStat: string[]) {
+  async upsertClientStats(stats: Array<Stat & { serverId: string }>, onlinesStat: string[]) {
     const isDev = this.configService.get('env') === 'development';
 
     if (stats.length === 0) {
@@ -689,7 +689,7 @@ export class XuiService {
           (inAllServer) => s.inboundId === inAllServer.inboundId && inAllServer.domain === server.domain,
         )?.id;
 
-        return { ...s, serverId };
+        return { ...s, serverId: serverId || server.id };
       });
       await this.upsertClientStats(statsWithServerId, onlinesStat);
     } catch (error) {
