@@ -635,6 +635,11 @@ export class PaymentService {
         balance: {
           increment: input.amount,
         },
+        // Reset notification count for admins with positive balance when they charge account
+        ...(user.balance + input.amount >= 0 && {
+          negativeBalanceNotificationCount: 0,
+          lastNegativeBalanceNotificationAt: null,
+        }),
       },
     });
 
@@ -798,6 +803,7 @@ export class PaymentService {
     return userModel;
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async getBuyPackMessages(input: GetBuyPackMessages): Promise<TelegramMessage[]> {
     const telegramMessages: TelegramMessage[] = [];
     const telegramUsersDic = arrayToDic(input.telegramUsers, 'userId');

@@ -23,34 +23,36 @@ enum PackageCategory {
 }
 
 model User {
-  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt                  DateTime  @default(now())
-  updatedAt                  DateTime  @updatedAt
-  phone                      String
-  password                   String // @db.VarChar(255)
-  fullname                   String    @db.VarChar(255)
-  balance                    Float     @default(0)
-  profitBalance              Float     @default(0)
-  totalProfit                Float     @default(0)
-  parentId                   String?   @db.Uuid
-  referId                    String?   @db.Uuid
-  brandId                    String    @db.Uuid
-  freePackageId              String?   @db.Uuid
-  otp                        String?
-  otpExpiration              DateTime?
-  role                       Role      @default(USER)
-  isDisabled                 Boolean   @default(false)
-  isParentDisabled           Boolean   @default(false)
-  isVerified                 Boolean   @default(false)
-  maxRechargeDiscountPercent Float?
-  profitPercent              Float     @default(0)
-  initialDiscountPercent     Float?
-  appliedDiscountPercent     Float?
-  description                String?
-  joinedPromotionId          String?   @db.Uuid
-  joinedPromotionCode        String?   @db.VarChar(255)
-  maxGroupDiscount           Float?
-  isOwner                    Boolean   @default(false)
+  id                                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt                         DateTime  @default(now())
+  updatedAt                         DateTime  @updatedAt
+  phone                             String
+  password                          String // @db.VarChar(255)
+  fullname                          String    @db.VarChar(255)
+  balance                           Float     @default(0)
+  profitBalance                     Float     @default(0)
+  totalProfit                       Float     @default(0)
+  parentId                          String?   @db.Uuid
+  referId                           String?   @db.Uuid
+  brandId                           String    @db.Uuid
+  freePackageId                     String?   @db.Uuid
+  otp                               String?
+  otpExpiration                     DateTime?
+  role                              Role      @default(USER)
+  isDisabled                        Boolean   @default(false)
+  isParentDisabled                  Boolean   @default(false)
+  isVerified                        Boolean   @default(false)
+  maxRechargeDiscountPercent        Float?
+  profitPercent                     Float     @default(0)
+  initialDiscountPercent            Float?
+  appliedDiscountPercent            Float?
+  description                       String?
+  joinedPromotionId                 String?   @db.Uuid
+  joinedPromotionCode               String?   @db.VarChar(255)
+  maxGroupDiscount                  Float?
+  isOwner                           Boolean   @default(false)
+  negativeBalanceNotificationCount  Int       @default(0)
+  lastNegativeBalanceNotificationAt DateTime?
 
   brand           Brand?        @relation(fields: [brandId], references: [id])
   parent          User?         @relation("UserParentRelation", fields: [parentId], references: [id])

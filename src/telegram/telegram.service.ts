@@ -475,17 +475,14 @@ export class TelegramService {
     }
   }
 
-  private async sendNotificationForNegetiveAdminBalance(
+  private async sendNotificationForNegativeAdminBalance(
     admin: User & {
       brand: Brand | null;
       telegram: TelegramUser | null;
-      parent: (Parent & { telegram: TelegramUser | null }) | null;
     },
   ) {
     const bot = this.getBot(admin.brandId);
-    const message = `سلام ${admin.fullname} عزیز! 🌟\n\nشارژ حساب شما منفی شده! ❌\nاگه زود شارژش نکنی، ممکنه حساب مشتریا و بسته‌هاشون بسته بشه. 🚫\n\nمنتظرتیم تا زودتر درستش کنی! 💳✨\nاگه سوالی داشتی، ما اینجاییم. 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
-
-    const parentMessage = `\nشارژ حساب ${admin.fullname} منفی شده! ❌\n📞: +98${admin.phone}\n💰 موجودی فعلی: ${admin.balance} تومان\nلطفاً پیگیری کنید که زودتر شارژ بشه؛ چون ممکنه حساب مشتریا بسته بشه. 🚫\n\nاگه کمک خواستید، ما همیشه در دسترسیم! 🙌\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
+    const message = `🚨 هشدار وضعیت حساب\n\nسلام ${admin.fullname} عزیز،\n⚠️ موجودی حساب شما در حال حاضر منفی است و خرید برای مشتریانتان به‌طور موقت متوقف شده.\n\n💳 لطفاً در اولین فرصت حسابتان را شارژ کنید.\n\nبا سپاس از همکاری شما 🌱\n\nتیم پشتیبانی ${admin.brand?.domainName} ❤️`;
 
     if (admin.telegram?.chatId) {
       const adminChatId = admin.telegram.chatId.toString();
@@ -495,47 +492,104 @@ export class TelegramService {
         adminChatId,
       );
     }
-
-    if (admin.parent?.telegram?.chatId) {
-      const parentChatId = admin.parent.telegram.chatId.toString();
-      await TelegramErrorHandler.safeTelegramCall(
-        () => bot.telegram.sendMessage(parentChatId, parentMessage),
-        'Send negative balance notification to parent',
-        parentChatId,
-      );
-    }
   }
 
-  // @Interval('negetiveAdminBalanceNotification', 12 * 60 * 60 * 1000) // 12 hours in milliseconds
-  async negetiveAdminBalanceNotification() {
+  @Interval('negativeAdminBalanceNotification', 5 * 60 * 1000)
+  async negativeAdminBalanceNotification() {
     const isDev = this.configService.get('env') === 'development';
 
     if (isDev) {
       return;
     }
 
-    this.logger.debug('negetiveAdminBalanceNotification called every 12 hours');
+    this.logger.debug('negativeAdminBalanceNotification called every 5 minutes');
 
-    const admins = await this.prisma.user.findMany({
-      where: { role: Role.ADMIN, balance: { lt: 0 } },
-      include: { brand: true, telegram: true, parent: { include: { telegram: true } } },
-    });
+    const admins = (await this.prisma.user.findMany({
+      where: {
+        role: Role.ADMIN,
+        balance: { lt: 0 },
+        negativeBalanceNotificationCount: { lt: 5 },
+      },
+      include: { brand: true, telegram: true },
+    })) as Array<
+      User & {
+        brand: Brand | null;
+        telegram: TelegramUser | null;
+        negativeBalanceNotificationCount: number;
+        lastNegativeBalanceNotificationAt: Date | null;
+      }
+    >;
 
     if (admins.length === 0) {
       return;
     }
 
     const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+    const now = new Date();
 
     for await (const admin of admins) {
-      await queue.add(() =>
-        this.sendNotificationForNegetiveAdminBalance(admin).catch((error) => {
+      if (!admin.telegram?.chatId) {
+        continue;
+      }
+
+      await queue.add(async () => {
+        try {
+          // Check if enough time has passed since last notification
+          const shouldSendNotification = this.shouldSendNegativeBalanceNotification(
+            admin.negativeBalanceNotificationCount,
+            admin.lastNegativeBalanceNotificationAt,
+            now,
+          );
+
+          if (!shouldSendNotification) {
+            return;
+          }
+
+          await this.sendNotificationForNegativeAdminBalance(admin);
+
+          // Update notification count and timestamp after successful send
+          await this.prisma.user.update({
+            where: { id: admin.id },
+            data: {
+              negativeBalanceNotificationCount: { increment: 1 },
+              lastNegativeBalanceNotificationAt: now,
+            },
+          });
+
+          this.logger.log(
+            `Sent negative balance notification to admin ${admin.fullname} (count: ${
+              admin.negativeBalanceNotificationCount + 1
+            })`,
+          );
+        } catch (error) {
           this.logger.error(`Failed to send notification to admin ${admin.fullname}:`, error);
-        }),
-      );
+        }
+      });
     }
 
     return queue.onIdle(); // Ensure all tasks are completed before function ends
+  }
+
+  private shouldSendNegativeBalanceNotification(
+    notificationCount: number,
+    lastNotificationAt: Date | null,
+    now: Date,
+  ): boolean {
+    // First notification should be sent immediately when balance goes negative
+    if (notificationCount === 0) {
+      return true;
+    }
+
+    // If no previous notification timestamp, send notification
+    if (!lastNotificationAt) {
+      return true;
+    }
+
+    // For subsequent notifications, wait 1 hour between notifications
+    const timeSinceLastNotification = now.getTime() - lastNotificationAt.getTime();
+    const oneHourInMs = 60 * 60 * 1000;
+
+    return timeSinceLastNotification >= oneHourInMs;
   }
 
   private createHomeScene(brand: Brand) {

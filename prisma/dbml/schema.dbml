@@ -31,6 +31,8 @@ Table User {
   joinedPromotionCode String
   maxGroupDiscount Float
   isOwner Boolean [not null, default: false]
+  negativeBalanceNotificationCount Int [not null, default: 0]
+  lastNegativeBalanceNotificationAt DateTime
   brand Brand
   parent User
   children User [not null]
