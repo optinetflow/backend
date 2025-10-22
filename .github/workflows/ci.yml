@@ -108,7 +108,7 @@ jobs:
 
       - name: Deploy docker container
         env:
-          TEMP_ENV_PATH: /home/ubuntu/temp-backend-env
+          TEMP_ENV_PATH: /home/masih/temp-backend-env
           CONTAINER_NAME: ${{ secrets.CONTAINER_NAME }}
           NETWORK_NAME: ${{ secrets.NETWORK_NAME }}
         run: |
