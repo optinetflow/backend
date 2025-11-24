@@ -1,10 +1,15 @@
 import 'reflect-metadata';
 
-import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { PackageCategory } from '@prisma/client';
+import { Field, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { Country, PackageCategory } from '@prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
 import { BigNumberScalar } from '../../common/scalars/bigNumber';
+
+registerEnumType(Country, {
+  name: 'Country',
+  description: 'Country',
+});
 
 @ObjectType()
 export class UserPackageOutput extends BaseModel {
@@ -37,4 +42,7 @@ export class UserPackageOutput extends BaseModel {
 
   @Field(() => Int, { nullable: true })
   bundleGroupSize?: number;
+
+  @Field(() => Country)
+  country: Country;
 }

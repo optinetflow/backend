@@ -505,3 +505,25 @@ export async function withRetries<T>(
     }
   }
 }
+
+export function countryCodeToFlag(code: string | null | undefined): string {
+  if (!code) {
+    return '';
+  }
+
+  const cc = code.trim().toUpperCase();
+
+  // Must be exactly two A–Z letters
+  if (!/^[A-Z]{2}$/.test(cc)) {
+    return '';
+  }
+
+  const A = 'A'.codePointAt(0)!;
+  // eslint-disable-next-line unicorn/number-literal-case, unicorn/numeric-separators-style
+  const OFFSET = 0x1f1e6 - A;
+
+  const first = cc.codePointAt(0)! + OFFSET;
+  const second = cc.codePointAt(1)! + OFFSET;
+
+  return String.fromCodePoint(first, second);
+}

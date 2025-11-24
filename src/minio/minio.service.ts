@@ -171,7 +171,9 @@ export class MinioClientService {
 
     try {
       await this.upload([{ filename: uploadPath, buffer: resizedImage }]);
-    } catch {
+    } catch (error: unknown) {
+      console.error('===========> error', error instanceof Error ? error.message : String(error));
+
       throw new BadRequestException('Uploading image to minio got failed!');
     }
 

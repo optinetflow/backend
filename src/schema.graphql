@@ -2,6 +2,18 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AvailableCountries {
+  category: PackageCategory!
+  countries: [Country!]!
+
+  """Identifies the date and time when the object was created."""
+  createdAt: DateTime!
+  id: ID!
+
+  """Identifies the date and time when the object was last updated."""
+  updatedAt: DateTime!
+}
+
 type BankCard {
   name: String!
   number: String!
@@ -27,6 +39,8 @@ type Brand {
 
 input BuyPackageInput {
   bundleGroupSize: Int
+  country: Country!
+  durationMonths: Int
   name: String!
   packageId: String!
   receipt: String
@@ -103,6 +117,21 @@ type ClientStat {
 
   """Identifies the date and time when the object was last updated."""
   updatedAt: DateTime!
+}
+
+"""Country"""
+enum Country {
+  au
+  ca
+  de
+  fi
+  fr
+  gb
+  ir
+  nl
+  sg
+  tr
+  us
 }
 
 input CreatePromotionInput {
@@ -271,6 +300,7 @@ type PromotionCode {
 }
 
 type Query {
+  availableCountries: [AvailableCountries!]!
   checkAuth: CheckAuth!
   clientStats(filters: GetClientStatsFiltersInput!): [ClientStat!]!
   getBrandInfo(input: GetBrandInfoInput!): Brand!
@@ -298,6 +328,7 @@ type RechargePackage {
 }
 
 input RenewPackageInput {
+  durationMonths: Int
   packageId: String!
   receipt: String
   userPackageId: String!
@@ -444,6 +475,7 @@ type UserPackageOutput {
   bundleGroupSize: Int
   category: PackageCategory!
   categoryFa: String
+  country: Country!
 
   """Identifies the date and time when the object was created."""
   createdAt: DateTime!

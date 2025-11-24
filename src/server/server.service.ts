@@ -2,8 +2,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, Interval } from '@nestjs/schedule';
+import { Country, PackageCategory } from '@prisma/client';
 import fs from 'fs';
 import { PrismaService } from 'nestjs-prisma';
+import { v4 as uuid } from 'uuid';
 
 import { PostgresConfig } from '../common/configs/config.interface';
 import { asyncShellExec } from '../common/helpers';
@@ -11,6 +13,7 @@ import { I18nService } from '../common/i18/i18.service';
 import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { BrandService } from './../brand/brand.service';
 import { TelegramService } from './../telegram/telegram.service';
+import { AvailableCountries } from './models/availableCountries.model';
 
 @Injectable()
 export class ServerService {
@@ -23,6 +26,102 @@ export class ServerService {
   ) {}
 
   private readonly logger = new Logger(ServerService.name);
+
+  async getAvailableCountries(): Promise<AvailableCountries[]> {
+    const servers = await this.prisma.activeServer.findMany();
+
+    const categoryCountriesMap = new Map<PackageCategory, Set<Country>>();
+
+    for (const server of servers) {
+      if (!server.category) {
+        continue;
+      }
+
+      if (!categoryCountriesMap.has(server.category)) {
+        categoryCountriesMap.set(server.category, new Set<Country>());
+      }
+
+      categoryCountriesMap.get(server.category)?.add(server.country);
+    }
+
+    const availableCountries: AvailableCountries[] = [...categoryCountriesMap.entries()].map(
+      ([category, countries]) =>
+        ({
+          id: uuid(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          category,
+          countries: [...countries],
+        } as AvailableCountries),
+    );
+
+    return availableCountries;
+  }
+
+  @Interval('getPGBackup', 15 * 60 * 1000)
+  async getPGBackup() {
+    const isDev = this.configService.get('env') === 'development';
+
+    if (isDev) {
+      return;
+    }
+
+    this.logger.debug('getPGBackup called every 1 min');
+    const postgresConfig = this.configService.get<PostgresConfig>('postgres');
+
+    if (!postgresConfig) {
+      return;
+    }
+
+    let postgresLogs = '';
+    const outputFile = (
+      await asyncShellExec(
+        `
+          FILE=\`date +"%Y-%m-%d-%H_%M"\`-pg-backup.sql \
+          && OUTPUT_FILE=/app/\${FILE} \
+          && echo $OUTPUT_FILE
+        `,
+      )
+    ).replaceAll('\n', '');
+
+    try {
+      postgresLogs = await asyncShellExec(
+        `
+          cd /app \
+          && echo "Getting Backup Postgres..." \
+          && PGPASSWORD=${postgresConfig.password} pg_dump -c -h ${postgresConfig.dataBaseHost} --port ${postgresConfig.dataBasePort} -U ${postgresConfig.user} ${postgresConfig.databaseName} -F p -f ${outputFile} \
+          && gzip ${outputFile} \
+          && echo "Postgres backup has been done successfully."
+        `,
+        (output) => (postgresLogs += output),
+      );
+
+      const buffer = fs.readFileSync(`${outputFile}.gz`);
+      const firstBrand = await this.brandService.getFirstBrand();
+      const bot = this.telegramService.getBot(firstBrand?.id as string);
+      await TelegramErrorHandler.safeTelegramCall(
+        () =>
+          bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
+            source: buffer,
+            filename: `${outputFile}.gz`,
+          }),
+        'Send database backup to backup group',
+        firstBrand?.backupGroupId,
+      );
+
+      await asyncShellExec(`rm -rf ${outputFile}.gz`);
+    } catch (error_) {
+      const error = error_ as { message?: string };
+
+      if (error?.message) {
+        postgresLogs += `\n${error?.message}`;
+      }
+
+      postgresLogs += '\nPostgres backup finished with some errors.';
+    }
+
+    return postgresLogs;
+  }
 
   // async issueCert(data: IssueCertInput): Promise<Domain> {
   //   const domain = data.domain;
@@ -229,71 +328,6 @@ export class ServerService {
 
   //   await this.syncCertFiles();
   // }
-
-  @Interval('getPGBackup', 15 * 60 * 1000)
-  async getPGBackup() {
-    const isDev = this.configService.get('env') === 'development';
-
-    if (isDev) {
-      return;
-    }
-
-    this.logger.debug('getPGBackup called every 1 min');
-    const postgresConfig = this.configService.get<PostgresConfig>('postgres');
-
-    if (!postgresConfig) {
-      return;
-    }
-
-    let postgresLogs = '';
-    const outputFile = (
-      await asyncShellExec(
-        `
-          FILE=\`date +"%Y-%m-%d-%H_%M"\`-pg-backup.sql \
-          && OUTPUT_FILE=/app/\${FILE} \
-          && echo $OUTPUT_FILE
-        `,
-      )
-    ).replaceAll('\n', '');
-
-    try {
-      postgresLogs = await asyncShellExec(
-        `
-          cd /app \
-          && echo "Getting Backup Postgres..." \
-          && PGPASSWORD=${postgresConfig.password} pg_dump -c -h ${postgresConfig.dataBaseHost} --port ${postgresConfig.dataBasePort} -U ${postgresConfig.user} ${postgresConfig.databaseName} -F p -f ${outputFile} \
-          && gzip ${outputFile} \
-          && echo "Postgres backup has been done successfully."
-        `,
-        (output) => (postgresLogs += output),
-      );
-
-      const buffer = fs.readFileSync(`${outputFile}.gz`);
-      const firstBrand = await this.brandService.getFirstBrand();
-      const bot = this.telegramService.getBot(firstBrand?.id as string);
-      await TelegramErrorHandler.safeTelegramCall(
-        () =>
-          bot.telegram.sendDocument(firstBrand?.backupGroupId as string, {
-            source: buffer,
-            filename: `${outputFile}.gz`,
-          }),
-        'Send database backup to backup group',
-        firstBrand?.backupGroupId,
-      );
-
-      await asyncShellExec(`rm -rf ${outputFile}.gz`);
-    } catch (error_) {
-      const error = error_ as { message?: string };
-
-      if (error?.message) {
-        postgresLogs += `\n${error?.message}`;
-      }
-
-      postgresLogs += '\nPostgres backup finished with some errors.';
-    }
-
-    return postgresLogs;
-  }
 
   // @Cron('0 0 * * *') // Cron expression for 00:00 every day
   // eslint-disable-next-line sonarjs/cognitive-complexity

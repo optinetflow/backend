@@ -1,5 +1,4 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { ServerCountry } from '@prisma/client';
 import { Matches } from 'class-validator';
 
 @InputType()

@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Package, Prisma, Role, Server, TelegramUser } from '@prisma/client';
+import { Country, Package, Prisma, Role, Server, TelegramUser } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
 
@@ -8,6 +8,7 @@ import {
   arrayToDic,
   ceilIfNeeded,
   convertPersianCurrency,
+  countryCodeToFlag,
   extractSubdomain,
   floorTo,
   jsonToB64Url,
@@ -16,7 +17,7 @@ import {
 } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';
 import { MinioClientService } from '../minio/minio.service';
-import { bundleGroupSizes } from '../package/package.constant';
+import { bundleGroupSizes, longTermPackages } from '../package/package.constant';
 import { CallbackData } from '../telegram/telegram.constants';
 import { TelegramMessage, TelegramReplyMarkup, TelegramService } from '../telegram/telegram.service';
 import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
@@ -48,6 +49,8 @@ interface PackagePaymentInput {
   userPackageName: string;
   server: Server;
   bundleGroupSize?: number;
+  durationMonths?: number;
+  country: Country;
 }
 
 export interface SendBuyPackMessage {
@@ -64,6 +67,8 @@ export interface SendBuyPackMessage {
   profitAmount: number;
   inRenew: boolean;
   bundleGroupSize?: number;
+  durationMonths?: number;
+  country: Country;
 }
 
 interface GetBuyPackMessages {
@@ -82,6 +87,13 @@ interface CalculateUserPricingInput {
   childUser?: User;
   bundleGroupSize?: number;
   isChildEndUser: boolean;
+  durationMonths?: number;
+}
+
+interface CalculateLongTermPricingInput {
+  packagePrice: number;
+  parentUser: User;
+  durationMonths: number;
 }
 
 interface CalculateGroupPricingInput {
@@ -148,6 +160,7 @@ export class PaymentService {
 
     const buyPackMessage = buyPackMessagesDic?.[firstUserId];
     const isBundleGroup = Boolean(buyPackMessage?.bundleGroupSize);
+    const isLongTerm = Boolean(buyPackMessage?.durationMonths);
     const paidByBalance =
       buyPackMessage.user.balance - buyPackMessage.price > 0 ? buyPackMessage.price : buyPackMessage.user.balance;
 
@@ -167,14 +180,18 @@ export class PaymentService {
       } else if (buyPackMessage.isGift) {
         txt = `#فعالسازی_هدیه 🎁\n📦 ${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
       } else {
-        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}${isBundleGroup ? ' #خریدـگروهی' : ''}\n📦 ${
-          isBundleGroup ? `${buyPackMessage.bundleGroupSize} تا ` : ''
-        }${buyPackMessage.pack.traffic} گیگ - ${buyPackMessage.pack.expirationDays} روزه`;
+        txt = `${buyPackMessage.inRenew ? '#تمدیدـبسته' : '#خریدـبسته'}${isBundleGroup ? ' #خریدـگروهی' : ''}${
+          isLongTerm ? ' #خریدـطولانیـمدت' : ''
+        }\n📦 ${isBundleGroup ? `${buyPackMessage.bundleGroupSize} تا ` : ''}${buyPackMessage.pack.traffic} گیگ - ${
+          buyPackMessage.pack.expirationDays
+        } روزه`;
       }
 
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
       const packCategory = this.i18.__(`package.category.${buyPackMessage.pack.category}`);
-      txt += `\n🧩 نوع بسته: ${packCategory} | ${extractSubdomain(server.domain)}`;
+      txt += `\n🧩 نوع بسته: ${packCategory} | ${countryCodeToFlag(buyPackMessage.country)} | ${extractSubdomain(
+        server.domain,
+      )}`;
     }
 
     const child =
@@ -364,24 +381,60 @@ export class PaymentService {
     };
   }
 
-  /**
-   * Calculates pricing details for a user in the package purchase hierarchy
-   */
+  private calculateLongTermPricing(input: CalculateLongTermPricingInput) {
+    const { packagePrice, parentUser, durationMonths } = input;
+    const maxUserDiscount = (parentUser?.profitPercent / (100 + parentUser?.profitPercent)) * 100;
+    const maxBundleDiscount = parentUser?.maxGroupDiscount || maxUserDiscount;
+    const discount = longTermPackages.find((pack) => pack.durationMonths === durationMonths)?.discount;
+
+    if (!discount) {
+      throw new BadRequestException('Discount not found!');
+    }
+
+    const rawPrice =
+      packagePrice * (1 - pctToDec(parentUser?.appliedDiscountPercent)) * (1 + pctToDec(parentUser?.profitPercent));
+    const price = ceilIfNeeded(rawPrice, 0) * durationMonths;
+
+    // Calculate discounted price for current user
+    const rawDiscountedPrice = price * (1 - discount * pctToDec(maxBundleDiscount));
+    const discountedPrice = ceilIfNeeded(rawDiscountedPrice, 0);
+
+    // Calculate discount amount
+    const discountAmount = price - discountedPrice;
+
+    // Calculate profit amounts
+    const finalProfit = discountAmount;
+    const profitAmount = ceilIfNeeded(parentUser ? finalProfit : (discountAmount || 0) - discountedPrice, 0);
+
+    return {
+      price,
+      discountedPrice,
+      discountAmount,
+      sellPrice: undefined,
+      profitAmount,
+    };
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private calculateUserPricing(input: CalculateUserPricingInput) {
-    const { packagePrice, currentUser, parentUser, childUser, bundleGroupSize, isChildEndUser } = input;
+    const { packagePrice, currentUser, parentUser, childUser, bundleGroupSize, isChildEndUser, durationMonths } = input;
 
     if (bundleGroupSize && parentUser && !childUser) {
       return this.calculateGroupPricing({ ...input, bundleGroupSize, parentUser });
     }
 
+    if (durationMonths && parentUser && !childUser) {
+      return this.calculateLongTermPricing({ ...input, durationMonths, parentUser });
+    }
+
     // Calculate the base price including parent's discount and profit margin
     const rawPrice =
       packagePrice * (1 - pctToDec(parentUser?.appliedDiscountPercent)) * (1 + pctToDec(parentUser?.profitPercent));
-    const price = ceilIfNeeded(rawPrice, 0) * (bundleGroupSize || 1);
+    const price = ceilIfNeeded(rawPrice, 0) * (bundleGroupSize || 1) * (durationMonths || 1);
 
     // Calculate discounted price for current user
     const rawDiscountedPrice = packagePrice * (1 - pctToDec(currentUser.appliedDiscountPercent));
-    const discountedPrice = ceilIfNeeded(rawDiscountedPrice, 0) * (bundleGroupSize || 1);
+    const discountedPrice = ceilIfNeeded(rawDiscountedPrice, 0) * (bundleGroupSize || 1) * (durationMonths || 1);
 
     // Calculate discount amount
     const discountAmount = price - discountedPrice;
@@ -396,8 +449,19 @@ export class PaymentService {
             parentUser: currentUser,
           }).discountedPrice
         : undefined;
-    const sellPrice =
-      rawSellPrice !== undefined ? groupSellPrice || ceilIfNeeded(rawSellPrice, 0) * (bundleGroupSize || 1) : undefined;
+    const longTermSellPrice =
+      durationMonths && isChildEndUser
+        ? this.calculateLongTermPricing({
+            durationMonths,
+            packagePrice,
+            parentUser: currentUser,
+          }).discountedPrice
+        : undefined;
+    const sellPrice = childUser
+      ? groupSellPrice ||
+        longTermSellPrice ||
+        ceilIfNeeded(rawSellPrice!, 0) * (bundleGroupSize || 1) * (durationMonths || 1)
+      : undefined;
 
     // Calculate profit amounts
     const sellProfit = sellPrice !== undefined ? sellPrice - discountedPrice : undefined;
@@ -413,9 +477,6 @@ export class PaymentService {
     };
   }
 
-  /**
-   * Creates financial transactions for a user's package purchase
-   */
   private createUserTransactions(
     currentUser: User,
     discountedPrice: number,
@@ -461,9 +522,6 @@ export class PaymentService {
     return transactions;
   }
 
-  /**
-   * Creates a buy pack message for telegram notifications
-   */
   private createBuyPackMessage({
     currentUser,
     packageData,
@@ -472,6 +530,8 @@ export class PaymentService {
     input,
     receiptBuffer,
     bundleGroupSize,
+    durationMonths,
+    country,
   }: {
     currentUser: User;
     packageData: Package;
@@ -480,6 +540,8 @@ export class PaymentService {
     input: PackagePaymentInput;
     receiptBuffer?: Buffer;
     bundleGroupSize?: number;
+    durationMonths?: number;
+    country: Country;
   }): SendBuyPackMessage {
     return {
       discountedPrice: pricingDetails.discountedPrice,
@@ -495,6 +557,8 @@ export class PaymentService {
       userId: currentUser.id,
       userPackageName,
       bundleGroupSize,
+      durationMonths,
+      country,
     };
   }
 
@@ -532,6 +596,7 @@ export class PaymentService {
         childUser,
         bundleGroupSize: input.bundleGroupSize,
         isChildEndUser,
+        durationMonths: input.durationMonths,
       });
 
       // Create financial transactions if not skipped
@@ -555,6 +620,8 @@ export class PaymentService {
         input,
         receiptBuffer,
         bundleGroupSize: input.bundleGroupSize,
+        durationMonths: input.durationMonths,
+        country: input.country,
       });
       buyPackMessages.push(buyPackMessage);
     }

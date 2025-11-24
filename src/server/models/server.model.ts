@@ -1,14 +1,14 @@
 import 'reflect-metadata';
 
 import { Field, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
-import { InboundType, ServerCountry } from '@prisma/client';
+import { Country, InboundType } from '@prisma/client';
 
 import { Brand } from '../../brand/models/brand.model';
 import { BaseModel } from '../../common/models/base.model';
 
-registerEnumType(ServerCountry, {
-  name: 'ServerCountry',
-  description: 'ServerCountry',
+registerEnumType(Country, {
+  name: 'Country',
+  description: 'Country',
 });
 
 registerEnumType(InboundType, {
@@ -27,8 +27,8 @@ export class Server extends BaseModel {
   @Field(() => Brand)
   brand: Brand;
 
-  @Field(() => ServerCountry)
-  type: ServerCountry;
+  @Field(() => Country)
+  country: Country;
 
   @HideField()
   token: string;

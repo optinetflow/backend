@@ -1,5 +1,5 @@
 import { Injectable, NotAcceptableException } from '@nestjs/common';
-import { PackageCategory, Server } from '@prisma/client';
+import { Country, PackageCategory, Server } from '@prisma/client';
 import { PrismaService } from 'nestjs-prisma';
 
 import { Package } from '../../package/models/package.model';
@@ -9,7 +9,7 @@ import { User } from '../../users/models/user.model';
 export class ServerManagementService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getFreeServer(user: User, pack: Package): Promise<Server> {
+  async getFreeServer(user: User, pack: Package, country: Country): Promise<Server> {
     if (!user.brandId) {
       throw new NotAcceptableException('Brand is not found for this user');
     }
@@ -17,6 +17,7 @@ export class ServerManagementService {
     const activeServer = await this.prisma.activeServer.findFirst({
       where: {
         category: pack.category,
+        country,
       },
       include: {
         server: true,
@@ -25,7 +26,7 @@ export class ServerManagementService {
 
     if (!activeServer?.server) {
       throw new NotAcceptableException(
-        `No active server found for brand ${user.brandId} and category ${pack.category}`,
+        `No active server found for brand ${user.brandId}, category ${pack.category}, and country ${country}`,
       );
     }
 

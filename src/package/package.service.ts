@@ -1,7 +1,15 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Package, PackageCategory, Prisma, Role, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import {
+  Country,
+  Package,
+  PackageCategory,
+  Prisma,
+  Role,
+  Server,
+  UserPackage as UserPackagePrisma,
+} from '@prisma/client';
 import moment from 'jalali-moment';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
@@ -21,12 +29,13 @@ import { GetPackageInput } from './dto/get-packages.input';
 import { UserPackageOutput } from './dto/get-user-packages.output';
 import { RenewPackageInput } from './dto/renewPackage.input';
 import { UserPackage } from './models/userPackage.model';
-import { bundleGroupSizes } from './package.constant';
+import { bundleGroupSizes, longTermPackages } from './package.constant';
 import { CreatePackageInput } from './package.types';
 
 interface PackageWithDiscount extends Package {
   discountedPrice?: number;
   categoryFa?: string;
+  bundleGroupSize?: number;
 }
 
 interface ClientData {
@@ -52,7 +61,16 @@ interface PackageTransactionData {
   orderN?: number;
   isFree?: boolean;
   isGift?: boolean;
+  durationMonths?: number;
   additionalTransactions?: Array<Prisma.PrismaPromise<unknown>>;
+}
+
+interface ValidateUserBalanceInput {
+  user: User;
+  packagePrice: number;
+  parent?: User;
+  bundleGroupSize?: number;
+  durationMonths?: number;
 }
 
 @Injectable()
@@ -82,22 +100,77 @@ export class PackageService {
     return Boolean(graphqlConfig?.debug);
   }
 
-  private calculateDiscountedPrice(price: number, discountPercent: number): number {
-    return price * (1 - pctToDec(discountPercent));
-  }
-
-  private validateUserBalance(user: User, packagePrice: number): void {
+  private ensureUserNotBlocked(user: User): void {
     const isBlocked = Boolean(user.isDisabled || user.isParentDisabled);
 
     if (isBlocked) {
       throw new BadRequestException('Your account is blocked!');
     }
+  }
 
-    const discountedPrice = packagePrice * (1 - pctToDec(user.appliedDiscountPercent));
-
-    if (user.role === Role.ADMIN && (discountedPrice < 0 || discountedPrice > user.balance)) {
+  private ensureAdminBalanceSufficient(user: User, cost: number): void {
+    if (user.role === Role.ADMIN && cost > user.balance) {
       throw new BadRequestException(this.i18.__('user.balance.not_enough'));
     }
+  }
+
+  private computeDiscountedPrice({
+    user,
+    packagePrice,
+    parent,
+    bundleGroupSize,
+    durationMonths,
+  }: ValidateUserBalanceInput): number {
+    let discountedPrice = packagePrice;
+
+    if (parent) {
+      const maxUserDiscount = (parent.profitPercent / (100 + parent.profitPercent)) * 100;
+      const maxBundleDiscount = parent.maxGroupDiscount || maxUserDiscount;
+
+      if (bundleGroupSize) {
+        const bundlePrice = packagePrice * bundleGroupSize;
+        const discount = bundleGroupSizes.find((size) => size.bundleGroupSize === bundleGroupSize)?.discount;
+
+        if (!discount) {
+          throw new BadRequestException('In validateUserBalance Discount not found!');
+        }
+
+        discountedPrice = ceilIfNeeded(bundlePrice * (1 - discount * pctToDec(maxBundleDiscount)), 0);
+      }
+
+      if (durationMonths) {
+        const durationPrice = packagePrice * durationMonths;
+        const discount = longTermPackages.find((pack) => pack.durationMonths === durationMonths)?.discount;
+
+        if (!discount) {
+          throw new BadRequestException('In validateUserBalance Discount not found!');
+        }
+
+        discountedPrice = ceilIfNeeded(durationPrice * (1 - discount * pctToDec(maxBundleDiscount)), 0);
+      }
+    } else {
+      discountedPrice = packagePrice * (1 - pctToDec(user.appliedDiscountPercent));
+    }
+
+    return discountedPrice;
+  }
+
+  private validateUserBalance({
+    user,
+    packagePrice,
+    parent,
+    bundleGroupSize,
+    durationMonths,
+  }: ValidateUserBalanceInput): void {
+    this.ensureUserNotBlocked(user);
+    const discountedPrice = this.computeDiscountedPrice({
+      user,
+      packagePrice,
+      parent,
+      bundleGroupSize,
+      durationMonths,
+    });
+    this.ensureAdminBalanceSufficient(user, discountedPrice);
   }
 
   private async getLastUserPackageOrder(userId: string): Promise<number> {
@@ -207,19 +280,34 @@ export class PackageService {
     });
   }
 
-  private async getFreeServer(user: User, pack: Package): Promise<Server> {
-    return this.serverManagementService.getFreeServer(user, pack);
+  private async getFreeServer(user: User, pack: Package, country: Country): Promise<Server> {
+    return this.serverManagementService.getFreeServer(user, pack, country);
   }
 
   async buyPackage(user: User, input: BuyPackageInput): Promise<UserPackagePrisma[]> {
-    const pack = await this.prisma.package.findUniqueOrThrow({
+    const basePackage = await this.prisma.package.findUniqueOrThrow({
       where: { id: input.packageId },
     });
+    const parent = user.parentId
+      ? (await this.prisma.user.findUnique({ where: { id: user.parentId } })) || undefined
+      : undefined;
 
-    this.validateUserBalance(user, pack.price);
+    const pack = {
+      ...basePackage,
+      expirationDays: input.durationMonths ? input.durationMonths * 30 : basePackage.expirationDays,
+      traffic: input.durationMonths ? input.durationMonths * basePackage.traffic : basePackage.traffic,
+    };
+
+    this.validateUserBalance({
+      user,
+      packagePrice: pack.price,
+      durationMonths: input.durationMonths,
+      bundleGroupSize: input.bundleGroupSize,
+      parent,
+    });
 
     const bundleGroupKey = input.bundleGroupSize ? this.nanoidGenerator() : undefined;
-    const server = await this.getFreeServer(user, pack);
+    const server = await this.getFreeServer(user, pack, input.country);
     const userPackageName = input.name || 'No Name';
 
     const clients = await this.createClientsForPurchase({
@@ -228,6 +316,7 @@ export class PackageService {
       server,
       bundleGroupSize: input.bundleGroupSize,
       userPackageName,
+      durationMonths: input.durationMonths,
     });
 
     const baseOrderN = await this.getLastUserPackageOrder(user.id);
@@ -244,6 +333,7 @@ export class PackageService {
       bundleGroupSize: input.bundleGroupSize,
       bundleGroupKey,
       orderN,
+      durationMonths: input.durationMonths,
     });
 
     return bundleGroupKey
@@ -263,6 +353,7 @@ export class PackageService {
     server: Server;
     bundleGroupSize?: number;
     userPackageName: string;
+    durationMonths?: number;
   }): Promise<ClientData[]> {
     const clients: ClientData[] = [];
     const size = bundleGroupSize || 1;
@@ -316,7 +407,7 @@ export class PackageService {
     }
 
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: parent.freePackageId } });
-    const server = await this.getFreeServer(user, pack);
+    const server = await this.getFreeServer(user, pack, Country.de);
     const userPackageName = `رایگان ${moment().locale('fa').format('dddd')}`;
 
     const clientData = this.createSingleClientData(pack, server, userPackageName);
@@ -349,7 +440,7 @@ export class PackageService {
     const userGift = user?.userGift?.[0];
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGift.id } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
-    const server = await this.getFreeServer(user, pack);
+    const server = await this.getFreeServer(user, pack, Country.de);
     const userPackageName = 'هدیه 🎁';
 
     const clientData = this.createSingleClientData(pack, server, userPackageName);
@@ -393,6 +484,7 @@ export class PackageService {
       isFree,
       isGift,
       additionalTransactions,
+      durationMonths,
     } = input;
 
     try {
@@ -406,6 +498,8 @@ export class PackageService {
         bundleGroupSize,
         isFree,
         isGift,
+        durationMonths,
+        country: server.country,
       });
 
       const createPackageTransactions: Array<Prisma.PrismaPromise<unknown>> = [];
@@ -425,6 +519,7 @@ export class PackageService {
             bundleGroupSize,
             bundleGroupKey,
             isFree,
+            durationMonths,
           }),
         );
       }
@@ -476,9 +571,24 @@ export class PackageService {
       where: { id: input.userPackageId },
       include: { server: true, stat: true, package: true },
     });
-    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
+    const basePackage = await this.prisma.package.findUniqueOrThrow({ where: { id: input.packageId } });
+    const parent = user.parentId
+      ? (await this.prisma.user.findUnique({ where: { id: user.parentId } })) || undefined
+      : undefined;
 
-    this.validateUserBalance(user, pack.price);
+    // Apply duration months if provided
+    const pack = {
+      ...basePackage,
+      expirationDays: input.durationMonths ? input.durationMonths * 30 : basePackage.expirationDays,
+      traffic: input.durationMonths ? input.durationMonths * basePackage.traffic : basePackage.traffic,
+    };
+
+    this.validateUserBalance({
+      user,
+      packagePrice: pack.price,
+      durationMonths: input.durationMonths,
+      parent,
+    });
 
     const modifiedPack = this.calculateRenewalPackage(userPack, pack);
     const clients = this.createRenewalClients(userPack, modifiedPack, userPackageId);
@@ -527,6 +637,7 @@ export class PackageService {
         isRenewal: true,
         userPackageName: userPack.name,
         orderN: userPack.orderN,
+        durationMonths: input.durationMonths,
         additionalTransactions,
       });
 
@@ -559,6 +670,7 @@ export class PackageService {
       lastConnectedAt: userPackage.stat?.lastConnectedAt,
       isFree: userPackage.isFree,
       bundleGroupSize: userPackage.bundleGroupSize,
+      country: userPackage.server.country,
     };
   }
 
@@ -611,7 +723,7 @@ export class PackageService {
         const bundlePrice = pack.price * bundleGroupSize;
         const bundlePackage = {
           ...pack,
-          id: `${pack.id}-${bundleGroupSize}`,
+          id: `${pack.id}-g${bundleGroupSize}`,
           price: bundlePrice,
           bundleGroupSize,
           discountedPrice: ceilIfNeeded(bundlePrice * (1 - discount * pctToDec(maxBundleDiscount)), 0),
@@ -621,6 +733,41 @@ export class PackageService {
     }
 
     return [...packages, ...bundlePackages];
+  }
+
+  private addLongTermPackages(packages: PackageWithDiscount[], parent: User): PackageWithDiscount[] {
+    const longPackages: PackageWithDiscount[] = [];
+    const maxUserDiscount = (parent.profitPercent / (100 + parent.profitPercent)) * 100;
+    const maxBundleDiscount = parent.maxGroupDiscount || maxUserDiscount;
+    const eligiblePackages = packages.filter((pack) => pack.expirationDays === 30 && !pack.bundleGroupSize);
+
+    for (const pack of eligiblePackages) {
+      longTermPackages.forEach(({ durationMonths, discount }) => {
+        const durationPrice = pack.price * durationMonths;
+        const traffic = pack.traffic * durationMonths;
+        const expirationDays = pack.expirationDays * durationMonths;
+        const bundlePackage = {
+          ...pack,
+          id: `${pack.id}-m${durationMonths}`,
+          price: durationPrice,
+          traffic,
+          expirationDays,
+          discountedPrice: ceilIfNeeded(durationPrice * (1 - discount * pctToDec(maxBundleDiscount)), 0),
+        };
+
+        // const isValidFor3 = durationMonths === 3 && traffic < 200 && traffic > 50;
+        // const isValidFor6 = durationMonths === 6 && traffic < 400 && traffic > 100;
+        // const isValidFor9 = durationMonths === 9 && traffic < 500 && traffic > 150;
+        // const isValid = isValidFor3 || isValidFor6 || isValidFor9;
+        const isValid = true;
+
+        if (isValid) {
+          longPackages.push(bundlePackage);
+        }
+      });
+    }
+
+    return [...packages, ...longPackages];
   }
 
   async getPackages(user: User, filters: GetPackageInput, id?: string): Promise<PackageWithDiscount[]> {
@@ -644,7 +791,10 @@ export class PackageService {
     const parent = user?.parentId ? await this.prisma.user.findUnique({ where: { id: user.parentId } }) : null;
     const packagesWithParentPricing = this.applyParentPricing(packagesWithTranslation, parent);
     const packagesWithUserDiscount = this.applyUserDiscount(packagesWithParentPricing, user, packagesWithTranslation);
+    const packagesWithBundle = parent
+      ? this.addBundlePackages(packagesWithUserDiscount, parent)
+      : packagesWithUserDiscount;
 
-    return parent ? this.addBundlePackages(packagesWithUserDiscount, parent) : packagesWithUserDiscount;
+    return parent ? this.addLongTermPackages(packagesWithBundle, parent) : packagesWithBundle;
   }
 }

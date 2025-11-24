@@ -2,7 +2,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { PackageCategory, Prisma, Server } from '@prisma/client';
+import { Country, PackageCategory, Prisma, Server } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import PQueue from 'p-queue';
@@ -724,7 +724,7 @@ export class XuiService {
 
     this.logger.debug('BackupDB call every 1 min');
     const servers = await this.prisma.server.findMany({
-      where: { deletedAt: null, category: { not: null } },
+      where: { deletedAt: null, category: { not: null }, ingressServerId: null },
     });
 
     const uniqueServers = uniqByKeys(servers, 'domain');
@@ -782,7 +782,7 @@ export class XuiService {
     };
 
     try {
-      servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
+      servers = await this.prisma.server.findMany({ where: { deletedAt: null, ingressServerId: null } });
     } catch (error) {
       this.logger.error('Critical: Failed to fetch servers from database', {
         error: error instanceof Error ? error.message : String(error),
@@ -866,10 +866,10 @@ export class XuiService {
     this.logger.debug('getServersStats called every hour');
 
     const servers = await this.prisma.server.findMany({
-      where: { deletedAt: null, category: { not: null } },
+      where: { deletedAt: null, category: { not: null }, ingressServerId: { not: null } },
     });
 
-    const queue = new PQueue({ concurrency: 5, interval: 1000, intervalCap: 5 });
+    const queue = new PQueue({ concurrency: 25, interval: 1000, intervalCap: 25 });
 
     for (const server of servers) {
       await queue.add(async () => {
@@ -917,52 +917,73 @@ export class XuiService {
 
     this.logger.debug('setActiveServers called every 2 hours');
 
-    const categories: Record<string, Server[]> = {};
-    const servers = await this.prisma.server.findMany({ where: { deletedAt: null, category: { not: null } } });
+    const categoryCountryGroups: Record<string, Record<string, Server[]>> = {};
+    const servers = await this.prisma.server.findMany({
+      where: { deletedAt: null, category: { not: null }, ingressServerId: { not: null } },
+    });
 
+    // Group servers by category and country
     for (const server of servers) {
       if (!server.category) {
         continue;
       }
 
-      if (!categories[server.category]) {
-        categories[server.category] = [];
+      if (!categoryCountryGroups[server.category]) {
+        categoryCountryGroups[server.category] = {};
       }
 
-      categories[server.category].push(server);
+      if (!categoryCountryGroups[server.category][server.country]) {
+        categoryCountryGroups[server.category][server.country] = [];
+      }
+
+      categoryCountryGroups[server.category][server.country].push(server);
     }
 
     let message = '#STATS Last 24 hours\n';
 
-    for (const category of Object.keys(categories)) {
-      const currentServers = categories[category];
-      const serverDic = arrayToDic(currentServers);
+    // Process each category-country combination
+    for (const category of Object.keys(categoryCountryGroups)) {
+      const countries = categoryCountryGroups[category];
 
-      const allServers = currentServers
-        .filter((s) => Boolean(s.category))
-        .map((server) => ({
-          id: server.id,
-          server,
-          samples: server.stats as unknown as NetStatSample[],
-        }));
+      for (const country of Object.keys(countries)) {
+        const currentServers = countries[country];
+        const serverDic = arrayToDic(currentServers);
 
-      const weights = suggestWeights(allServers, '24h');
+        const allServers = currentServers
+          .filter((s) => Boolean(s.category))
+          .map((server) => ({
+            id: server.id,
+            server,
+            samples: server.stats as unknown as NetStatSample[],
+          }));
 
-      await this.prisma.activeServer.upsert({
-        where: { category: category as PackageCategory },
-        update: { activeServerId: weights[0].id },
-        create: { category: category as PackageCategory, activeServerId: weights[0].id },
-      });
+        const weights = suggestWeights(allServers, '24h');
 
-      if (message !== '#STATS Last 24 hours\n') {
-        message += '\n\n';
+        await this.prisma.activeServer.upsert({
+          where: {
+            category_country: {
+              category: category as PackageCategory,
+              country: country as Country,
+            },
+          },
+          update: { activeServerId: serverDic[weights[0].id].ingressServerId! },
+          create: {
+            category: category as PackageCategory,
+            country: country as Country,
+            activeServerId: serverDic[weights[0].id].ingressServerId!,
+          },
+        });
+
+        if (message !== '#STATS Last 24 hours\n') {
+          message += '\n\n';
+        }
+
+        message += `${category} - ${country.toUpperCase()}:\n`;
+
+        weights.forEach((w) => {
+          message += `${serverDic[w.id].name} => ${(w.usage / 1e9).toFixed(0)}GB\n`;
+        });
       }
-
-      message += `${category}:\n`;
-
-      weights.forEach((w) => {
-        message += `${extractSubdomain(serverDic[w.id].domain)} => ${(w.usage / 1e9).toFixed(0)}GB\n`;
-      });
     }
 
     const brandId = 'da99bcd1-4a96-416f-bc38-90c5b363573e';

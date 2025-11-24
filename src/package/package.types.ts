@@ -12,4 +12,5 @@ export interface CreatePackageInput {
   isFree?: boolean;
   bundleGroupSize?: number;
   bundleGroupKey?: string;
+  durationMonths?: number;
 }

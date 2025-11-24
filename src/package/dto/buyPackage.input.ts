@@ -1,4 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
+import { Country } from '@prisma/client';
 import { IsOptional, IsUUID } from 'class-validator';
 
 @InputType()
@@ -18,4 +19,11 @@ export class BuyPackageInput {
   @Field(() => Number, { nullable: true })
   @IsOptional()
   bundleGroupSize?: number;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  durationMonths?: number;
+
+  @Field(() => Country)
+  country: Country;
 }

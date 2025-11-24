@@ -264,6 +264,7 @@ export class ClientManagementService {
             isFree: input.isFree || false,
             bundleGroupSize: input?.bundleGroupSize,
             bundleGroupKey: input?.bundleGroupKey,
+            durationMonths: input?.durationMonths,
           },
         }),
       ];

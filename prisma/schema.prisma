@@ -120,11 +120,37 @@ model File {
   @@index([userId], name: "FileUserIdIndex")
 }
 
-enum ServerCountry {
-  IR
-  NL
-  DE
-  TR
+// enum ServerCountry {
+//   ir
+//   de
+//   us
+//   nl
+//   tr
+//   fr
+//   ca
+//   sg
+//   au
+//   fi
+//   gb
+// // Deprecated:
+//   IR
+//   NL
+//   DE
+//   TR
+// }
+
+enum Country {
+  ir
+  de
+  us
+  nl
+  tr
+  fr
+  ca
+  sg
+  au
+  fi
+  gb
 }
 
 // stats field structure:
@@ -143,19 +169,23 @@ enum InboundType {
 }
 
 model Server {
-  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  deletedAt    DateTime?
-  type         ServerCountry
-  domain       String           @db.VarChar(255)
-  inboundId    Int              @default(1)
-  inboundType  InboundType      @default(VLESS_TLS)
-  token        String
-  category     PackageCategory?
-  tunnelDomain String           @db.VarChar(255)
-  stats        Json?
-  port         Int              @default(443)
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String?           @db.VarChar(255)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+  country         Country          @default(de)
+  domain          String           @db.VarChar(255)
+  inboundId       Int              @default(1)
+  inboundType     InboundType      @default(VLESS_TLS)
+  token           String
+  category        PackageCategory?
+  tunnelDomain    String           @db.VarChar(255)
+  stats           Json?
+  port            Int              @default(443)
+  ingressServerId String?          @db.Uuid 
+  ingressServer   Server?          @relation("TunnelIngress", fields: [ingressServerId], references: [id])
+  tunnelChildren  Server[]         @relation("TunnelIngress")
 
   userPackage  UserPackage[]
   clientStat   ClientStat[]
@@ -207,6 +237,7 @@ model UserPackage {
   orderN                 Int       @default(1)
   bundleGroupSize        Int?
   bundleGroupKey         String?
+  durationMonths         Int?
 
   package  Package    @relation(fields: [packageId], references: [id])
   user     User       @relation(fields: [userId], references: [id])
@@ -252,10 +283,13 @@ model ActiveServer {
   id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  category       PackageCategory @unique
+  category       PackageCategory
+  country        Country         @default(de)
   activeServerId String          @db.Uuid
 
   server Server @relation(fields: [activeServerId], references: [id])
+
+  @@unique([category, country])
 }
 
 enum PaymentState {

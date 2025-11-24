@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, UserPackage, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Country, Prisma, UserPackage, UserPackage as UserPackagePrisma } from '@prisma/client';
 import { customAlphabet } from 'nanoid';
 import { PrismaService } from 'nestjs-prisma';
 import { v4 as uuid } from 'uuid';
@@ -164,7 +164,7 @@ export class AggregatorService {
 
     const gift = await this.prisma.userGift.findUniqueOrThrow({ where: { id: userGiftId } });
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: gift.giftPackageId! } });
-    const server = await this.serverManagementService.getFreeServer(user, pack);
+    const server = await this.serverManagementService.getFreeServer(user, pack, Country.de);
     const email = nanoid();
     const id = uuid();
     const subId = nanoid();

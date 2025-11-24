@@ -35,4 +35,7 @@ export class Package extends BaseModel {
 
   @Field(() => String, { nullable: true })
   categoryFa?: string;
+
+  // @Field(() => String, { nullable: true })
+  // country?: string;
 }

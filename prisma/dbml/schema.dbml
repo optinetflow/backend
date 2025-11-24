@@ -93,10 +93,11 @@ Table File {
 
 Table Server {
   id String [pk]
+  name String
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   deletedAt DateTime
-  type ServerCountry [not null]
+  country Country [not null, default: 'de']
   domain String [not null]
   inboundId Int [not null, default: 1]
   inboundType InboundType [not null, default: 'VLESS_TLS']
@@ -105,6 +106,9 @@ Table Server {
   tunnelDomain String [not null]
   stats Json
   port Int [not null, default: 443]
+  ingressServerId String
+  ingressServer Server
+  tunnelChildren Server [not null]
   userPackage UserPackage [not null]
   clientStat ClientStat [not null]
   ActiveServer ActiveServer [not null]
@@ -154,6 +158,7 @@ Table UserPackage {
   orderN Int [not null, default: 1]
   bundleGroupSize Int
   bundleGroupKey String
+  durationMonths Int
   package Package [not null]
   user User [not null]
   server Server [not null]
@@ -185,9 +190,14 @@ Table ActiveServer {
   id String [pk]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  category PackageCategory [unique, not null]
+  category PackageCategory [not null]
+  country Country [not null, default: 'de']
   activeServerId String [not null]
   server Server [not null]
+
+  indexes {
+    (category, country) [unique]
+  }
 }
 
 Table Payment {
@@ -272,11 +282,18 @@ Enum PackageCategory {
   QUALITY
 }
 
-Enum ServerCountry {
-  IR
-  NL
-  DE
-  TR
+Enum Country {
+  ir
+  de
+  us
+  nl
+  tr
+  fr
+  ca
+  sg
+  au
+  fi
+  gb
 }
 
 Enum InboundType {
@@ -312,6 +329,8 @@ Ref: TelegramUser.userId - User.id
 Ref: BankCard.userId > User.id
 
 Ref: File.userId > User.id
+
+Ref: Server.ingressServerId - Server.id
 
 Ref: UserPackage.packageId > Package.id
 

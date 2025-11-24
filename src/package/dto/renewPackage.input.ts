@@ -1,4 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
+import { Country } from '@prisma/client';
 import { IsOptional, IsUUID } from 'class-validator';
 
 @InputType()
@@ -14,4 +15,8 @@ export class RenewPackageInput {
   @IsUUID()
   @IsOptional()
   receipt?: string;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  durationMonths?: number;
 }

@@ -1,13 +1,11 @@
-import { NotAcceptableException, UseGuards } from '@nestjs/common';
-import { Args, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { Query, Resolver } from '@nestjs/graphql';
 import { PrismaService } from 'nestjs-prisma';
 
 import { GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { User } from '../users/models/user.model';
-import { CreateServerInput } from './dto/createServer.input';
-import { IssueCertInput } from './dto/issueCert.input';
-import { Server } from './models/server.model';
+import { AvailableCountries } from './models/availableCountries.model';
 import { ServerService } from './server.service';
 
 @Resolver()
@@ -15,10 +13,10 @@ import { ServerService } from './server.service';
 export class ServerResolver {
   constructor(private serverService: ServerService, private prisma: PrismaService) {}
 
-  // @Query(() => User)
-  // me(@UserEntity() user: User): User {
-  //   return user;
-  // }
+  @Query(() => [AvailableCountries])
+  availableCountries(): Promise<AvailableCountries[]> {
+    return this.serverService.getAvailableCountries();
+  }
 
   // @UseGuards(GqlAuthGuard)
   // @Mutation(() => Domain)

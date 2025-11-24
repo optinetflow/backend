@@ -34,8 +34,9 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-.env
+*.env
 id_rsa
 
 backup.sql
 *.gz
+
