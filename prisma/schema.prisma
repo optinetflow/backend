@@ -155,6 +155,7 @@ enum Country {
   it
   se
   ae
+  jp
 }
 
 // stats field structure:
