@@ -294,6 +294,9 @@ Enum Country {
   au
   fi
   gb
+  es
+  it
+  se
 }
 
 Enum InboundType {
