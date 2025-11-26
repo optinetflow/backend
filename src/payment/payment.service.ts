@@ -189,9 +189,9 @@ export class PaymentService {
 
       txt += `\n🔤 نام بسته: ${buyPackMessage.userPackageName}`;
       const packCategory = this.i18.__(`package.category.${buyPackMessage.pack.category}`);
-      txt += `\n🧩 نوع بسته: ${packCategory} | ${countryCodeToFlag(buyPackMessage.country)} | ${extractSubdomain(
-        server.domain,
-      )}`;
+      txt += `\n🧩 نوع بسته: ${packCategory} | #${buyPackMessage.country} ${countryCodeToFlag(
+        buyPackMessage.country,
+      )} | ${server.name || extractSubdomain(server.domain)}`;
     }
 
     const child =
