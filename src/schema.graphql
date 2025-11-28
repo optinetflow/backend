@@ -121,14 +121,19 @@ type ClientStat {
 
 """Country"""
 enum Country {
+  ae
   au
   ca
   de
+  es
   fi
   fr
   gb
   ir
+  it
+  jp
   nl
+  se
   sg
   tr
   us
