@@ -5,7 +5,7 @@ module.exports = {
     es6: true,
     node: true,
   },
-  ignorePatterns: ['.eslintrc.js'],
+  ignorePatterns: ['.eslintrc.js', 'prisma.config.js'],
   parserOptions: {
     ecmaVersion: 2018,
     project: './tsconfig.eslint.json',
