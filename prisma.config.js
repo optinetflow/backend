@@ -1,6 +1,6 @@
 require('dotenv/config');
 
-const { defineConfig, env } = require('prisma/config');
+const { defineConfig } = require('prisma/config');
 
 module.exports = defineConfig({
   schema: 'prisma/schema.prisma',
@@ -9,6 +9,6 @@ module.exports = defineConfig({
     seed: 'ts-node prisma/seed.ts',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    url: process.env.DATABASE_URL,
   },
 });
