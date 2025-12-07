@@ -115,7 +115,7 @@ export class User extends BaseModel {
   joinedPromotionCode?: string | null;
 
   @Field(() => String, { nullable: true })
-  referId?: string | null;
+  referParentId?: string | null;
 
   @Field(() => Boolean, { nullable: true })
   isDisabled?: boolean | null;

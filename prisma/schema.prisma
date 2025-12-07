@@ -1,6 +1,5 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -365,7 +364,7 @@ model Brand {
 }
 
 view PersianCalendar {
-  date                    DateTime @id @db.Date
+  date                    DateTime @unique @db.Date
   persian_year            Int
   persian_month           Int
   persian_day             Int

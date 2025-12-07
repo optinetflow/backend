@@ -13,7 +13,7 @@ Table User {
   profitBalance Float [not null, default: 0]
   totalProfit Float [not null, default: 0]
   parentId String
-  referId String
+  referParentId String
   brandId String [not null]
   freePackageId String
   otp String
@@ -36,8 +36,8 @@ Table User {
   brand Brand
   parent User
   children User [not null]
-  refer User
-  referers User [not null]
+  referParent User
+  referChildren User [not null]
   freePackage Package
   joinedPromotion Promotion
   promotion Promotion [not null]
@@ -262,7 +262,7 @@ Table Brand {
 }
 
 Table persian_calendar {
-  date DateTime [pk]
+  date DateTime [unique, not null]
   persian_year Int [not null]
   persian_month Int [not null]
   persian_day Int [not null]
@@ -323,7 +323,7 @@ Ref: User.brandId > Brand.id
 
 Ref: User.parentId - User.id
 
-Ref: User.referId - User.id
+Ref: User.referParentId - User.id
 
 Ref: User.freePackageId > Package.id
 
