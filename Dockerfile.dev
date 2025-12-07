@@ -28,7 +28,8 @@ COPY package.json pnpm-lock.yaml ./
 
 
 
-RUN npm install -g pnpm
+RUN corepack enable \
+    && corepack prepare pnpm@latest --activate
 RUN pnpm install
 
 # Add a HEALTHCHECK instruction that reads the dynamic PORT.
