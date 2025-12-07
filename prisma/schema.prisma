@@ -33,7 +33,7 @@ model User {
   profitBalance                     Float     @default(0)
   totalProfit                       Float     @default(0)
   parentId                          String?   @db.Uuid
-  referId                           String?   @db.Uuid
+  referParentId                     String?   @db.Uuid
   brandId                           String    @db.Uuid
   freePackageId                     String?   @db.Uuid
   otp                               String?
@@ -57,8 +57,8 @@ model User {
   brand           Brand?        @relation(fields: [brandId], references: [id])
   parent          User?         @relation("UserParentRelation", fields: [parentId], references: [id])
   children        User[]        @relation("UserParentRelation")
-  refer           User?         @relation("UserReferRelation", fields: [referId], references: [id])
-  referers        User[]        @relation("UserReferRelation")
+  referParent     User?         @relation("UserReferRelation", fields: [referParentId], references: [id])
+  referChildren   User[]        @relation("UserReferRelation")
   freePackage     Package?      @relation("UserPackageRelation", fields: [freePackageId], references: [id])
   joinedPromotion Promotion?    @relation("UserJoinedPromotionRelation", fields: [joinedPromotionId], references: [id])
   promotion       Promotion[]   @relation("UserPromotionRelation") // A user can create multiple promotions.
@@ -72,7 +72,7 @@ model User {
   @@unique([phone, brandId], name: "UserPhoneBrandIdUnique")
   @@index([role], name: "UserRoleIndex")
   @@index([parentId], name: "UserParentIdIndex")
-  @@index([referId], name: "UserReferIdIndex")
+  @@index([referParentId], name: "UserReferParentIdIndex")
   @@index([joinedPromotionId], name: "UserJoinedPromotionIndex")
 }
 
@@ -119,25 +119,6 @@ model File {
 
   @@index([userId], name: "FileUserIdIndex")
 }
-
-// enum ServerCountry {
-//   ir
-//   de
-//   us
-//   nl
-//   tr
-//   fr
-//   ca
-//   sg
-//   au
-//   fi
-//   gb
-// // Deprecated:
-//   IR
-//   NL
-//   DE
-//   TR
-// }
 
 enum Country {
   ir
