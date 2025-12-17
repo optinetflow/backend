@@ -1,6 +1,6 @@
 import { Injectable, NotAcceptableException } from '@nestjs/common';
-import { Country, PackageCategory, Server } from '@prisma/client';
-import { PrismaService } from 'nestjs-prisma';
+import { Country, PackageCategory, Server } from '../../generated/prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 
 import { Package } from '../../package/models/package.model';
 import { User } from '../../users/models/user.model';

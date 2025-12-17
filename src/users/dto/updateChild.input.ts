@@ -1,5 +1,5 @@
 import { Field, Float, InputType } from '@nestjs/graphql';
-import { Role } from '@prisma/client';
+import { Role } from '../../generated/prisma/client';
 import { IsOptional, Matches } from 'class-validator';
 
 @InputType()

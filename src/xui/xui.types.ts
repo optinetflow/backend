@@ -1,4 +1,4 @@
-import { Package, Server, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Package, Server, UserPackage as UserPackagePrisma } from '../generated/prisma/client';
 
 export interface AuthenticatedReq {
   serverId: string;

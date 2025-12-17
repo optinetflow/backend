@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { PackageCategory } from '@prisma/client';
+import { PackageCategory } from '../../generated/prisma/client';
 import { IsEnum, IsOptional } from 'class-validator';
 
 @InputType()

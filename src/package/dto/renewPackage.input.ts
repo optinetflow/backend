@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { Country } from '@prisma/client';
+import { Country } from '../../generated/prisma/client';
 import { IsOptional, IsUUID } from 'class-validator';
 
 @InputType()

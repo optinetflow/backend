@@ -1,5 +1,5 @@
 import { Field, HideField, ObjectType } from '@nestjs/graphql';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { GraphQLJSON } from 'graphql-type-json';
 
 import { BaseModel } from '../../common/models/base.model';

@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { roundTo } from '../common/helpers';
 import { I18nService } from '../common/i18/i18.service';

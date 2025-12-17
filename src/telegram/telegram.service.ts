@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Brand as PrismaBrand, Role, User } from '@prisma/client';
-import { PrismaService } from 'nestjs-prisma';
+import { Brand as PrismaBrand, Role, User } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import PQueue from 'p-queue';
 import { Parent } from 'src/users/models/user.model';
 import { Scenes, session, Telegraf } from 'telegraf';

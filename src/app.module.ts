@@ -1,9 +1,8 @@
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { Logger, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ScheduleModule } from '@nestjs/schedule';
-import { loggingMiddleware, PrismaModule } from 'nestjs-prisma';
 
 import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
@@ -17,6 +16,7 @@ import { GqlConfigService } from './gql-config.service';
 import { MinioClientModule } from './minio/minio.module';
 import { PackageModule } from './package/package.module';
 import { PaymentModule } from './payment/payment.module';
+import { PrismaModule } from './prisma/prisma.module';
 import { PrometheusModule } from './prometheus/prometheus.module';
 import { PromotionModule } from './promotion/promotion.module';
 import { ServerModule } from './server/server.module';
@@ -28,23 +28,7 @@ import { XuiModule } from './xui/xui.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [config] }),
-    PrismaModule.forRoot({
-      isGlobal: true,
-      prismaServiceOptions: {
-        middlewares: [
-          // configure your prisma middleware
-          loggingMiddleware({
-            logger: new Logger('PrismaMiddleware'),
-            logLevel: 'log',
-          }),
-        ],
-        prismaOptions: {
-          log: ['error', 'warn'],
-          errorFormat: 'pretty',
-        },
-        explicitConnect: true,
-      },
-    }),
+    PrismaModule,
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       useClass: GqlConfigService,

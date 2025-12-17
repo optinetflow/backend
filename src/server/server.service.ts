@@ -2,9 +2,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, Interval } from '@nestjs/schedule';
-import { Country, PackageCategory } from '@prisma/client';
+import { Country, PackageCategory } from '../generated/prisma/client';
 import fs from 'fs';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
 
 import { PostgresConfig } from '../common/configs/config.interface';

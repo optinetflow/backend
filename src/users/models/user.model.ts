@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 import { Field, Float, HideField, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
-import { Role } from '@prisma/client';
+import { Role } from '../../generated/prisma/client';
 import { IsMobilePhone } from 'class-validator';
 
 import { Brand } from '../../brand/models/brand.model';

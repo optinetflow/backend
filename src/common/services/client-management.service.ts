@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { customAlphabet } from 'nanoid';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../../prisma/prisma.service';
 import PQueue from 'p-queue';
 import { v4 as uuid } from 'uuid';
 

@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
@@ -5,9 +7,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.js';
-import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 
 import { AppModule } from './app.module';
+import { PrismaClientExceptionFilter } from './prisma/prisma-client-exception.filter';
 import type { CorsConfig, NestConfig, SwaggerConfig } from './common/configs/config.interface';
 
 process.on('unhandledRejection', (reason) => {

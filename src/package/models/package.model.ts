@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 import { Field, Float, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
-import { PackageCategory } from '@prisma/client';
+import { PackageCategory } from '../../generated/prisma/client';
 
 import { BaseModel } from '../../common/models/base.model';
 

@@ -7,9 +7,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Promotion } from '@prisma/client';
+import { Prisma, Promotion } from '../generated/prisma/client';
 import type { Request as RequestType } from 'express';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
 
 import { Brand } from '../brand/models/brand.model';

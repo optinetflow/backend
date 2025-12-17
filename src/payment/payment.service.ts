@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Country, Package, Prisma, Role, Server, TelegramUser } from '@prisma/client';
-import { PrismaService } from 'nestjs-prisma';
+import { Country, Package, Prisma, Role, Server, TelegramUser } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
 
 import {

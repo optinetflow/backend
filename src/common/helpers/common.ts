@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/cognitive-complexity */
-import { InboundType } from '@prisma/client';
+import { InboundType } from '../../generated/prisma/client';
 import * as Cookie from 'cookie';
 import type { ReadStream } from 'fs';
 import fs from 'fs';

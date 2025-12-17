@@ -1,7 +1,7 @@
 /* eslint-disable no-return-await */
 import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
-import { ClientStat, UserPackage } from '@prisma/client';
-import { PrismaService } from 'nestjs-prisma';
+import { ClientStat, UserPackage } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { PasswordService } from '../auth/password.service';
 import { isRecentlyConnected, pctToDec, prefixFile, roundTo } from '../common/helpers';

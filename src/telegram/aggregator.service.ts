@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Country, Prisma, UserPackage, UserPackage as UserPackagePrisma } from '@prisma/client';
+import { Country, Prisma, UserPackage, UserPackage as UserPackagePrisma } from '../generated/prisma/client';
 import { customAlphabet } from 'nanoid';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
 
 import { ClientManagementService } from '../common/services/client-management.service';

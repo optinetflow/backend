@@ -1,5 +1,5 @@
 import { Field, InputType, Int, registerEnumType } from '@nestjs/graphql';
-import { Country } from '@prisma/client';
+import { Country } from '../../generated/prisma/client';
 import { IsUUID } from 'class-validator';
 
 registerEnumType(Country, {

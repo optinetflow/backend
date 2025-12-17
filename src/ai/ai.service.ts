@@ -2,7 +2,7 @@
 import { VertexAI } from '@google-cloud/vertexai';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { GCP } from '../common/configs/config.interface';
 

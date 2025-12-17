@@ -8,7 +8,7 @@ import { mkdir, readdir, readFile } from 'fs/promises';
 import Upload from 'graphql-upload/Upload.js';
 import mime from 'mime-types';
 import { BucketItem, Client } from 'minio';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 import path from 'path';
 import sharp from 'sharp';
 import { v4 as uuid } from 'uuid';

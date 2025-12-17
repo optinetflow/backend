@@ -9,10 +9,10 @@ import {
   Role,
   Server,
   UserPackage as UserPackagePrisma,
-} from '@prisma/client';
+} from '../generated/prisma/client';
 import moment from 'jalali-moment';
 import { customAlphabet } from 'nanoid';
-import { PrismaService } from 'nestjs-prisma';
+import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
 
 import { GraphqlConfig } from '../common/configs/config.interface';
