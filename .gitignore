@@ -39,4 +39,4 @@ id_rsa
 
 backup.sql
 *.gz
-
+.pnpm-store

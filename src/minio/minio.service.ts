@@ -104,12 +104,19 @@ export class MinioClientService {
 
   async uploadByPath({ filePath, toMinioDir, bucketName = this.bucketName, fileName }: UploadByPath): Promise<void> {
     const buffer = await readFile(filePath);
+    const contentType = mime.contentType(path.extname(filePath));
 
     const metaData = {
-      'Content-Type': mime.contentType(path.extname(filePath)),
+      'Content-Type': contentType || 'application/octet-stream',
     };
 
-    await this.client.putObject(bucketName, `${toMinioDir}/${fileName || path.basename(filePath)}`, buffer, metaData);
+    await this.client.putObject(
+      bucketName,
+      `${toMinioDir}/${fileName || path.basename(filePath)}`,
+      buffer,
+      buffer.length,
+      metaData,
+    );
   }
 
   public async getDir(dir: string, bucketName: string = this.bucketName): Promise<BucketItem[]> {
@@ -120,11 +127,15 @@ export class MinioClientService {
     }
   }
 
-  async downloadDir(fromMinioDir, toLocalDir) {
+  async downloadDir(fromMinioDir: string, toLocalDir: string) {
     try {
       const objects = await objectsList(this.client, this.bucketName, fromMinioDir);
 
       for (const obj of objects) {
+        if (!obj.name) {
+          continue;
+        }
+
         const filePath = path.join(toLocalDir, cutPath(obj.name, fromMinioDir));
         await this.downloadByPath(obj.name, filePath);
       }
@@ -133,7 +144,7 @@ export class MinioClientService {
     }
   }
 
-  async downloadByPath(fromMinioPath, toLocalPath): Promise<void> {
+  async downloadByPath(fromMinioPath: string, toLocalPath: string): Promise<void> {
     try {
       const stream = await this.client.getObject(this.bucketName, fromMinioPath);
 
