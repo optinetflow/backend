@@ -763,7 +763,7 @@ export class XuiService {
     await queue.onIdle();
   }
 
-  @Interval('syncClientStats', 1 * 60 * 1000)
+  // @Interval('syncClientStats', 1 * 60 * 1000)
   async syncClientStats() {
     const isDev = this.configService.get('env') === 'development';
 
