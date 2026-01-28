@@ -611,15 +611,15 @@ export class XuiService {
         }
 
         // Delete depleted clients (depends on package status being tracked)
-        try {
-          await this.delDepletedClients(serverId);
-        } catch (error) {
-          this.logger.error('Non-critical: Failed to delete depleted clients', {
-            error: error instanceof Error ? error.message : String(error),
-            serverId,
-          });
-          // Continue processing
-        }
+        // try {
+        //   await this.delDepletedClients(serverId);
+        // } catch (error) {
+        //   this.logger.error('Non-critical: Failed to delete depleted clients', {
+        //     error: error instanceof Error ? error.message : String(error),
+        //     serverId,
+        //   });
+        //   // Continue processing
+        // }
       }
     }
   }
