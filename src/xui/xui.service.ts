@@ -2,9 +2,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { Country, PackageCategory, Prisma, Server } from '../generated/prisma/client';
 import { customAlphabet } from 'nanoid';
-import { PrismaService } from '../prisma/prisma.service';
 import PQueue from 'p-queue';
 import { v4 as uuid } from 'uuid';
 
@@ -23,6 +21,8 @@ import {
 } from '../common/helpers';
 import { ClientManagementService } from '../common/services/client-management.service';
 import { XuiClientService } from '../common/services/xui-client.service';
+import { Country, PackageCategory, Prisma, Server } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { User } from '../users/models/user.model';
 import { BrandService } from './../brand/brand.service';
@@ -91,7 +91,9 @@ export class XuiService {
     private readonly clientManagementService: ClientManagementService,
   ) {}
 
-  // async onModuleInit() {}
+  async onModuleInit() {
+    // await this.increaseClientsExpiryTime('d1e598c7-08e0-4851-bcf3-81558ab55aa9', 24);
+  }
 
   private readonly logger = new Logger(XuiService.name);
 
@@ -611,15 +613,15 @@ export class XuiService {
         }
 
         // Delete depleted clients (depends on package status being tracked)
-        // try {
-        //   await this.delDepletedClients(serverId);
-        // } catch (error) {
-        //   this.logger.error('Non-critical: Failed to delete depleted clients', {
-        //     error: error instanceof Error ? error.message : String(error),
-        //     serverId,
-        //   });
-        //   // Continue processing
-        // }
+        try {
+          await this.delDepletedClients(serverId);
+        } catch (error) {
+          this.logger.error('Non-critical: Failed to delete depleted clients', {
+            error: error instanceof Error ? error.message : String(error),
+            serverId,
+          });
+          // Continue processing
+        }
       }
     }
   }
@@ -642,6 +644,114 @@ export class XuiService {
         packageExpirationDays: input.package.expirationDays,
         serverId: input.server.id,
         serverDomain: input.server.domain,
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Increase expiry time for all clients of a server by specified days
+   * @param serverId - The server ID
+   * @param daysToAdd - Number of days to add to expiry time
+   * @param filters - Optional filters to target specific clients by inboundId or client id
+   * @returns Object with successful and failed counts, along with any errors
+   */
+  async increaseClientsExpiryTime(
+    serverId: string,
+    daysToAdd: number,
+    filters?: { inboundId?: number; id?: string },
+  ): Promise<{ successful: number; failed: number; errors: string[] }> {
+    try {
+      // Get all clients from all inbounds
+      const allClients = await this.getInbounds(serverId);
+
+      // Apply filters if provided
+      let clientsToUpdate = allClients;
+
+      if (filters?.inboundId) {
+        clientsToUpdate = clientsToUpdate.filter((client) => client.inboundId === filters.inboundId);
+      }
+
+      if (filters?.id) {
+        clientsToUpdate = clientsToUpdate.filter((client) => client.id === filters.id);
+      }
+
+      if (clientsToUpdate.length === 0) {
+        this.logger.warn('No clients found matching the filters', {
+          serverId,
+          filters,
+        });
+
+        return { successful: 0, failed: 0, errors: [] };
+      }
+
+      this.logger.log(`Found ${clientsToUpdate.length} clients to update expiry time`, {
+        serverId,
+        daysToAdd,
+        filters,
+      });
+
+      const millisecondsToAdd = daysToAdd * 24 * 60 * 60 * 1000;
+      const results = {
+        successful: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+
+      // Use queue to send requests one by one (1 request per second)
+      const queue = new PQueue({ concurrency: 1, interval: 1000, intervalCap: 1 });
+
+      for (const client of clientsToUpdate) {
+        await queue.add(async () => {
+          try {
+            const currentExpiryTime = client.expiryTime || 0;
+
+            // Skip clients with unlimited time (expiryTime = 0)
+            if (currentExpiryTime === 0) {
+              this.logger.log(`⊘ ${client.email} (unlimited)`);
+
+              return;
+            }
+
+            const newExpiryTime = currentExpiryTime + millisecondsToAdd;
+
+            await this.clientManagementService.updateClientReq({
+              id: client.id,
+              expiryTime: roundTo(newExpiryTime, 0),
+            });
+
+            results.successful++;
+            this.logger.log(`✓ ${client.email}`);
+          } catch (error) {
+            results.failed++;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            results.errors.push(`Failed to update client ${client.email} (${client.id}): ${errorMessage}`);
+            this.logger.error(`✗ ${client.email}: ${errorMessage}`);
+          }
+        });
+      }
+
+      await queue.onIdle();
+
+      this.logger.log('Completed expiry time update', {
+        serverId,
+        daysToAdd,
+        totalClients: clientsToUpdate.length,
+        successful: results.successful,
+        failed: results.failed,
+        filters,
+      });
+
+      return results;
+    } catch (error) {
+      this.logger.error('Error in increaseClientsExpiryTime', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        serverId,
+        daysToAdd,
+        filters,
       });
 
       throw error;
@@ -763,7 +873,7 @@ export class XuiService {
     await queue.onIdle();
   }
 
-  // @Interval('syncClientStats', 1 * 60 * 1000)
+  @Interval('syncClientStats', 1 * 60 * 1000)
   async syncClientStats() {
     const isDev = this.configService.get('env') === 'development';
 

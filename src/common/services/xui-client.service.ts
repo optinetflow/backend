@@ -1,13 +1,13 @@
 import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Server } from '../../generated/prisma/client';
 import { AxiosRequestConfig } from 'axios';
 import * as Cookie from 'cookie';
 import https from 'https';
-import { PrismaService } from '../../prisma/prisma.service';
 import { firstValueFrom } from 'rxjs';
 
+import { Server } from '../../generated/prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedReq } from '../../xui/xui.types';
 import { errors } from '../errors';
 import { isSessionExpired, withRetries } from '../helpers';
