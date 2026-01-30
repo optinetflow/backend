@@ -93,6 +93,20 @@ export class XuiService {
 
   async onModuleInit() {
     // await this.increaseClientsExpiryTime('d1e598c7-08e0-4851-bcf3-81558ab55aa9', 24);
+    // UPDATE "UserPackage"
+    // SET
+    //   "deletedAt" = CASE
+    //     WHEN "deletedAt" > TIMESTAMP '2026-01-08' THEN NULL
+    //     ELSE "deletedAt"
+    //   END,
+    //   "finishedAt" = CASE
+    //     WHEN "finishedAt" > TIMESTAMP '2026-01-08' THEN NULL
+    //     ELSE "finishedAt"
+    //   END,
+    //   "thresholdWarningSentAt" = CASE
+    //     WHEN "thresholdWarningSentAt" > TIMESTAMP '2026-01-08' THEN NULL
+    //     ELSE "thresholdWarningSentAt"
+    //   END;
   }
 
   private readonly logger = new Logger(XuiService.name);
