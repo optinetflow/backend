@@ -1,20 +1,21 @@
 {
-    "package": {
-        "category": {
-            "ECONOMIC": "اقتصادی",
-            "QUALITY": "پیشرفته"
-        }
-    },
-    "promotion": {
-        "error": {
-            "not_found": "کد تبلیغاتی پیدا نشد!",
-            "exists": "این کد قبلاً ثبت شده!",
-            "already_is_for_free_package_sharing": "یک کد برای اشتراک‌گذاری بسته رایگان قبلاً ثبت کردی!"
-        }
-    },
-    "user": {
-        "balance": {
-            "not_enough": "موجودی کافی نیست!"
-        }
-    }
+	"package": {
+		"category": {
+			"ECONOMIC": "اقتصادی",
+			"QUALITY": "پیشرفته",
+			"SPECIAL": "package.category.SPECIAL"
+		}
+	},
+	"promotion": {
+		"error": {
+			"not_found": "کد تبلیغاتی پیدا نشد!",
+			"exists": "این کد قبلاً ثبت شده!",
+			"already_is_for_free_package_sharing": "یک کد برای اشتراک‌گذاری بسته رایگان قبلاً ثبت کردی!"
+		}
+	},
+	"user": {
+		"balance": {
+			"not_enough": "موجودی کافی نیست!"
+		}
+	}
 }

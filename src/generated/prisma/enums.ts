@@ -19,7 +19,8 @@ export type Role = (typeof Role)[keyof typeof Role]
 
 export const PackageCategory = {
   ECONOMIC: 'ECONOMIC',
-  QUALITY: 'QUALITY'
+  QUALITY: 'QUALITY',
+  SPECIAL: 'SPECIAL'
 } as const
 
 export type PackageCategory = (typeof PackageCategory)[keyof typeof PackageCategory]
@@ -41,7 +42,8 @@ export const Country = {
   it: 'it',
   se: 'se',
   ae: 'ae',
-  jp: 'jp'
+  jp: 'jp',
+  mx: 'mx'
 } as const
 
 export type Country = (typeof Country)[keyof typeof Country]

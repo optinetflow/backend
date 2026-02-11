@@ -20,6 +20,7 @@ enum Role {
 enum PackageCategory {
   ECONOMIC
   QUALITY
+  SPECIAL
 }
 
 model User {
@@ -137,6 +138,7 @@ enum Country {
   se
   ae
   jp
+  mx
 }
 
 // stats field structure:

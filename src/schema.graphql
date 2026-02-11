@@ -132,6 +132,7 @@ enum Country {
   ir
   it
   jp
+  mx
   nl
   se
   sg
@@ -265,6 +266,7 @@ type Package {
 enum PackageCategory {
   ECONOMIC
   QUALITY
+  SPECIAL
 }
 
 type Parent {

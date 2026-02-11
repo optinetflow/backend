@@ -280,6 +280,7 @@ Enum Role {
 Enum PackageCategory {
   ECONOMIC
   QUALITY
+  SPECIAL
 }
 
 Enum Country {
@@ -299,6 +300,7 @@ Enum Country {
   se
   ae
   jp
+  mx
 }
 
 Enum InboundType {
