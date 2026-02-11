@@ -1,4 +1,5 @@
 import { Field, InputType, Int, registerEnumType } from '@nestjs/graphql';
+
 import { PaymentType } from '../../generated/prisma/client';
 
 registerEnumType(PaymentType, {

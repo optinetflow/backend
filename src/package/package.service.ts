@@ -1,6 +1,15 @@
 /* eslint-disable max-len */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import moment from 'jalali-moment';
+import { customAlphabet } from 'nanoid';
+import { v4 as uuid } from 'uuid';
+
+import { GraphqlConfig } from '../common/configs/config.interface';
+import { arrayToDic, bytesToGB, ceilIfNeeded, getConfigLink, pctToDec } from '../common/helpers';
+import { I18nService } from '../common/i18/i18.service';
+import { ClientManagementService } from '../common/services/client-management.service';
+import { ServerManagementService } from '../common/services/server-management.service';
 import {
   Country,
   Package,
@@ -10,17 +19,8 @@ import {
   Server,
   UserPackage as UserPackagePrisma,
 } from '../generated/prisma/client';
-import moment from 'jalali-moment';
-import { customAlphabet } from 'nanoid';
-import { PrismaService } from '../prisma/prisma.service';
-import { v4 as uuid } from 'uuid';
-
-import { GraphqlConfig } from '../common/configs/config.interface';
-import { arrayToDic, bytesToGB, ceilIfNeeded, getConfigLink, pctToDec } from '../common/helpers';
-import { I18nService } from '../common/i18/i18.service';
-import { ClientManagementService } from '../common/services/client-management.service';
-import { ServerManagementService } from '../common/services/server-management.service';
 import { PaymentService } from '../payment/payment.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { User } from '../users/models/user.model';
 import { XuiService } from '../xui/xui.service';
 import { TelegramService } from './../telegram/telegram.service';
@@ -400,14 +400,14 @@ export class PackageService {
   }
 
   async enableTodayFreePackage(user: User): Promise<void> {
-    const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parent?.id } });
+    // const parent = await this.prisma.user.findUniqueOrThrow({ where: { id: user.parent?.id } });
 
-    if (!parent.freePackageId) {
-      throw new BadRequestException('There is no free package');
-    }
+    // if (!parent.freePackageId) {
+    //   throw new BadRequestException('There is no free package');
+    // }
 
-    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: parent.freePackageId } });
-    const server = await this.getFreeServer(user, pack, Country.de);
+    const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: '3300192a-df03-4fa2-9740-291850122cc3' } });
+    const server = await this.getFreeServer(user, pack, Country.un);
     const userPackageName = `رایگان ${moment().locale('fa').format('dddd')}`;
 
     const clientData = this.createSingleClientData(pack, server, userPackageName);
