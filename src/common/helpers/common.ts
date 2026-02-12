@@ -297,10 +297,8 @@ export const getVMessLink = ({ id, name, port, tunnelDomain }: ConfigLinkParams)
       id,
       scy: 'auto',
       net: 'tcp',
-      type: 'http',
+      type: 'none',
       tls: 'none',
-      path: '/',
-      host: 'skyroom.online,gharar.ir,igap.net',
     }),
   ).toString('base64')}`;
 

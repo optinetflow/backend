@@ -1,10 +1,10 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { PrismaService } from '../prisma/prisma.service';
 
 import { AdminGqlAuthGuard, GqlAuthGuard } from '../auth/gql-auth.guard';
 import { UserEntity } from '../common/decorators/user.decorator';
 import { getConfigLink } from '../common/helpers';
+import { PrismaService } from '../prisma/prisma.service';
 import { User } from '../users/models/user.model';
 import { BuyPackageInput } from './dto/buyPackage.input';
 import { GetPackageInput } from './dto/get-packages.input';
