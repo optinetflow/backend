@@ -194,7 +194,7 @@ export class AuthService {
       ? await this.prisma.user.findUnique({ where: { id: parentId }, include: { telegram: true } })
       : null;
     const promoCaption = promo ? `\n🎟️ کد معرف: ${promo.code}` : '';
-    const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\nکد تایید: ${reseller?.otp}\n\n👨 مارکتر: ${reseller?.fullname}${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
+    const reportCaption = `#ثبتـنام\n👤 ${newUser.fullname}\n📞 موبایل: +98${newUser.phone}\nکد تایید: ${newUser?.otp}\n\n👨 مارکتر: ${reseller?.fullname}${promoCaption}\n\n 🏷️ برند: ${brand.domainName}`;
     const bot = this.telegramService.getBot(brand.id);
 
     await TelegramErrorHandler.safeTelegramCall(
