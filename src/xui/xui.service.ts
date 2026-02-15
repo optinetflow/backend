@@ -906,7 +906,7 @@ export class XuiService {
     };
 
     try {
-      servers = await this.prisma.server.findMany({ where: { deletedAt: null, ingressServerId: null } });
+      servers = await this.prisma.server.findMany({ where: { deletedAt: null } });
     } catch (error) {
       this.logger.error('Critical: Failed to fetch servers from database', {
         error: error instanceof Error ? error.message : String(error),
