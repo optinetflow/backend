@@ -180,6 +180,7 @@ export class AuthService {
         initialDiscountPercent: promotionCode?.initialDiscountPercent,
         joinedPromotionId: promotionCode?.id,
         joinedPromotionCode: promotionCode?.code,
+        isVerified: true,
       },
     });
   }
