@@ -7,13 +7,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, Promotion } from '../generated/prisma/client';
 import type { Request as RequestType } from 'express';
-import { PrismaService } from '../prisma/prisma.service';
 import { v4 as uuid } from 'uuid';
 
 import { Brand } from '../brand/models/brand.model';
 import { SecurityConfig } from '../common/configs/config.interface';
+import { Prisma, Promotion } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
 import { TelegramErrorHandler } from '../telegram/telegram-error-handler';
 import { User } from '../users/models/user.model';
@@ -234,22 +234,20 @@ export class AuthService {
   async verifyPhone(user: User, domainName: string, otp: string, req: RequestType): Promise<Token> {
     const userDomainName = user.brand?.domainName;
 
-    if (user.isVerified === true) {
-      throw new BadRequestException('User is already verified!');
-    }
-
     if (userDomainName !== domainName) {
       throw new BadRequestException('Wrong brand!');
     }
 
     const now = new Date();
 
-    if (user.otpExpiration && user.otpExpiration < now) {
-      throw new BadRequestException('کد تایید منقضی شده است');
-    }
+    if (user.isVerified !== true) {
+      if (user.otpExpiration && user.otpExpiration < now) {
+        throw new BadRequestException('کد تایید منقضی شده است');
+      }
 
-    if (user.otp !== otp) {
-      throw new BadRequestException('کد تایید اشتباه است');
+      if (user.otp !== otp) {
+        throw new BadRequestException('کد تایید اشتباه است');
+      }
     }
 
     await this.prisma.user.update({
