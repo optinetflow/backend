@@ -407,7 +407,7 @@ export class PackageService {
     // }
 
     const pack = await this.prisma.package.findUniqueOrThrow({ where: { id: '3300192a-df03-4fa2-9740-291850122cc3' } });
-    const server = await this.getFreeServer(user, pack, Country.fr);
+    const server = await this.getFreeServer(user, pack, Country.gb);
     const userPackageName = `رایگان ${moment().locale('fa').format('dddd')}`;
 
     const clientData = this.createSingleClientData(pack, server, userPackageName);
