@@ -12,7 +12,7 @@
     "outDir": "./dist",
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "noLib": false,
     "rootDir": "./",
     "baseUrl": "./",

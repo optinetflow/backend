@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
@@ -7,6 +7,8 @@ import { SmsServiceInterface } from '../interfaces/sms.interface';
 
 @Injectable()
 export class SmsIrSmsProvider implements SmsServiceInterface {
+  private readonly logger = new Logger(SmsIrSmsProvider.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   private apiKey = this.configService.get<SecurityConfig>('security')?.smsIrApiKey;
@@ -33,7 +35,7 @@ export class SmsIrSmsProvider implements SmsServiceInterface {
       };
       await axios.request(options);
     } catch (error) {
-      console.error(error);
+      this.logger.error(`Failed to send OTP to ${to.slice(0, 4)}***`, error instanceof Error ? error.stack : error);
     }
   }
 }
