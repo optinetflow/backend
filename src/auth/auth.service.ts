@@ -77,7 +77,7 @@ export class AuthService {
         throw new ConflictException('کاربر قبلا ثبت نام کرده است');
       }
 
-      throw new Error(error as string);
+      throw error;
     }
   }
 
@@ -408,10 +408,18 @@ export class AuthService {
   }
 
   getUserFromToken(token: string): Promise<User | null> {
-    const decodedToken = this.jwtService.decode(token);
-    const id = typeof decodedToken === 'object' && decodedToken !== null ? decodedToken?.userId : null;
+    try {
+      const verifiedToken = this.jwtService.verify(token);
+      const id = typeof verifiedToken === 'object' && verifiedToken !== null ? verifiedToken?.userId : null;
 
-    return this.prisma.user.findUnique({ where: { id }, include: { brand: true, parent: true } });
+      if (!id) {
+        return Promise.resolve(null);
+      }
+
+      return this.prisma.user.findUnique({ where: { id }, include: { brand: true, parent: true } });
+    } catch {
+      return Promise.resolve(null);
+    }
   }
 
   generateTokens(payload: { userId: string }): Token {

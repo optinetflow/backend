@@ -23,11 +23,20 @@ export class OptionalGqlAuthGuard extends AuthGuard('jwt') {
     const ctx = GqlExecutionContext.create(context);
     const req = ctx.getContext().req;
 
-    const token = req?.cookies?.token && JSON.parse(req.cookies.token).accessT;
+    try {
+      const cookieValue = req?.cookies?.token;
 
-    if (token) {
-      const user = await this.authService.getUserFromToken(token);
-      req.user = user;
+      if (cookieValue) {
+        const parsed = JSON.parse(cookieValue);
+        const token = parsed?.accessT;
+
+        if (token) {
+          const user = await this.authService.getUserFromToken(token);
+          req.user = user;
+        }
+      }
+    } catch {
+      // Malformed cookie — treat as unauthenticated
     }
 
     return true;
@@ -49,7 +58,17 @@ export class AdminGqlAuthGuard implements CanActivate {
     const ctx = GqlExecutionContext.create(context);
     const req = ctx.getContext().req;
 
-    const token = req?.cookies?.token && JSON.parse(req.cookies.token).accessT;
+    let token: string | undefined;
+
+    try {
+      const cookieValue = req?.cookies?.token;
+
+      if (cookieValue) {
+        token = JSON.parse(cookieValue)?.accessT;
+      }
+    } catch {
+      throw new ForbiddenException('Access denied. Invalid token format.');
+    }
 
     if (!token) {
       throw new ForbiddenException('Access denied. No token provided.');
