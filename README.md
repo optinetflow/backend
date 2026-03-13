@@ -1,4 +1,4 @@
-# OptiNetFlow — Backend
+# RadShim — Backend
 
 [![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![GraphQL](https://img.shields.io/badge/GraphQL-API-E10098?logo=graphql&logoColor=white)](https://graphql.org/)
@@ -9,7 +9,7 @@
 
 Production backend for a consumer subscription platform. **Solo-built and operated for 2+ years** — I was the sole developer, architect, and infrastructure operator.
 
-> **See also:** [Frontend Repository](https://github.com/optinetflow/frontend) · [Architecture Decision Records](docs/adr/) · [Auth Flow](docs/auth-flow.md) · [Payment Flow](docs/payment-flow.md) · [Telegram Integration](docs/telegram-integration.md)
+> **See also:** [Frontend Repository](https://github.com/radshim/frontend) · [Architecture Decision Records](docs/adr/) · [Auth Flow](docs/auth-flow.md) · [Payment Flow](docs/payment-flow.md) · [Telegram Integration](docs/telegram-integration.md)
 
 ---
 
@@ -267,7 +267,7 @@ Migrations run against the live database via SSH tunnel *before* the new contain
 ## Local Development
 
 ```bash
-git clone https://github.com/optinetflow/backend.git && cd backend
+git clone https://github.com/radshim/backend.git && cd backend
 cp .env.example .env     # Edit with your values — every var is documented
 pnpm install
 pnpm docker:db           # Start PostgreSQL + PgBouncer
